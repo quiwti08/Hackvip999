@@ -50,7 +50,6 @@ local Config = {
     AntiLockEnabled = false,
     AntiLockType = "Behind",
     LookAtEnabled = false,
-    AutoReloadEnabled = false,
     CsyncRandomEnabled = false,
     CsyncOrbitEnabled = false,
     CsyncRadius = 10,
@@ -947,7 +946,8 @@ local function isKO(plr)
     local char = plr and plr.Character
     local be = char and char:FindFirstChild("BodyEffects")
     local ko = be and be:FindFirstChild("K.O")
-    return ko and ko.Value
+    local grabbed = be and be:FindFirstChild("Grabbed")
+    return (ko and ko.Value) or (grabbed and grabbed.Value)
 end
 
 local function getClosestSelected()
