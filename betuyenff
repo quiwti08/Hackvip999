@@ -61,6 +61,7 @@ local Config = {
     SpinbotEnabled = false,
     SpinbotSpeed = 450,
     AutoPredictionEnabled = false,
+    Unlock3rdEnabled = false,
 }
 local Keybinds = {}
 
@@ -1170,6 +1171,35 @@ fovBox:GetPropertyChangedSignal("Text"):Connect(function()
             Workspace.CurrentCamera.FieldOfView = num
             sendNotification("Custom FOV", "Đã đặt FOV thành " .. num)
         end
+    end
+end)
+
+local oldMinZoom, oldMaxZoom, oldMode = nil, nil, nil
+
+unlock3rdButton = CreateButton(ButtonFrame2Left, "Unlock 3rd: OFF", function()
+    Config.Unlock3rdEnabled = not Config.Unlock3rdEnabled
+
+    if Config.Unlock3rdEnabled then
+        -- Lưu lại config camera cũ
+        oldMinZoom = LocalPlayer.CameraMinZoomDistance
+        oldMaxZoom = LocalPlayer.CameraMaxZoomDistance
+        oldMode    = LocalPlayer.CameraMode
+
+        -- Mở khóa góc nhìn thứ 3
+        LocalPlayer.CameraMode = Enum.CameraMode.Classic
+        LocalPlayer.CameraMinZoomDistance = 300
+        LocalPlayer.CameraMaxZoomDistance = 128 -- Roblox default max zoom
+
+        unlock3rdButton.Text = "Unlock 3rd: ON"
+        sendNotification("Unlock 3rd", "Third Person Enabled")
+    else
+        -- Trả về camera cũ
+        if oldMinZoom then LocalPlayer.CameraMinZoomDistance = oldMinZoom end
+        if oldMaxZoom then LocalPlayer.CameraMaxZoomDistance = oldMaxZoom end
+        if oldMode then LocalPlayer.CameraMode = oldMode end
+
+        unlock3rdButton.Text = "Unlock 3rd: OFF"
+        sendNotification("Unlock 3rd", "Third Person Disabled")
     end
 end)
 
