@@ -1474,39 +1474,52 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Hàm tạo Skibidi RedRizz Aura (đổi màu trắng và fade trắng ↔ đen)
+local task = task
+
+-- Kiểm tra xem có ít nhất 1 player được chọn hay không
+local function anySelected()
+    for _, v in pairs(Config.SelectedPlayers) do
+        if v then return true end
+    end
+    return false
+end
+
+-- Quyết định có monitor player này không:
+local function shouldMonitor(plr)
+    if not plr then return false end
+    if anySelected() then
+        return Config.SelectedPlayers[plr.Name] == true
+    else
+        return plr == LocalPlayer
+    end
+end
+
+-- Tạo SkibidiRedRizz Aura (trả về Attachment)
 local function createSkibidiRedRizz(character)
+    if not character or not character.Parent then return nil end
+    if character:FindFirstChild("SkibidiAura") then
+        return character:FindFirstChild("SkibidiAura")
+    end
+
+    local parentPart = character:FindFirstChild("LowerTorso") or character:FindFirstChild("HumanoidRootPart")
+    if not parentPart then return nil end
+
     local attachment = Instance.new("Attachment")
     attachment.Name = "SkibidiAura"
-    attachment.Parent = character and (character:FindFirstChild("LowerTorso") or character:FindFirstChild("HumanoidRootPart"))
+    attachment.Parent = parentPart
 
     local emitters = {}
 
     -- HealingWave1
     local HealingWave1 = Instance.new("ParticleEmitter")
-    HealingWave1.Name = "Healing Wave 1"
+    HealingWave1.Name = "HealingWave1"
     HealingWave1.Lifetime = NumberRange.new(1.5, 1.5)
-    HealingWave1.SpreadAngle = Vector2.new(10, -10)
     HealingWave1.LockedToPart = true
-    HealingWave1.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 1),
-        NumberSequenceKeypoint.new(0.1702454, 0.7),
-        NumberSequenceKeypoint.new(0.2254601, 0.03125),
-        NumberSequenceKeypoint.new(0.2852761, 0),
-        NumberSequenceKeypoint.new(0.702454, 0),
-        NumberSequenceKeypoint.new(0.8374233, 0.9125),
-        NumberSequenceKeypoint.new(1, 1)
-    })
     HealingWave1.LightEmission = 0.4
     HealingWave1.VelocitySpread = 10
     HealingWave1.Speed = NumberRange.new(3, 6)
     HealingWave1.Brightness = 10
-    HealingWave1.Color = ColorSequence.new(Color3.new(1,1,1))
-    HealingWave1.Size = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 3.0624998),
-        NumberSequenceKeypoint.new(0.6420546, 1.9999999),
-        NumberSequenceKeypoint.new(1, 0.7499999)
-    })
+    HealingWave1.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(0.6, 2), NumberSequenceKeypoint.new(1, 1) })
     HealingWave1.Rate = 20
     HealingWave1.Texture = "rbxassetid://8047533775"
     HealingWave1.RotSpeed = NumberRange.new(200, 400)
@@ -1517,27 +1530,14 @@ local function createSkibidiRedRizz(character)
 
     -- HealingWave2
     local HealingWave2 = Instance.new("ParticleEmitter")
-    HealingWave2.Name = "Healing Wave 2"
+    HealingWave2.Name = "HealingWave2"
     HealingWave2.Lifetime = NumberRange.new(1.5, 1.5)
-    HealingWave2.SpreadAngle = Vector2.new(10, -10)
     HealingWave2.LockedToPart = true
-    HealingWave2.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 1),
-        NumberSequenceKeypoint.new(0.2254601, 0.03125),
-        NumberSequenceKeypoint.new(0.6288344, 0.25625),
-        NumberSequenceKeypoint.new(0.8374233, 0.9125),
-        NumberSequenceKeypoint.new(1, 1)
-    })
     HealingWave2.LightEmission = 1
     HealingWave2.VelocitySpread = 10
     HealingWave2.Speed = NumberRange.new(3, 5)
     HealingWave2.Brightness = 10
-    HealingWave2.Color = ColorSequence.new(Color3.new(1,1,1))
-    HealingWave2.Size = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 3.125),
-        NumberSequenceKeypoint.new(0.4165329, 1.3749999),
-        NumberSequenceKeypoint.new(1, 0.9375)
-    })
+    HealingWave2.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(0.4, 1.4), NumberSequenceKeypoint.new(1, 1) })
     HealingWave2.Rate = 20
     HealingWave2.Texture = "rbxassetid://8047796070"
     HealingWave2.RotSpeed = NumberRange.new(100, 300)
@@ -1550,18 +1550,12 @@ local function createSkibidiRedRizz(character)
     local Sparks = Instance.new("ParticleEmitter")
     Sparks.Name = "Sparks"
     Sparks.Lifetime = NumberRange.new(0.5, 2)
-    Sparks.SpreadAngle = Vector2.new(180, -180)
     Sparks.LightEmission = 1
     Sparks.Drag = 3
     Sparks.VelocitySpread = 180
     Sparks.Speed = NumberRange.new(5, 15)
     Sparks.Brightness = 10
-    Sparks.Color = ColorSequence.new(Color3.new(1,1,1))
-    Sparks.Size = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0),
-        NumberSequenceKeypoint.new(0.14687, 0.4374999),
-        NumberSequenceKeypoint.new(1, 0)
-    })
+    Sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.15, 0.4), NumberSequenceKeypoint.new(1, 0) })
     Sparks.Acceleration = Vector3.new(0, 3, 0)
     Sparks.ZOffset = -1
     Sparks.Rate = 40
@@ -1573,20 +1567,14 @@ local function createSkibidiRedRizz(character)
 
     -- StarSparks
     local StarSparks = Instance.new("ParticleEmitter")
-    StarSparks.Name = "Star Sparks"
+    StarSparks.Name = "StarSparks"
     StarSparks.Lifetime = NumberRange.new(1.5, 1.5)
-    StarSparks.SpreadAngle = Vector2.new(180, -180)
     StarSparks.LightEmission = 1
     StarSparks.Drag = 3
     StarSparks.VelocitySpread = 180
     StarSparks.Speed = NumberRange.new(5, 10)
     StarSparks.Brightness = 10
-    StarSparks.Color = ColorSequence.new(Color3.new(1,1,1))
-    StarSparks.Size = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0),
-        NumberSequenceKeypoint.new(0.1492777, 0.6874996),
-        NumberSequenceKeypoint.new(1, 0)
-    })
+    StarSparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.15, 0.7), NumberSequenceKeypoint.new(1, 0) })
     StarSparks.Acceleration = Vector3.new(0, 3, 0)
     StarSparks.ZOffset = 2
     StarSparks.Texture = "rbxassetid://8611887703"
@@ -1595,98 +1583,136 @@ local function createSkibidiRedRizz(character)
     StarSparks.Parent = attachment
     table.insert(emitters, StarSparks)
 
-    -- Update màu liên tục (fade trắng → xám → đen → xám → trắng)
+    -- Màu dao động (white -> black -> white)
     task.spawn(function()
         while attachment and attachment.Parent do
-            -- dao động giá trị sáng từ 1 (trắng) -> 0 (đen) -> 1 (trắng)
-            local t = (math.sin(tick() * 1.5) + 1) / 2
-            local brightness = t -- 0..1..0
+            local t = (math.sin(tick() * 1.5) + 1) / 2 -- 0..1..0
+            local brightness = t
             local col = Color3.new(brightness, brightness, brightness)
-
-            -- tạo ColorSequence từ màu hiện tại (để set cho emitter)
-            local seq = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, col),
-                ColorSequenceKeypoint.new(1, col)
-            })
-
+            local seq = ColorSequence.new({ ColorSequenceKeypoint.new(0, col), ColorSequenceKeypoint.new(1, col) })
             for _, e in ipairs(emitters) do
-                e.Color = seq
+                -- chỉ set ColorSequence (giữ các property khác)
+                pcall(function() e.Color = seq end)
             end
-
             task.wait(0.05)
         end
+        -- khi attachment bị remove thì đảm bảo các emitter sẽ không còn
     end)
 
     return attachment
 end
 
--- Nút bật/tắt Aura Hit Effect
-rainbowHitButton = CreateButton(ButtonFrame2Left, "Aura Hit Effect: " .. (Config.RainbowHitEffectEnabled and "ON" or "OFF"), function()
-    Config.RainbowHitEffectEnabled = not Config.RainbowHitEffectEnabled
-    rainbowHitButton.Text = "Aura Hit Effect: " .. (Config.RainbowHitEffectEnabled and "ON" or "OFF")
-    sendNotification("Aura Hit Effect", Config.RainbowHitEffectEnabled and "Enabled" or "Disabled")
+-- Hiệu ứng hit (Highlight) khi player mất máu
+local function showHitHighlight(character)
+    if not character or not character.Parent then return end
+    if character:FindFirstChild("HitHighlightDebounce") then return end -- tránh spam
+    local hum = character:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
 
-    local char = LocalPlayer.Character
-    if char then
-        local aura = char:FindFirstChild("SkibidiAura")
-        if Config.RainbowHitEffectEnabled then
-            if not aura then
-                createSkibidiRedRizz(char)
-            end
-        else
-            if aura then aura:Destroy() end
-        end
+    local debounceTag = Instance.new("BoolValue")
+    debounceTag.Name = "HitHighlightDebounce"
+    debounceTag.Parent = character
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "AutoHitHighlight"
+    highlight.Parent = character
+    highlight.Adornee = character
+    highlight.FillTransparency = 1
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+
+    -- Animate outline color/pulse và fade out
+    local duration = 0.9
+    local step = 0.05
+    local elapsed = 0
+    local startHue = math.random() * 1
+    while elapsed < duration and highlight.Parent do
+        local progress = elapsed / duration -- 0..1
+        -- Hue biến đổi nhẹ (cho ra màu "pulse")
+        local hue = (startHue + progress * 0.6) % 1
+        highlight.OutlineColor = Color3.fromHSV(hue, 1, 1)
+        highlight.OutlineTransparency = progress -- dần mờ
+        task.wait(step)
+        elapsed = elapsed + step
     end
-end)
 
--- Khi script load, nếu config bật sẵn thì tạo aura luôn
-task.defer(function()
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    if Config.RainbowHitEffectEnabled and not char:FindFirstChild("SkibidiAura") then
-        createSkibidiRedRizz(char)
-    end
-end)
+    if highlight and highlight.Parent then highlight:Destroy() end
+    if debounceTag and debounceTag.Parent then debounceTag:Destroy() end
+end
 
--- Giữ aura khi respawn
-LocalPlayer.CharacterAdded:Connect(function(char)
-    if Config.RainbowHitEffectEnabled then
-        task.wait(1) -- chờ load nhân vật đầy đủ
-        if not char:FindFirstChild("SkibidiAura") then
-            createSkibidiRedRizz(char)
-        end
-    end
-end)
-
--- Theo dõi máu player (địch mất máu = rainbow highlight)
+-- Bảng lưu health trước đó
 local lastHealth = {}
+
+-- Khởi tạo lastHealth cho players hiện có
+for _, plr in ipairs(Players:GetPlayers()) do
+    local char = plr.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        lastHealth[plr] = hum and hum.Health or 0
+    else
+        lastHealth[plr] = 0
+    end
+end
+
+-- Khi player mới spawn/respawn -> cập nhật lastHealth và đảm bảo aura tắt (chống trường hợp cũ)
+Players.PlayerAdded:Connect(function(plr)
+    lastHealth[plr] = 0
+    plr.CharacterAdded:Connect(function(char)
+        task.wait(0.8)
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        lastHealth[plr] = hum and hum.Health or 0
+        -- remove cũ nếu có
+        local a = char:FindFirstChild("SkibidiAura", true)
+        if a then a:Destroy() end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    lastHealth[plr] = nil
+end)
+
+-- Main loop: kiểm tra heal / damage
 RunService.Heartbeat:Connect(function()
-    if not Config.RainbowHitEffectEnabled then return end
-
-    for name, selected in pairs(Config.SelectedPlayers or {}) do
-        if selected then
-            local plr = Players:FindFirstChild(name)
-            local hum = plr and plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character and plr.Character.Parent then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
             if hum then
-                local current = hum.Health
-                local last = lastHealth[name] or current
-                if current < last then
-                    local highlight = Instance.new("Highlight")
-                    highlight.Parent = plr.Character
-                    highlight.Adornee = plr.Character
-                    highlight.FillTransparency = 1
-                    highlight.OutlineTransparency = 0
-                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                local prev = lastHealth[plr] or hum.Health
+                local curr = hum.Health
 
-                    task.spawn(function()
-                        local start = tick()
-                        while tick() - start < 1 do
-                            highlight.OutlineColor = fadeColor()
-                            task.wait(0.05)
+                -- Nếu đang monitor cái này mới xử lý
+                if shouldMonitor(plr) then
+                    -- Heal: health tăng -> tạo aura nếu chưa có
+                    if curr > prev + 0.01 then
+                        if not plr.Character:FindFirstChild("SkibidiAura") then
+                            createSkibidiRedRizz(plr.Character)
                         end
-                        highlight:Destroy()
-                    end)
+                    end
+
+                    -- Damage: health giảm -> hiện hit effect
+                    if curr < prev - 0.01 then
+                        -- show highlight
+                        task.spawn(function()
+                            -- delay 0 để không chồng quá nhiều event nếu nhiều tick
+                            showHitHighlight(plr.Character)
+                        end)
+                    end
+
+                    -- Nếu không đang heal (hoặc đã chết) thì remove aura nếu có
+                    if not (curr > prev + 0.01) or hum.Health <= 0 then
+                        local aura = plr.Character:FindFirstChild("SkibidiAura")
+                        if aura then
+                            -- destroy attachment và các emitter
+                            aura:Destroy()
+                        end
+                    end
+                else
+                    -- Không monitor: đảm bảo không còn aura trên nhân vật (tránh leak)
+                    local aura = plr.Character:FindFirstChild("SkibidiAura")
+                    if aura then aura:Destroy() end
                 end
-                lastHealth[name] = current
+
+                lastHealth[plr] = curr
             end
         end
     end
@@ -2168,27 +2194,38 @@ espGui.Parent = PlayerGui
 
 local ESPs = {}
 
-local function IsValidTarget(player)
-    if not player 
-        or not player.Character 
-        or not player.Character:FindFirstChild("Humanoid") 
-        or not player.Character:FindFirstChild("HumanoidRootPart") 
-        or player.Character.Humanoid.Health <= 0 then
-        return false
+-- Trả về: (isValid:boolean, plr:Player|nil)
+local function IsValidPlayer(target)
+    -- Chuẩn hoá: nhận Player / Character / Part đều được
+    local plr
+    if typeof(target) == "Instance" then
+        if target:IsA("Player") then
+            plr = target
+        else
+            local model = target:FindFirstAncestorOfClass("Model")
+            if model then
+                plr = Players:GetPlayerFromCharacter(model)
+            end
+        end
+    elseif typeof(target) == "table" and target.Character then
+        plr = target
+    end
+    if not plr or not plr.Character then return false end
+
+    local char = plr.Character
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp or hum.Health <= 0 then return false end
+
+    local be = char:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        if ko and ko.Value then return false end
+        local grabbed = be:FindFirstChild("Grabbed")
+        if grabbed and grabbed.Value then return false end
     end
 
-    local bodyEffects = player.Character:FindFirstChild("BodyEffects")
-    local koValue = bodyEffects and bodyEffects:FindFirstChild("K.O")
-    if koValue and koValue.Value then
-        return false -- Bỏ qua người chơi nếu họ bị K.O
-    end
-
-    -- Kiểm tra trạng thái Grab
-    if player.Character:FindFirstChild("GRABBING_CONSTRAINT") then
-        return false -- Bỏ qua nếu đang bị grab
-    end
-
-    return true
+    return true, plr
 end
 
 local function CreateESP(player)
