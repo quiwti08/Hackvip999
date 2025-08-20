@@ -1466,14 +1466,24 @@ local function createSkibidiRedRizz(character)
     StarSparks.Parent = attachment
     table.insert(emitters, StarSparks)
 
-    -- Update màu liên tục (fade trắng ↔ đen)
+    -- Update màu liên tục (fade trắng → xám → đen → xám → trắng)
     task.spawn(function()
-        while attachment.Parent do
-            local t = math.sin(tick() * 2) * 0.5 + 0.5 -- dao động 0 -> 1
-            local col = Color3.new(t,t,t)
+        while attachment and attachment.Parent do
+            -- dao động giá trị sáng từ 1 (trắng) -> 0 (đen) -> 1 (trắng)
+            local t = (math.sin(tick() * 1.5) + 1) / 2
+            local brightness = t -- 0..1..0
+            local col = Color3.new(brightness, brightness, brightness)
+
+            -- tạo ColorSequence từ màu hiện tại (để set cho emitter)
+            local seq = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, col),
+                ColorSequenceKeypoint.new(1, col)
+            })
+
             for _, e in ipairs(emitters) do
-                e.Color = ColorSequence.new(col)
+                e.Color = seq
             end
+
             task.wait(0.05)
         end
     end)
@@ -1688,11 +1698,7 @@ LocalPlayer.CharacterAdded:Connect(function()
                 local anim = Instance.new("Animation")
                 anim.AnimationId = myHum.RigType == Enum.HumanoidRigType.R6 and "rbxassetid://148840371" or "rbxassetid://5918726674"
                 
-                -- Xóa quần áo nếu có
-                pcall(function()
-                    myChar.Pants:Destroy()
-                    myChar.Shirt:Destroy()
-                end)
+                
 
                 -- Phát lại animation
                 animTrack = myHum:LoadAnimation(anim)
@@ -2328,7 +2334,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
     -- TRIGGERBOT
     if tbEnabled then
         local part = GetBestTargetPart()
-        if part then
+        if part and IsValidTarget(target) then
             task.spawn(function()
                 local cap = part
                 task.wait(0)
@@ -2405,7 +2411,7 @@ local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
-local FOV_RADIUS = 200
+local FOV_RADIUS = 150
 
 -- Hàm lấy player gần chuột nhất trong FOV
 local function GetClosestValidPlayer()
