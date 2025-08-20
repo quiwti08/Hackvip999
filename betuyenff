@@ -2343,12 +2343,32 @@ local hitParts = {
 }
 
 local function validPart(p)
-    if not p or not p.Parent or not p.Parent:FindFirstChild("Humanoid") then return false end
+    if not p or not p.Parent then return false end
+    local humanoid = p.Parent:FindFirstChild("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end
+
     local player = Players:GetPlayerFromCharacter(p.Parent)
     if not player or not Config.SelectedPlayers[player.Name] then return false end
-    for _, n in ipairs(hitParts) do
-        if p.Name:lower() == n:lower() then return true end
+
+    -- Check KO hoặc Grab
+    local bodyEffects = p.Parent:FindFirstChild("BodyEffects")
+    if bodyEffects then
+        local koVal = bodyEffects:FindFirstChild("K.O")
+        if koVal and koVal.Value == true then
+            return false
+        end
     end
+    if p.Parent:FindFirstChild("GRABBING_CONSTRAINT") then
+        return false
+    end
+
+    -- Check part có nằm trong danh sách hitParts không
+    for _, n in ipairs(hitParts) do
+        if p.Name:lower() == n:lower() then
+            return true
+        end
+    end
+
     return false
 end
 
@@ -2463,41 +2483,44 @@ RunService.RenderStepped:Connect(function(deltaTime)
     -- TRIGGERBOT
     if tbEnabled then
         local part = GetBestTargetPart()
-        if part and distToCursor(part) <= fovRadius then
-            local plr = Players:GetPlayerFromCharacter(part.Parent)
-            if plr and IsValidTarget(plr) then
-                local origin = Camera.CFrame.Position
-                local direction = (part.Position - origin).Unit * 5000
-                local rayParams = RaycastParams.new()
-                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+        if part then
+            task.spawn(function()
+                local cap = part
+                task.wait(0)
+                if tbEnabled and distToCursor(cap) <= fovRadius then
+                    local origin = Camera.CFrame.Position
+                    local direction = (cap.Position - origin).Unit * 5000 -- Ray đủ xa
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
 
-                local result = Workspace:Raycast(origin, direction, rayParams)
+                    local result = Workspace:Raycast(origin, direction, rayParams)
 
-                -- Chỉ bắn nếu raycast trúng đúng target và target hợp lệ
-                if result and result.Instance and result.Instance:IsDescendantOf(part.Parent) then
-                    if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
-                        -- Mobile
-                        local char = LocalPlayer.Character
-                        local fired = false
-                        if char then
-                            for _, tool in ipairs(char:GetChildren()) do
-                                if tool:IsA("Tool") then
-                                    pcall(function() tool:Activate() end)
-                                    fired = true
-                                    break
+                    -- Chỉ bắn nếu raycast trúng chính xác target (không bị che)
+                    if result and result.Instance and result.Instance:IsDescendantOf(cap.Parent) then
+                        if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+                            -- Mobile
+                            local char = LocalPlayer.Character
+                            local fired = false
+                            if char then
+                                for _, tool in ipairs(char:GetChildren()) do
+                                    if tool:IsA("Tool") then
+                                        pcall(function() tool:Activate() end)
+                                        fired = true
+                                        break
+                                    end
                                 end
                             end
+                            if not fired then
+                                click() -- fallback tap
+                            end
+                        else
+                            -- PC
+                            click()
                         end
-                        if not fired then
-                            click() -- fallback tap
-                        end
-                    else
-                        -- PC
-                        click()
                     end
                 end
-            end
+            end)
         end
     end
 end)
