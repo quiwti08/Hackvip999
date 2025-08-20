@@ -1816,7 +1816,7 @@ bangButton = CreateButton(ButtonFrame2Left, "BangPlayer: OFF", function()
 
         -- Chọn animation theo rig type
         local anim = Instance.new("Animation")
-        anim.AnimationId = myHum.RigType == Enum.HumanoidRigType.R6 and "rbxassetid://148840371" or "rbxassetid://5918726674"
+        anim.AnimationId = myHum.RigType == Enum.HumanoidRigType.R6 and "rbxassetid://148840371" or "rbxassetid://10714068222"
 
         -- Phát animation
         animTrack = myHum:LoadAnimation(anim)
