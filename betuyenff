@@ -1258,7 +1258,7 @@ headsitButton = CreateButton(ButtonFrame2Left, "HeadSit: OFF", function()
     sendNotification("HeadSit", "Đang ngồi trên " .. target.Name)
 
     -- Bám cố định trên đầu target (không rơi)
-    local offsetY = 0 -- cao hơn đầu một chút
+    local offsetY = 1.6 -- cao hơn đầu một chút
     headsitConn = RunService.Heartbeat:Connect(function()
         local valid = headsitEnabled
             and target.Character
@@ -1307,7 +1307,7 @@ LocalPlayer.CharacterAdded:Connect(function()
     end
 
     myHum.Sit = true
-    local offsetY = 0
+    local offsetY = 1.6
     headsitConn = RunService.Heartbeat:Connect(function()
         local ok = headsitEnabled
             and target.Character
