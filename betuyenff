@@ -2334,44 +2334,41 @@ RunService.RenderStepped:Connect(function(deltaTime)
     -- TRIGGERBOT
     if tbEnabled then
         local part = GetBestTargetPart()
-        if part and IsValidTarget(target) then
-            task.spawn(function()
-                local cap = part
-                task.wait(0)
-                if tbEnabled and distToCursor(cap) <= fovRadius then
-                    local origin = Camera.CFrame.Position
-                    local direction = (cap.Position - origin).Unit * 5000 -- Ray đủ xa
-                    local rayParams = RaycastParams.new()
-                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+        if part and distToCursor(part) <= fovRadius then
+            local plr = Players:GetPlayerFromCharacter(part.Parent)
+            if plr and IsValidTarget(plr) then
+                local origin = Camera.CFrame.Position
+                local direction = (part.Position - origin).Unit * 5000
+                local rayParams = RaycastParams.new()
+                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
 
-                    local result = Workspace:Raycast(origin, direction, rayParams)
+                local result = Workspace:Raycast(origin, direction, rayParams)
 
-                    -- Chỉ bắn nếu raycast trúng chính xác target (không bị che)
-                    if result and result.Instance and result.Instance:IsDescendantOf(cap.Parent) then
-                        if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
-                            -- Mobile
-                            local char = LocalPlayer.Character
-                            local fired = false
-                            if char then
-                                for _, tool in ipairs(char:GetChildren()) do
-                                    if tool:IsA("Tool") then
-                                        pcall(function() tool:Activate() end)
-                                        fired = true
-                                        break
-                                    end
+                -- Chỉ bắn nếu raycast trúng đúng target và target hợp lệ
+                if result and result.Instance and result.Instance:IsDescendantOf(part.Parent) then
+                    if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+                        -- Mobile
+                        local char = LocalPlayer.Character
+                        local fired = false
+                        if char then
+                            for _, tool in ipairs(char:GetChildren()) do
+                                if tool:IsA("Tool") then
+                                    pcall(function() tool:Activate() end)
+                                    fired = true
+                                    break
                                 end
                             end
-                            if not fired then
-                                click() -- fallback tap
-                            end
-                        else
-                            -- PC
-                            click()
                         end
+                        if not fired then
+                            click() -- fallback tap
+                        end
+                    else
+                        -- PC
+                        click()
                     end
                 end
-            end)
+            end
         end
     end
 end)
