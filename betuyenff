@@ -1203,6 +1203,135 @@ unlock3rdButton = CreateButton(ButtonFrame2Left, "Unlock 3rd: OFF", function()
     end
 end)
 
+-- ============ HEADSIT ============
+local headsitEnabled = false
+local headsitConn = nil
+local headsitButton -- giữ ref để đổi text
+
+local function stopHeadSit()
+    if headsitConn then
+        headsitConn:Disconnect()
+        headsitConn = nil
+    end
+    headsitEnabled = false
+    -- bỏ trạng thái ngồi nếu còn
+    pcall(function()
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.Sit = false end
+    end)
+end
+
+headsitButton = CreateButton(ButtonFrame2Left, "HeadSit: OFF", function()
+    headsitEnabled = not headsitEnabled
+
+    if not headsitEnabled then
+        stopHeadSit()
+        headsitButton.Text = "HeadSit: OFF"
+        sendNotification("HeadSit", "OFF")
+        return
+    end
+
+    -- Dùng cùng hàm chọn mục tiêu như BangPlayer
+    local target = getClosestSelected()
+    if not target then
+        headsitEnabled = false
+        headsitButton.Text = "HeadSit: OFF"
+        sendNotification("HeadSit", "Không tìm thấy mục tiêu trong danh sách!")
+        return
+    end
+
+    local myChar = LocalPlayer.Character
+    local myHum  = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local head   = target.Character and target.Character:FindFirstChild("Head")
+
+    if not (myHum and myHRP and head) then
+        stopHeadSit()
+        headsitButton.Text = "HeadSit: OFF"
+        sendNotification("HeadSit", "Mục tiêu/nhân vật không hợp lệ!")
+        return
+    end
+
+    -- Bật tư thế ngồi
+    myHum.Sit = true
+    headsitButton.Text = ("HeadSit: ON (%s)"):format(target.Name)
+    sendNotification("HeadSit", "Đang ngồi trên " .. target.Name)
+
+    -- Bám cố định trên đầu target (không rơi)
+    local offsetY = 0 -- cao hơn đầu một chút
+    headsitConn = RunService.Heartbeat:Connect(function()
+        local valid = headsitEnabled
+            and target.Character
+            and target.Character:FindFirstChild("Head")
+            and myHRP
+            and myHRP.Parent
+
+        if not valid then
+            stopHeadSit()
+            headsitButton.Text = "HeadSit: OFF"
+            sendNotification("HeadSit", "Mục tiêu không hợp lệ, đã tắt!")
+            return
+        end
+
+        local tHead = target.Character.Head
+        -- đặt HRP của bạn ngay trên đầu target và triệt tiêu vận tốc để không trôi/rơi
+        myHRP.CFrame = tHead.CFrame * CFrame.new(0, offsetY, 0)
+        pcall(function()
+            myHRP.AssemblyLinearVelocity = Vector3.zero
+            myHRP.AssemblyAngularVelocity = Vector3.zero
+        end)
+    end)
+end)
+
+-- Giữ HeadSit khi respawn (giống cách BangPlayer xử lý)
+LocalPlayer.CharacterAdded:Connect(function()
+    if not headsitEnabled then return end
+    task.wait(0.5) -- đợi nhân vật load
+
+    local target = getClosestSelected()
+    if not (target and target.Character and target.Character:FindFirstChild("Head")) then
+        stopHeadSit()
+        headsitButton.Text = "HeadSit: OFF"
+        sendNotification("HeadSit", "Mục tiêu không hợp lệ, đã tắt!")
+        return
+    end
+
+    local myChar = LocalPlayer.Character
+    local myHum  = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not (myHum and myHRP) then
+        stopHeadSit()
+        headsitButton.Text = "HeadSit: OFF"
+        sendNotification("HeadSit", "Không tìm thấy nhân vật!")
+        return
+    end
+
+    myHum.Sit = true
+    local offsetY = 0
+    headsitConn = RunService.Heartbeat:Connect(function()
+        local ok = headsitEnabled
+            and target.Character
+            and target.Character:FindFirstChild("Head")
+            and myHRP
+            and myHRP.Parent
+
+        if not ok then
+            stopHeadSit()
+            headsitButton.Text = "HeadSit: OFF"
+            sendNotification("HeadSit", "Mục tiêu không hợp lệ, đã tắt!")
+            return
+        end
+
+        local tHead = target.Character.Head
+        myHRP.CFrame = tHead.CFrame * CFrame.new(0, offsetY, 0)
+        pcall(function()
+            myHRP.AssemblyLinearVelocity = Vector3.zero
+            myHRP.AssemblyAngularVelocity = Vector3.zero
+        end)
+    end)
+end)
+-- ============ /HEADSIT ============
+
 -- Config
 getgenv().KorAnimEnabled = true
 getgenv().RightUpperLegAccessories = {
