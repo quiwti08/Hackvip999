@@ -32,11 +32,11 @@ gui.Parent = playerGui
 --// Config
 local Config = { 
     CustomPing = nil,
-    Buttons = {}, -- Lưu keybind + trạng thái của từng chức năng
+    Buttons = {}, 
     ESPEnabled = true,
     SpeedEnabled = false,
     FlyEnabled = false,
-    AimbotEnabled = false,
+    AimbotEnabled = true,
     FullbrightEnabled = false,
     NoclipEnabled = false,
     ShiftAmount = 0.5,
@@ -2483,32 +2483,19 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
--- Đảm bảo biến tồn tại
-getgenv().Aimbot = getgenv().Aimbot or {Status = false}
+local UIS = game:GetService("UserInputService")
 
--- Phân biệt PC / Mobile
-local isMobile = (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 and not gameProcessed then
+        getgenv().Aimbot.Status = true
+    end
+end)
 
-if not isMobile then
-    -- PC: giữ chuột phải để status true
-    UserInputService.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if input.UserInputType == Enum.UserInputType.MouseButton2 and Config.AimbotEnabled then
-            getgenv().Aimbot.Status = true
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input, gp)
-        if input.UserInputType == Enum.UserInputType.MouseButton2 then
-            getgenv().Aimbot.Status = false
-        end
-    end)
-else
-    -- Mobile: khi bật Aimlock thì status luôn true
-    RunService.Heartbeat:Connect(function()
-        getgenv().Aimbot.Status = Config.AimbotEnabled
-    end)
-end
+UIS.InputEnded:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        getgenv().Aimbot.Status = false
+    end
+end)
 
 local hitParts = {
     "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
