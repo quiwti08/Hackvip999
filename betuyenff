@@ -456,6 +456,7 @@ CreateScriptItem("Blade Ball", "https://raw.githubusercontent.com/dadada-rgb/Vhu
 CreateScriptItem("Doors", "https://raw.githubusercontent.com/DarkDoorsKing/Project/main/Doors.lua")
 CreateScriptItem("Emote", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/emote")
 CreateScriptItem("Infinite Yield", "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source")
+CreateScriptItem("Dex", "https://raw.githubusercontent.com/infyiff/backup/main/dex.lua")
 
 --// Page 5 (Info)
 local Avatar = Instance.new("ImageLabel", Page5)
@@ -1860,6 +1861,121 @@ LocalPlayer.CharacterAdded:Connect(function()
             sendNotification("BangPlayer", "Mục tiêu không hợp lệ, đã tắt!")
         end
     end
+end)
+
+-- Invisible (full logic chuẩn cmd.add, đổi sang button)
+local invisRunning = false
+local IsInvis = false
+local InvisibleCharacter
+local Character
+local Player = Players.LocalPlayer
+
+local function Respawn()
+    if IsInvis then
+        pcall(function()
+            Player.Character = Character
+            task.wait()
+            Character.Parent = workspace
+            Character:FindFirstChildWhichIsA'Humanoid':Destroy()
+            IsInvis = false
+            InvisibleCharacter.Parent = nil
+            invisRunning = false
+        end)
+    else
+        pcall(function()
+            Player.Character = Character
+            task.wait()
+            Character.Parent = workspace
+            Character:FindFirstChildWhichIsA'Humanoid':Destroy()
+            TurnVisible()
+        end)
+    end
+end
+
+local invisFix, invisDied
+function TurnVisible()
+    if not IsInvis then return end
+    if invisFix then invisFix:Disconnect() end
+    if invisDied then invisDied:Disconnect() end
+    local CF_1 = Player.Character.HumanoidRootPart.CFrame
+    InvisibleCharacter.Parent = Lighting
+    Player.Character = Character
+    Character.Parent = workspace
+    Character.HumanoidRootPart.CFrame = CF_1
+    IsInvis = false
+    Player.Character.Animate.Disabled = true
+    Player.Character.Animate.Disabled = false
+    invisRunning = false
+end
+
+local function ToggleInvisible()
+    if invisRunning then return end
+    invisRunning = true
+    Player = Players.LocalPlayer
+    repeat task.wait(.1) until Player.Character
+    Character = Player.Character
+    Character.Archivable = true
+    InvisibleCharacter = Character:Clone()
+    InvisibleCharacter.Parent = Lighting
+    InvisibleCharacter.Name = ""
+
+    -- Check rơi xuống void
+    local Void = workspace.FallenPartsDestroyHeight
+    invisFix = RunService.Stepped:Connect(function()
+        pcall(function()
+            local Y = Player.Character.HumanoidRootPart.Position.Y
+            if tostring(Void):find"-" then
+                if Y <= Void then Respawn() end
+            else
+                if Y >= Void then Respawn() end
+            end
+        end)
+    end)
+
+    -- Làm mờ clone
+    for _,v in pairs(InvisibleCharacter:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Transparency = (v.Name == "HumanoidRootPart") and 1 or 0.5
+        end
+    end
+
+    -- Handle chết
+    invisDied = InvisibleCharacter:FindFirstChildOfClass'Humanoid'.Died:Connect(function()
+        Respawn()
+        invisDied:Disconnect()
+    end)
+
+    -- Thực hiện invis / hiện lại
+    if not IsInvis then
+        IsInvis = true
+        local CF_1 = Character.HumanoidRootPart.CFrame
+        Character:MoveTo(Vector3.new(0,math.pi*1000000,0))
+        Workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+        task.wait(.1)
+        Workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+        Character.Parent = Lighting
+        InvisibleCharacter.Parent = Workspace
+        InvisibleCharacter.HumanoidRootPart.CFrame = CF_1
+        Player.Character = InvisibleCharacter
+        task.wait(.1)
+        Workspace.CurrentCamera.CameraSubject = Player.Character:FindFirstChildWhichIsA("Humanoid")
+        Workspace.CurrentCamera.CameraType = "Custom"
+        Player.CameraMinZoomDistance = 0.5
+        Player.CameraMaxZoomDistance = 400
+        Player.CameraMode = "Classic"
+        Player.Character.Animate.Disabled = true
+        Player.Character.Animate.Disabled = false
+    else
+        TurnVisible()
+        IsInvis = false
+    end
+end
+
+-- Nút Invisible ở Page2Left
+local invisibleButton = CreateButton(ButtonFrame2Left, "Invisible: OFF", function()
+    ToggleInvisible()
+    invisibleButton.Text = "Invisible: " .. (IsInvis and "ON" or "OFF")
+    sendNotification("Invisible", IsInvis and "ON" or "OFF")
 end)
 
 noclipButton = CreateButton(ButtonFrame2Left, "Noclip: OFF", function()
