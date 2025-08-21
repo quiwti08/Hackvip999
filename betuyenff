@@ -1910,43 +1910,44 @@ end
 
 local function ToggleInvisible()
     if invisRunning then return end
-    invisRunning = true
-    Player = Players.LocalPlayer
-    repeat task.wait(.1) until Player.Character
-    Character = Player.Character
-    Character.Archivable = true
-    InvisibleCharacter = Character:Clone()
-    InvisibleCharacter.Parent = Lighting
-    InvisibleCharacter.Name = ""
 
-    -- Check rơi xuống void
-    local Void = workspace.FallenPartsDestroyHeight
-    invisFix = RunService.Stepped:Connect(function()
-        pcall(function()
-            local Y = Player.Character.HumanoidRootPart.Position.Y
-            if tostring(Void):find"-" then
-                if Y <= Void then Respawn() end
-            else
-                if Y >= Void then Respawn() end
-            end
-        end)
-    end)
-
-    -- Làm mờ clone
-    for _,v in pairs(InvisibleCharacter:GetDescendants()) do
-        if v:IsA("BasePart") then
-            v.Transparency = (v.Name == "HumanoidRootPart") and 1 or 0.5
-        end
-    end
-
-    -- Handle chết
-    invisDied = InvisibleCharacter:FindFirstChildOfClass'Humanoid'.Died:Connect(function()
-        Respawn()
-        invisDied:Disconnect()
-    end)
-
-    -- Thực hiện invis / hiện lại
     if not IsInvis then
+        invisRunning = true
+        Player = Players.LocalPlayer
+        repeat task.wait(.1) until Player.Character
+        Character = Player.Character
+        Character.Archivable = true
+        InvisibleCharacter = Character:Clone()
+        InvisibleCharacter.Parent = Lighting
+        InvisibleCharacter.Name = ""
+
+        -- Check rơi xuống void
+        local Void = workspace.FallenPartsDestroyHeight
+        invisFix = RunService.Stepped:Connect(function()
+            pcall(function()
+                local Y = Player.Character.HumanoidRootPart.Position.Y
+                if tostring(Void):find"-" then
+                    if Y <= Void then Respawn() end
+                else
+                    if Y >= Void then Respawn() end
+                end
+            end)
+        end)
+
+        -- Làm mờ clone
+        for _,v in pairs(InvisibleCharacter:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.Transparency = (v.Name == "HumanoidRootPart") and 1 or 0.5
+            end
+        end
+
+        -- Handle chết
+        invisDied = InvisibleCharacter:FindFirstChildOfClass'Humanoid'.Died:Connect(function()
+            Respawn()
+            invisDied:Disconnect()
+        end)
+
+        -- Swap sang invisible
         IsInvis = true
         local CF_1 = Character.HumanoidRootPart.CFrame
         Character:MoveTo(Vector3.new(0,math.pi*1000000,0))
@@ -1965,9 +1966,11 @@ local function ToggleInvisible()
         Player.CameraMode = "Classic"
         Player.Character.Animate.Disabled = true
         Player.Character.Animate.Disabled = false
+        invisRunning = false -- cho phép toggle lần nữa
     else
         TurnVisible()
         IsInvis = false
+        invisRunning = false -- reset để toggle lại được
     end
 end
 
@@ -2198,30 +2201,57 @@ RunService.RenderStepped:Connect(function(delta)
 end)
 
 -- Anti Fling Button (Page 2, Right Side)
-antiFlingEnabled = false
+local antiFlingEnabled = false
 
-antiFlingButton = CreateButton(ButtonFrame2Right, "Anti Fling: OFF", function()
+local antiFlingButton = CreateButton(ButtonFrame2Right, "Anti Fling: OFF", function()
     antiFlingEnabled = not antiFlingEnabled
     antiFlingButton.Text = "Anti Fling: " .. (antiFlingEnabled and "ON" or "OFF")
     sendNotification("Anti Fling", antiFlingEnabled and "Enabled" or "Disabled")
 end)
 
--- Anti Fling Logic
-if _G.__antifling_conn then
-    _G.__antifling_conn:Disconnect()
-end
+-- Logic Anti-Fling
+local localPlayer = Players.LocalPlayer
 
-_G.__antifling_conn = RunService.Heartbeat:Connect(function()
-    if not antiFlingEnabled then return end
-    pcall(function()
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+RunService.Stepped:Connect(function()
+    if antiFlingEnabled then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= localPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                 local hrp = plr.Character.HumanoidRootPart
-                hrp.Velocity = Vector3.new(0, 0, 0)
-                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                -- xóa lực vật lý và va chạm
+                hrp.CanCollide = false
+                hrp.AssemblyAngularVelocity = Vector3.zero
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                for _, part in ipairs(plr.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                        part.Massless = true
+                        part.Velocity = Vector3.zero
+                        part.RotVelocity = Vector3.zero
+                    end
+                end
             end
         end
-    end)
+    end
+end)
+
+-- Bảo vệ vị trí nhân vật của mình
+local lastPos
+RunService.Heartbeat:Connect(function()
+    if antiFlingEnabled then
+        local char = localPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local hrp = char.HumanoidRootPart
+            if lastPos then
+                if (hrp.Position - lastPos).Magnitude > 30 then
+                    -- bị fling mạnh -> reset về chỗ cũ
+                    hrp.CFrame = CFrame.new(lastPos)
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                    hrp.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+            lastPos = hrp.Position
+        end
+    end
 end)
 
 local hiddenFling = false
