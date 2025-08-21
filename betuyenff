@@ -31,7 +31,7 @@ gui.Parent = playerGui
 
 --// Config
 local Config = { 
-    CustomPing = 40,
+    CustomPing = nil,
     Buttons = {}, -- Lưu keybind + trạng thái của từng chức năng
     ESPEnabled = true,
     SpeedEnabled = false,
@@ -61,6 +61,7 @@ local Config = {
     SpinbotSpeed = 450,
     AutoPredictionEnabled = false,
     Unlock3rdEnabled = false,
+    Prediction = nil,
 }
 local Keybinds = {}
 
@@ -655,14 +656,16 @@ local function GetPing()
     return data and math.clamp(data:GetValue(), 10, 300) or 40
 end
 
--- Hàm prediction VIP
-local function CalculateVIPPrediction(ping)
-    ping = math.clamp(ping, 10, 300)
-    local minPred, maxPred = 0.12, 0.20
-    local predLinear = minPred + (ping - 10) / 290 * (maxPred - minPred)
-    local predSmooth = minPred + math.sqrt((ping - 10) / 290) * (maxPred - minPred)
-    return math.clamp(predLinear*0.4 + predSmooth*0.6, minPred, maxPred)
+local function CalculateVIPPrediction(part, ping)
+    if not part or not part:IsA("BasePart") then return nil end
+    local velocity = part.Velocity
+    local origin = Camera.CFrame.Position
+    local distance = (part.Position - origin).Magnitude
+    local delay = (ping or GetPing()) / 1000
+    local distanceFactor = math.clamp(distance / 100, 1, 3)
+    return part.Position + velocity * delay * distanceFactor
 end
+
 
 -- Loop cập nhật Prediction
 task.spawn(function()
@@ -948,6 +951,18 @@ local function isKO(plr)
     local grabbed = be:FindFirstChild("Grabbed")
 
     return not ((ko and ko.Value) or (grabbed and grabbed.Value))
+end
+
+local function isAlive(plr)
+    local char = plr and plr.Character
+    local be = char and char:FindFirstChild("BodyEffects")
+    if not be then return false end
+
+    local ko = be:FindFirstChild("K.O")
+    local grabbed = be:FindFirstChild("Grabbed")
+
+    -- chỉ trả về true nếu player còn sống và chưa bị grab
+    return (not ko or not ko.Value) and (not grabbed or not grabbed.Value)
 end
 
 local function getClosestSelected()
@@ -1780,7 +1795,7 @@ bangButton = CreateButton(ButtonFrame2Left, "BangPlayer: OFF", function()
 
         -- Chọn animation theo rig type
         local anim = Instance.new("Animation")
-        anim.AnimationId = myHum.RigType == Enum.HumanoidRigType.R6 and "rbxassetid://148840371" or "rbxassetid://5918726674"
+        anim.AnimationId = myHum.RigType == Enum.HumanoidRigType.R6 and "rbxassetid://148840371" or "rbxassetid://10714068222"
 
         -- Phát animation
         animTrack = myHum:LoadAnimation(anim)
@@ -2330,6 +2345,33 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
+-- Đảm bảo biến tồn tại
+getgenv().Aimbot = getgenv().Aimbot or {Status = false}
+
+-- Phân biệt PC / Mobile
+local isMobile = (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+
+if not isMobile then
+    -- PC: giữ chuột phải để status true
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton2 and Config.AimbotEnabled then
+            getgenv().Aimbot.Status = true
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input, gp)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            getgenv().Aimbot.Status = false
+        end
+    end)
+else
+    -- Mobile: khi bật Aimlock thì status luôn true
+    RunService.Heartbeat:Connect(function()
+        getgenv().Aimbot.Status = Config.AimbotEnabled
+    end)
+end
+
 local hitParts = {
     "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
     "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
@@ -2435,20 +2477,13 @@ RunService.RenderStepped:Connect(function(deltaTime)
     UpdateSpeed()
     UpdateFly(deltaTime)
 
-    -- AIMLOCK
     if Config.AimbotEnabled and getgenv().Aimbot.Status then
         Player = GetClosestValidPlayer()
-        if Player and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
+        if Player and isAlive(Player) and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
             local part = Player.Character[getgenv().Aimbot.Hitpart]
-            local root = Player.Character:FindFirstChild("HumanoidRootPart") or part
-            local vel = (root.AssemblyLinearVelocity or root.Velocity or Vector3.zero)
-
-            -- Prediction
-            local pred = tonumber(Config.Prediction) or 0.15
-            local predictedPos = part.Position + vel * pred
-
-            -- Check obstruction
-            if not IsObstructed(Camera.CFrame.Position, predictedPos) then
+            local ping = Config.AutoPredictionEnabled and GetPing() or Config.CustomPing
+            local predictedPos = CalculateVIPPrediction(part, ping)
+            if predictedPos and not IsObstructed(Camera.CFrame.Position, predictedPos) then
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, predictedPos)
             end
         end
@@ -2457,13 +2492,13 @@ RunService.RenderStepped:Connect(function(deltaTime)
     -- TRIGGERBOT
     if tbEnabled then
         local part = GetBestTargetPart()
-        if part then
+        if part and isAlive(part) then
             task.spawn(function()
                 local cap = part
                 task.wait(0)
                 if tbEnabled and distToCursor(cap) <= fovRadius then
                     local origin = Camera.CFrame.Position
-                    local direction = (cap.Position - origin).Unit * 5000 -- Ray đủ xa
+                    local direction = (cap.Position - origin)
                     local rayParams = RaycastParams.new()
                     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
                     rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
@@ -2471,7 +2506,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
                     local result = Workspace:Raycast(origin, direction, rayParams)
 
                     -- Chỉ bắn nếu raycast trúng chính xác target (không bị che)
-                    if result and result.Instance and result.Instance:IsDescendantOf(cap.Parent) then
+                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
                         if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
                             -- Mobile
                             local char = LocalPlayer.Character
