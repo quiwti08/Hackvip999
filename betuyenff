@@ -36,7 +36,7 @@ local Config = {
     ESPEnabled = true,
     SpeedEnabled = false,
     FlyEnabled = false,
-    AimbotEnabled = true,
+    AimbotEnabled = false,
     FullbrightEnabled = false,
     NoclipEnabled = false,
     ShiftAmount = 0.5,
@@ -943,27 +943,24 @@ tpAndStompButton = CreateButton(ButtonFrame1, "TP Player", function()
     end
 end)
 
-local function isKO(plr)
-    local char = plr and plr.Character
-    local be = char and char:FindFirstChild("BodyEffects")
-    if not be then return false end
-
-    local ko = be:FindFirstChild("K.O")
-    local grabbed = be:FindFirstChild("Grabbed")
-
-    return not ((ko and ko.Value) or (grabbed and grabbed.Value))
-end
-
 local function isAlive(plr)
-    local char = plr and plr.Character
-    local be = char and char:FindFirstChild("BodyEffects")
-    if not be then return false end
+    if not plr or not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then
+        return false
+    end
 
-    local ko = be:FindFirstChild("K.O")
-    local grabbed = be:FindFirstChild("Grabbed")
+    -- Check riêng cho Da Hood (BodyEffects)
+    local be = plr.Character:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        local grabbed = be:FindFirstChild("Grabbed")
+        if (ko and ko.Value) or (grabbed and grabbed.Value) then
+            return false
+        end
+    end
 
-    -- chỉ trả về true nếu player còn sống và chưa bị grab
-    return (not ko or not ko.Value) and (not grabbed or not grabbed.Value)
+    return true
 end
 
 local function getClosestSelected()
@@ -1098,7 +1095,7 @@ _G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function()
     end
 
     -- Nếu target bị KO → đổi target hoặc pause
-    if isKO(currentTarget) then
+    if isAlive(currentTarget) then
         local nextTarget = getNextTarget(currentTarget)
         if nextTarget then
             currentTarget = nextTarget
@@ -1318,7 +1315,6 @@ headsitButton = CreateButton(ButtonFrame2Left, "HeadSit: OFF", function()
     if not target then
         headsitEnabled = false
         headsitButton.Text = "HeadSit: OFF"
-        sendNotification("HeadSit", "Không tìm thấy mục tiêu trong danh sách!")
         return
     end
 
@@ -1663,35 +1659,45 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
--- Theo dõi máu player (địch mất máu = rainbow highlight)
 local lastHealth = {}
+
 RunService.Heartbeat:Connect(function()
     if not Config.RainbowHitEffectEnabled then return end
 
     for name, selected in pairs(Config.SelectedPlayers or {}) do
         if selected then
             local plr = Players:FindFirstChild(name)
-            local hum = plr and plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+            local char = plr and plr.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
             if hum then
                 local current = hum.Health
                 local last = lastHealth[name] or current
-                if current < last then
-                    local highlight = Instance.new("Highlight")
-                    highlight.Parent = plr.Character
-                    highlight.Adornee = plr.Character
-                    highlight.FillTransparency = 1
-                    highlight.OutlineTransparency = 0
-                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 
+                if current < last then
+                    -- Lấy highlight cũ hoặc tạo mới
+                    local highlight = char:FindFirstChild("HitEffectHighlight")
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "HitEffectHighlight"
+                        highlight.Adornee = char
+                        highlight.FillTransparency = 1
+                        highlight.OutlineTransparency = 0
+                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        highlight.Parent = char
+                    end
+
+                    -- Hiệu ứng rainbow trong 1 giây
                     task.spawn(function()
                         local start = tick()
-                        while tick() - start < 1 do
+                        while tick() - start < 1 and highlight.Parent do
                             highlight.OutlineColor = fadeColor()
                             task.wait(0.05)
                         end
+                        -- Sau khi kết thúc, xóa nếu không cần nữa
                         highlight:Destroy()
                     end)
                 end
+
                 lastHealth[name] = current
             end
         end
@@ -1780,7 +1786,6 @@ bangButton = CreateButton(ButtonFrame2Left, "BangPlayer: OFF", function()
         if not target then
             animEnabled = false
             bangButton.Text = "BangPlayer: OFF"
-            sendNotification("BangPlayer", "Không tìm thấy mục tiêu trong danh sách!")
             return
         end
 
@@ -1813,7 +1818,6 @@ bangButton = CreateButton(ButtonFrame2Left, "BangPlayer: OFF", function()
             else
                 stopAnimAndTp()
                 bangButton.Text = "BangPlayer: OFF"
-                sendNotification("BangPlayer", "Mục tiêu không hợp lệ, đã tắt!")
             end
         end)
     end
@@ -1863,20 +1867,21 @@ LocalPlayer.CharacterAdded:Connect(function()
     end
 end)
 
--- Invisible (full logic chuẩn cmd.add, đổi sang button)
+local Player = Players.LocalPlayer
+local Character
+local InvisibleCharacter
 local invisRunning = false
 local IsInvis = false
-local InvisibleCharacter
-local Character
-local Player = Players.LocalPlayer
+local invisFix, invisDied
 
+-- Respawn về trạng thái ban đầu
 local function Respawn()
     if IsInvis then
         pcall(function()
             Player.Character = Character
             task.wait()
             Character.Parent = workspace
-            Character:FindFirstChildWhichIsA'Humanoid':Destroy()
+            Character:FindFirstChildWhichIsA("Humanoid"):Destroy()
             IsInvis = false
             InvisibleCharacter.Parent = nil
             invisRunning = false
@@ -1886,17 +1891,18 @@ local function Respawn()
             Player.Character = Character
             task.wait()
             Character.Parent = workspace
-            Character:FindFirstChildWhichIsA'Humanoid':Destroy()
+            Character:FindFirstChildWhichIsA("Humanoid"):Destroy()
             TurnVisible()
         end)
     end
 end
 
-local invisFix, invisDied
+-- Tắt invisible
 function TurnVisible()
     if not IsInvis then return end
     if invisFix then invisFix:Disconnect() end
     if invisDied then invisDied:Disconnect() end
+
     local CF_1 = Player.Character.HumanoidRootPart.CFrame
     InvisibleCharacter.Parent = Lighting
     Player.Character = Character
@@ -1905,9 +1911,19 @@ function TurnVisible()
     IsInvis = false
     Player.Character.Animate.Disabled = true
     Player.Character.Animate.Disabled = false
+
+    -- 🔑 Reset Camera khi tắt invis
+    task.wait(.1)
+    Workspace.CurrentCamera.CameraSubject = Character:FindFirstChildWhichIsA("Humanoid")
+    Workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+    Player.CameraMinZoomDistance = 0.5
+    Player.CameraMaxZoomDistance = 400
+    Player.CameraMode = "Classic"
+
     invisRunning = false
 end
 
+-- Bật/Tắt invisible
 local function ToggleInvisible()
     if invisRunning then return end
 
@@ -1917,6 +1933,7 @@ local function ToggleInvisible()
         repeat task.wait(.1) until Player.Character
         Character = Player.Character
         Character.Archivable = true
+
         InvisibleCharacter = Character:Clone()
         InvisibleCharacter.Parent = Lighting
         InvisibleCharacter.Name = ""
@@ -1942,7 +1959,7 @@ local function ToggleInvisible()
         end
 
         -- Handle chết
-        invisDied = InvisibleCharacter:FindFirstChildOfClass'Humanoid'.Died:Connect(function()
+        invisDied = InvisibleCharacter:FindFirstChildOfClass("Humanoid").Died:Connect(function()
             Respawn()
             invisDied:Disconnect()
         end)
@@ -1958,6 +1975,7 @@ local function ToggleInvisible()
         InvisibleCharacter.Parent = Workspace
         InvisibleCharacter.HumanoidRootPart.CFrame = CF_1
         Player.Character = InvisibleCharacter
+
         task.wait(.1)
         Workspace.CurrentCamera.CameraSubject = Player.Character:FindFirstChildWhichIsA("Humanoid")
         Workspace.CurrentCamera.CameraType = "Custom"
@@ -1966,17 +1984,26 @@ local function ToggleInvisible()
         Player.CameraMode = "Classic"
         Player.Character.Animate.Disabled = true
         Player.Character.Animate.Disabled = false
+
         invisRunning = false -- cho phép toggle lần nữa
     else
         TurnVisible()
         IsInvis = false
-        invisRunning = false -- reset để toggle lại được
+        invisRunning = false
     end
 end
 
 -- Nút Invisible ở Page2Left
 local invisibleButton = CreateButton(ButtonFrame2Left, "Invisible: " .. (IsInvis and "ON" or "OFF"), function()
-    ToggleInvisible()
+    if not IsInvis then
+        ToggleInvisible() -- Bật invis
+    else
+        TurnVisible()     -- Tắt invis
+        IsInvis = false
+        invisRunning = false
+    end
+    
+    -- Cập nhật nút và notify
     invisibleButton.Text = "Invisible: " .. (IsInvis and "ON" or "OFF")
     sendNotification("Invisible", IsInvis and "ON" or "OFF")
 end)
