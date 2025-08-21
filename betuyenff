@@ -1975,7 +1975,7 @@ local function ToggleInvisible()
 end
 
 -- Nút Invisible ở Page2Left
-local invisibleButton = CreateButton(ButtonFrame2Left, "Invisible: OFF", function()
+local invisibleButton = CreateButton(ButtonFrame2Left, "Invisible: " .. (IsInvis and "ON" or "OFF"), function()
     ToggleInvisible()
     invisibleButton.Text = "Invisible: " .. (IsInvis and "ON" or "OFF")
     sendNotification("Invisible", IsInvis and "ON" or "OFF")
@@ -2203,54 +2203,46 @@ end)
 -- Anti Fling Button (Page 2, Right Side)
 local antiFlingEnabled = false
 
-local antiFlingButton = CreateButton(ButtonFrame2Right, "Anti Fling: OFF", function()
+local antiFlingButton = CreateButton(ButtonFrame2Right, "Anti Fling: " .. (antiFlingEnabled and "ON" or "OFF"), function()
     antiFlingEnabled = not antiFlingEnabled
     antiFlingButton.Text = "Anti Fling: " .. (antiFlingEnabled and "ON" or "OFF")
     sendNotification("Anti Fling", antiFlingEnabled and "Enabled" or "Disabled")
 end)
 
--- Logic Anti-Fling
+-- Logic an toàn
 local localPlayer = Players.LocalPlayer
-
-RunService.Stepped:Connect(function()
-    if antiFlingEnabled then
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= localPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = plr.Character.HumanoidRootPart
-                -- xóa lực vật lý và va chạm
-                hrp.CanCollide = false
-                hrp.AssemblyAngularVelocity = Vector3.zero
-                hrp.AssemblyLinearVelocity = Vector3.zero
-                for _, part in ipairs(plr.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                        part.Massless = true
-                        part.Velocity = Vector3.zero
-                        part.RotVelocity = Vector3.zero
-                    end
-                end
-            end
-        end
-    end
-end)
-
--- Bảo vệ vị trí nhân vật của mình
+local hrp = nil
 local lastPos
+
+local function protectHRP()
+    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        hrp = localPlayer.Character.HumanoidRootPart
+    end
+end
+
+localPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    protectHRP()
+end)
+protectHRP()
+
 RunService.Heartbeat:Connect(function()
-    if antiFlingEnabled then
-        local char = localPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local hrp = char.HumanoidRootPart
-            if lastPos then
-                if (hrp.Position - lastPos).Magnitude > 30 then
-                    -- bị fling mạnh -> reset về chỗ cũ
-                    hrp.CFrame = CFrame.new(lastPos)
-                    hrp.AssemblyLinearVelocity = Vector3.zero
-                    hrp.AssemblyAngularVelocity = Vector3.zero
-                end
-            end
-            lastPos = hrp.Position
+    if antiFlingEnabled and hrp then
+        -- chặn velocity quá cao
+        if hrp.AssemblyLinearVelocity.Magnitude > 100 then
+            hrp.AssemblyLinearVelocity = Vector3.zero
         end
+        if hrp.AssemblyAngularVelocity.Magnitude > 100 then
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+
+        -- nếu bị đẩy quá xa trong 1 tick -> đưa về vị trí cũ
+        if lastPos and (hrp.Position - lastPos).Magnitude > 40 then
+            hrp.CFrame = CFrame.new(lastPos)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end
+        lastPos = hrp.Position
     end
 end)
 
