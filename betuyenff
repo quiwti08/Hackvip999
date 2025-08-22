@@ -1143,50 +1143,6 @@ fovBox:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 -- ============ /CUSTOM FOV ============
 
--- ============ SONG PLAYER ============
-local songPlaying = false
-local songSound
-local songButton
-local songBox
-
--- Tạo textbox để nhập ID
-songBox = CreateTextBox(ButtonFrame2Left, "82628261841537") -- mặc định id
-
--- Tạo nút Play/Stop
-songButton = CreateButton(ButtonFrame2Left, "Play Song", function()
-    if songPlaying then
-        -- Đang phát thì dừng
-        if songSound then
-            songSound:Stop()
-            songSound:Destroy()
-            songSound = nil
-        end
-        songPlaying = false
-        songButton.Text = "Play Song"
-        sendNotification("Song Player", "Stopped song")
-    else
-        -- Bắt đầu phát
-        local id = tonumber(songBox.Text)
-        if not id then
-            sendNotification("Song Player", "ID không hợp lệ!")
-            return
-        end
-
-        if songSound then songSound:Destroy() end
-        songSound = Instance.new("Sound")
-        songSound.SoundId = "rbxassetid://" .. id
-        songSound.Volume = 3
-        songSound.Looped = true
-        songSound.Parent = workspace -- bạn có thể đổi thành LocalPlayer.Character.Head
-        songSound:Play()
-
-        songPlaying = true
-        songButton.Text = "Stop Song"
-        sendNotification("Song Player", "Playing ID: " .. id)
-    end
-end)
--- ============ /SONG PLAYER ============
-
 local oldMinZoom, oldMaxZoom, oldMode = nil, nil, nil
 
 unlock3rdButton = CreateButton(ButtonFrame2Left, "Unlock 3rd: OFF", function()
@@ -1428,7 +1384,7 @@ piggyButton = CreateButton(ButtonFrame2Left, "Piggyback: OFF", function()
 
         local tHead = target.Character.Head
         -- offset = 0
-        myHRP.CFrame = tHead.CFrame
+        myHRP.CFrame = tHead.CFrame * CFrame.new(0, -0.6, 0.6)
         pcall(function()
             myHRP.AssemblyLinearVelocity = Vector3.zero
             myHRP.AssemblyAngularVelocity = Vector3.zero
@@ -1474,7 +1430,7 @@ LocalPlayer.CharacterAdded:Connect(function()
 
         local tHead = target.Character.Head
         -- offset = 0
-        myHRP.CFrame = tHead.CFrame
+        myHRP.CFrame = tHead.CFrame * CFrame.new(0, -0.6, 0.6)
         pcall(function()
             myHRP.AssemblyLinearVelocity = Vector3.zero
             myHRP.AssemblyAngularVelocity = Vector3.zero
@@ -2160,16 +2116,16 @@ local RunService = game:GetService("RunService")
 -- ID animation
 local animations = {
     happier = "http://www.roblox.com/asset/?id=15609995579",
-    happy   = "http://www.roblox.com/asset/?id=14352343065",
+    happy = "http://www.roblox.com/asset/?id=14352343065",
     siuu = "rbxassetid://120331939816115",
     sturdy = "rbxassetid://128968764985212",
-    cutesit = "rbxassetid://97459465855185"
-    matching1 = "rbxassetid://102139040629559"
-    matching2 = "rbxassetid://110235213168404"
-    hug1 = "rbxassetid://105797917228398"
-    hug2 = "rbxassetid://118264035209903"
-    sit1 = "rbxassetid://94749062881621"
-    sit2 = "rbxassetid://110800242342916"
+    cutesit = "rbxassetid://97459465855185",
+    matching1 = "rbxassetid://102139040629559",
+    matching2 = "rbxassetid://110235213168404",
+    hug1 = "rbxassetid://105797917228398",
+    hug2 = "rbxassetid://118264035209903",
+    sit1 = "rbxassetid://94749062881621",
+    sit2 = "rbxassetid://110800242342916",
 }
 
 local currentTrack = nil
@@ -2229,13 +2185,24 @@ CreateButton(ButtonFrame2Right, "Happy", function()
     playAnimation(animations.happy)
 end)
 
--- MatchingEmote
+CreateButton(ButtonFrame2Right, "siuu", function()
+    playAnimation(animations.siuu)
+end)
+
+CreateButton(ButtonFrame2Right, "sturdy", function()
+    playAnimation(animations.sturdy)
+end)
+
+CreateButton(ButtonFrame2Right, "cutesit", function()
+    playAnimation(animations.cutesit)
+end)
+
 local matchingEnabled = false
 local matchingConn
 local matchingButton
-local currentTrack -- lưu animation hiện tại để stop khi cần
+local currentTrack -- track hiện tại của mình
 
--- Map ID đặc biệt (matching1 <-> matching2, hug1 <-> hug2, ...)
+-- Bảng cặp animation (matching1<->2, hug1<->2, ...)
 local specialPairs = {
     ["rbxassetid://102139040629559"] = "rbxassetid://110235213168404",
     ["rbxassetid://110235213168404"] = "rbxassetid://102139040629559",
@@ -2278,7 +2245,7 @@ local function startMatching()
         return
     end
 
-    -- Lắng nghe animation target
+    -- Lắng nghe target play animation
     matchingConn = animator.AnimationPlayed:Connect(function(track)
         if not matchingEnabled then return end
         if currentTrack then currentTrack:Stop() end
@@ -2291,16 +2258,20 @@ local function startMatching()
         currentTrack = myAnimator:LoadAnimation(anim)
         currentTrack:Play()
 
+        -- Khi target dừng → mình cũng dừng
         track.Stopped:Connect(function()
             if currentTrack then
-            currentTrack = nil
-        end
+                currentTrack:Stop()
+                currentTrack = nil
+            end
+        end)
     end)
 end
 
-matchingButton = CreateButton(ButtonFrame2Left, "MatchingEmote: OFF", function()
+-- Nút bật/tắt
+matchingButton = CreateButton(ButtonFrame2Right, "MatchEmote: OFF", function()
     matchingEnabled = not matchingEnabled
-    matchingButton.Text = "MatchingEmote: " .. (matchingEnabled and "ON" or "OFF")
+    matchingButton.Text = "MatchEmote: " .. (matchingEnabled and "ON" or "OFF")
 
     stopMatching()
     if matchingEnabled then
@@ -2308,28 +2279,17 @@ matchingButton = CreateButton(ButtonFrame2Left, "MatchingEmote: OFF", function()
     end
 end)
 
--- Khi respawn → reset track và kết nối lại nếu đang ON
+-- Respawn → tự kết nối lại nếu đang ON
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1) -- đợi nhân vật load xong
+    task.wait(1) -- đợi nhân vật load
     currentTrack = nil
     if matchingEnabled then
         stopMatching()
         startMatching()
-        matchingButton.Text = "MatchingEmote: ON"
+        matchingButton.Text = "MatchEmote: ON"
     end
 end)
-
-CreateButton(ButtonFrame2Right, "siuu", function()
-    playAnimation(animations.siuu)
-end)
-
-CreateButton(ButtonFrame2Right, "sturdy", function()
-    playAnimation(animations.sturdy)
-end)
-
-CreateButton(ButtonFrame2Right, "cutesit", function()
-    playAnimation(animations.cutesit)
-end)
+-- ============ /MATCHING EMOTE ============
 
 CreateButton(ButtonFrame2Right, "matching1", function()
     playAnimation(animations.matching1)
