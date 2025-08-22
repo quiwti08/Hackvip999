@@ -44,8 +44,6 @@ local Config = {
     FlySpeed = 35,
     SpeedAmount = 20,
     clickTpEnabled = false,
-    RapidFireEnabled = false,
-    RapidFireDelay = 0.01,
     MacroLegitEnabled = false,
     AntiLockEnabled = false,
     AntiLockType = "Behind",
@@ -709,57 +707,6 @@ autoPredictionButton = CreateButton(ButtonFrame1, "Auto Prediction: OFF", functi
     sendNotification("Auto Prediction", Config.AutoPredictionEnabled and "ON" or "OFF")
 end)
 
--- =============================
--- Logic Rapid Fire (PC + Mobile)
--- =============================
-
-local utility = {}
-utility.get_gun = function()
-    local char = LocalPlayer.Character
-    if not char then return nil end
-    for _, tool in next, char:GetChildren() do
-        if tool:IsA("Tool") and (tool:FindFirstChild("Ammo") or tool:FindFirstChild("AmmoCount") or tool:FindFirstChild("GunScript")) then
-            return tool
-        end
-    end
-end
-
-utility.rapid = function(tool)
-    tool:Activate()
-end
-
-local isFiring = false
-
--- Input bắt đầu (chuột hoặc cảm ứng)
-UserInputService.InputBegan:Connect(function(i, gp)
-    if gp then return end
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        local gun = utility.get_gun()
-        if Config.RapidFireEnabled and gun and not isFiring then
-            isFiring = true
-            task.spawn(function()
-                while isFiring and Config.RapidFireEnabled do
-                    utility.rapid(gun)
-                    task.wait(Config.RapidFireDelay)
-                end
-            end)
-        end
-    end
-end)
-
--- Input kết thúc (chuột hoặc cảm ứng)
-UserInputService.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        isFiring = false
-    end
-end)
-
-rapidFireButton = CreateButton(ButtonFrame1, "Rapid Fire: " .. (Config.RapidFireEnabled and "ON" or "OFF"), function()
-    Config.RapidFireEnabled = not Config.RapidFireEnabled
-    rapidFireButton.Text = "Rapid Fire: " .. (Config.RapidFireEnabled and "ON" or "OFF")
-    sendNotification("Rapid Fire", Config.RapidFireEnabled and "Enabled" or "Disabled")
-end)
-
 macroLegitButton = CreateButton(ButtonFrame1, "Macro Legit: " .. (Config.MacroLegitEnabled and "ON" or "OFF"), function()
     Config.MacroLegitEnabled = not Config.MacroLegitEnabled
     macroLegitButton.Text = "Macro Legit: " .. (Config.MacroLegitEnabled and "ON" or "OFF")
@@ -917,7 +864,7 @@ end)
 -- Resolver Button (Page 2, Left Side)
 local resolverEnabled = false
 
-local resolverButton = CreateButton(ButtonFrame1, "Resolver: OFF", function()
+resolverButton = CreateButton(ButtonFrame1, "Resolver: OFF", function()
     resolverEnabled = not resolverEnabled
     resolverButton.Text = "Resolver: " .. (resolverEnabled and "ON" or "OFF")
     sendNotification("Resolver", resolverEnabled and "Enabled" or "Disabled")
@@ -934,163 +881,68 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- AutoBring Toggle (Da Hood chuẩn)
-local autoBringEnabled = false
-local autoBringConn
+-- Hàm tìm RemoteEvent bất kể viết hoa/thường/có dấu cách
+local function getMainEvent()
+    local rs = game:GetService("ReplicatedStorage")
+    for _, obj in ipairs(rs:GetDescendants()) do
+        if obj:IsA("RemoteEvent") and string.lower(obj.Name):gsub("%s+", "") == "mainevent" then
+            return obj
+        end
+    end
+    return nil
+end
 
-local autoBringButton = CreateButton(ButtonFrame1, "AutoBring: OFF", function()
-    autoBringEnabled = not autoBringEnabled
-    autoBringButton.Text = "AutoBring: " .. (autoBringEnabled and "ON" or "OFF")
-    sendNotification("AutoBring", autoBringEnabled and "Enabled" or "Disabled")
+-- Khai báo biến global
+_G.AutoReload = false -- Để tương thích với logic bạn cung cấp
 
-    if autoBringEnabled then
-        autoBringConn = RunService.Heartbeat:Connect(function()
-            local myChar = LocalPlayer.Character
-            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-            local hum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-            if not (myHRP and hum and hum.Health > 0) then return end
+-- Cache để tối ưu hiệu suất
+local stompRemotes, reloadRemotes, bringRemotes = {}, {}, {}
 
-            for name, selected in pairs(Config.SelectedPlayers or {}) do
-                if selected then
-                    local plr = Players:FindFirstChild(name)
-                    local char = plr and plr.Character
-                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                    local bodyEffects = char and char:FindFirstChild("BodyEffects")
-                    local ko = bodyEffects and bodyEffects:FindFirstChild("K.O")
+-- AutoReload (tích hợp _G.AutoReload và case-insensitive)
+autoReloadButton = CreateButton(ButtonFrame1, "AutoReload: OFF", function()
+    _G.AutoReload = not _G.AutoReload
+    autoReloadButton.Text = "AutoReload: " .. (_G.AutoReload and "ON" or "OFF")
+    sendNotification("AutoReload", _G.AutoReload and "Enabled" or "Disabled")
 
-                    if hrp and ko and ko.Value == true then
-                        -- Bring target về trước mặt
-                        hrp.CFrame = myHRP.CFrame * CFrame.new(0,0,-3)
+    if _G.AutoReload then
+        -- Cache remotes chứa "reload"
+        reloadRemotes = {}
+        for _, service in pairs({game:GetService("ReplicatedStorage"), game:GetService("ServerScriptService")}) do
+            for _, obj in pairs(service:GetDescendants()) do
+                if obj:IsA("RemoteEvent") and obj.Name:lower():find("reload") then
+                    table.insert(reloadRemotes, obj)
+                end
+            end
+        end
 
-                        -- Nếu chưa bị Grab → gửi remote Grab
-                        local grabVal = bodyEffects and bodyEffects:FindFirstChild("Grabbed")
-                        if grabVal and grabVal.Value == false then
-                            local mainEvent = game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent")
-                            if mainEvent then
-                                mainEvent:FireServer("Grabbing", plr)
+        task.spawn(function()
+            while _G.AutoReload do
+                local myChar = LocalPlayer.Character
+                if myChar then
+                    local tool = myChar:FindFirstChildWhichIsA("Tool")
+                    if tool then
+                        -- Tìm Ammo case-insensitive
+                        local ammoValue
+                        for _, obj in pairs(tool:GetDescendants()) do
+                            if (obj:IsA("IntValue") or obj:IsA("NumberValue")) and obj.Name:lower():find("ammo") and obj.Value <= 0 then
+                                ammoValue = obj
+                                break
                             end
+                        end
+
+                        if ammoValue then
+                            for _, remote in pairs(reloadRemotes) do
+                                pcall(function() remote:FireServer("Reload", tool) end)
+                            end
+                            task.wait(1) -- Cooldown để tránh spam
                         end
                     end
                 end
+                task.wait(0.5) -- Giảm tần suất kiểm tra
             end
         end)
     else
-        if autoBringConn then
-            autoBringConn:Disconnect()
-            autoBringConn = nil
-        end
-    end
-end)
-
--- AutoStomp Selected Toggle
-local autoStompEnabled = false
-local autoStompConn
-
-local autoStompButton = CreateButton(ButtonFrame1, "AutoStomp: OFF", function()
-    autoStompEnabled = not autoStompEnabled
-    autoStompButton.Text = "AutoStomp: " .. (autoStompEnabled and "ON" or "OFF")
-    sendNotification("AutoStomp", autoStompEnabled and "Enabled" or "Disabled")
-
-    if autoStompEnabled then
-        autoStompConn = RunService.Heartbeat:Connect(function()
-            local myChar = LocalPlayer.Character
-            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-            local hum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-            if not (myHRP and hum and hum.Health > 0) then return end
-
-            for name, selected in pairs(Config.SelectedPlayers or {}) do
-                if selected then
-                    local plr = Players:FindFirstChild(name)
-                    local char = plr and plr.Character
-                    local lowerTorso = char and char:FindFirstChild("LowerTorso")
-                    local bodyEffects = char and char:FindFirstChild("BodyEffects")
-                    local ko = bodyEffects and bodyEffects:FindFirstChild("K.O")
-
-                    if lowerTorso and ko and ko.Value == true then
-                        -- Lưu vị trí cũ
-                        local oldCFrame = myHRP.CFrame
-
-                        -- Đến gần vị trí LowerTorso của victim
-                        myHRP.CFrame = lowerTorso.CFrame * CFrame.new(0, 0, 3)
-
-                        -- Stomp
-                        local mainEvent = game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent")
-                        if mainEvent then
-                            mainEvent:FireServer("Stomp")
-                        end
-
-                        -- Delay nhỏ để chắc chắn stomp xong rồi về lại
-                        task.delay(0.5, function()
-                            if myHRP and autoStompEnabled then
-                                myHRP.CFrame = oldCFrame
-                            end
-                        end)
-                    end
-                end
-            end
-        end)
-    else
-        if autoStompConn then
-            autoStompConn:Disconnect()
-            autoStompConn = nil
-        end
-    end
-end)
-
--- 0Delay Toggle (tích hợp AutoGunPatch)
-local zeroDelayEnabled = false
-local zeroDelayConn
-
-local zeroDelayButton = CreateButton(ButtonFrame1, "0Delay: OFF", function()
-    zeroDelayEnabled = not zeroDelayEnabled
-    zeroDelayButton.Text = "0Delay: " .. (zeroDelayEnabled and "ON" or "OFF")
-    sendNotification("0Delay", zeroDelayEnabled and "Enabled" or "Disabled")
-
-    -- Hàm patch súng
-    local function patchGun(tool)
-        if not tool or not zeroDelayEnabled then return end
-
-        -- Patch FireRate / ShotDelay / ReloadTime
-        local fireRate = tool:FindFirstChild("FireRate") or tool:FindFirstChild("ShotDelay") or tool:FindFirstChild("ReloadTime")
-        if fireRate and fireRate:IsA("NumberValue") then
-            fireRate.Value = 0
-        end
-
-        -- Ammo vô hạn
-        local ammo = tool:FindFirstChild("Ammo") or tool:FindFirstChild("AmmoCount")
-        if ammo and ammo:IsA("IntValue") then
-            ammo.Value = math.huge
-        end
-    end
-
-    -- Xử lý khi bật
-    if zeroDelayEnabled then
-        -- Patch tool đang cầm
-        local char = LocalPlayer.Character
-        if char then
-            for _, tool in ipairs(char:GetChildren()) do
-                if tool:IsA("Tool") then
-                    patchGun(tool)
-                end
-            end
-        end
-
-        -- Theo dõi equip mới
-        local function hookChar(c)
-            c.ChildAdded:Connect(function(child)
-                if child:IsA("Tool") then
-                    task.wait(0.1)
-                    patchGun(child)
-                end
-            end)
-        end
-
-        if LocalPlayer.Character then
-            hookChar(LocalPlayer.Character)
-        end
-        LocalPlayer.CharacterAdded:Connect(hookChar)
-    else
-        -- Tắt thì thôi, không restore (vì thường game sẽ tự reset value khi respawn)
+        reloadRemotes = {}
     end
 end)
 
