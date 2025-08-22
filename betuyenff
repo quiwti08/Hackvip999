@@ -1172,10 +1172,22 @@ unlock3rdButton = CreateButton(ButtonFrame2Left, "Unlock 3rd: OFF", function()
     end
 end)
 
--- HugR6
+-- ============ HUG R6 / R15 ============
 local hugEnabled = false
 local hugConn
 local hugButton
+local Play_1, Play_2 -- giữ track để stop được cả khi OFF
+
+local function stopHug()
+    if hugConn then
+        hugConn:Disconnect()
+        hugConn = nil
+    end
+    if Play_1 then Play_1:Stop() end
+    if Play_2 then Play_2:Stop() end
+    hugEnabled = false
+    hugButton.Text = "HugR6/R15: OFF"
+end
 
 hugButton = CreateButton(ButtonFrame2Left, "HugR6/R15: OFF", function()
     hugEnabled = not hugEnabled
@@ -1185,8 +1197,12 @@ hugButton = CreateButton(ButtonFrame2Left, "HugR6/R15: OFF", function()
     local char = player.Character or player.CharacterAdded:Wait()
     local hum = char:WaitForChild("Humanoid")
 
+    -- Reset track cũ
+    if Play_1 then Play_1:Stop() end
+    if Play_2 then Play_2:Stop() end
+    Play_1, Play_2 = nil, nil
+
     -- Load Animations theo Rig
-    local Play_1, Play_2
     if hum.RigType == Enum.HumanoidRigType.R6 then
         local Anim_1 = Instance.new("Animation")
         Anim_1.AnimationId = "rbxassetid://283545583"
@@ -1199,17 +1215,6 @@ hugButton = CreateButton(ButtonFrame2Left, "HugR6/R15: OFF", function()
         local Anim_R15 = Instance.new("Animation")
         Anim_R15.AnimationId = "rbxassetid://118478639008343"
         Play_1 = hum:LoadAnimation(Anim_R15)
-    end
-
-    local function stopHug()
-        if hugConn then
-            hugConn:Disconnect()
-            hugConn = nil
-        end
-        if Play_1 then Play_1:Stop() end
-        if Play_2 then Play_2:Stop() end
-        hugEnabled = false
-        hugButton.Text = "HugR6/R15: OFF"
     end
 
     if hugEnabled then
@@ -1248,8 +1253,12 @@ game.Players.LocalPlayer.CharacterAdded:Connect(function()
     if hugEnabled then
         task.wait(0.5)
         hugButton.Text = "HugR6/R15: ON"
+        -- Respawn thì stop animation cũ, sẽ play lại khi Heartbeat chạy
+        if Play_1 then Play_1:Stop() end
+        if Play_2 then Play_2:Stop() end
     end
 end)
+-- ============ /HUG R6 / R15 ============
 
 -- Config
 getgenv().KorAnimEnabled = true
@@ -1328,39 +1337,26 @@ local function stopPiggy()
         piggyConn:Disconnect()
         piggyConn = nil
     end
-    if piggyTrack then piggyTrack:Stop() end
+    if piggyTrack then
+        piggyTrack:Stop()
+        piggyTrack = nil
+    end
     piggyEnabled = false
     piggyButton.Text = "Piggyback: OFF"
 end
 
-piggyButton = CreateButton(ButtonFrame2Left, "Piggyback: OFF", function()
-    piggyEnabled = not piggyEnabled
-
-    if not piggyEnabled then
-        stopPiggy()
-        sendNotification("Piggyback", "OFF")
-        return
-    end
-
-    -- Dùng cùng hàm chọn mục tiêu như BangPlayer
-    local target = getClosestSelected()
-    if not target then
-        piggyEnabled = false
-        piggyButton.Text = "Piggyback: OFF"
-        return
-    end
-
+local function startPiggy(target)
     local myChar = LocalPlayer.Character
     local myHum  = myChar and myChar:FindFirstChildOfClass("Humanoid")
     local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local head   = target.Character and target.Character:FindFirstChild("Head")
+    local tHead  = target.Character and target.Character:FindFirstChild("Head")
 
-    if not (myHum and myHRP and head) then
+    if not (myHum and myHRP and tHead) then
         stopPiggy()
         return
     end
 
-    -- Load animation
+    -- Load lại animation mỗi lần bật
     piggyAnim = Instance.new("Animation")
     piggyAnim.AnimationId = "rbxassetid://115900505866868"
     piggyTrack = myHum:LoadAnimation(piggyAnim)
@@ -1369,7 +1365,7 @@ piggyButton = CreateButton(ButtonFrame2Left, "Piggyback: OFF", function()
     piggyButton.Text = ("Piggyback: ON (%s)"):format(target.Name)
     sendNotification("Piggyback", "Đang cõng " .. target.Name)
 
-    -- Bám ngay đúng đầu target (offset = 0)
+    -- Loop để bám vào đầu target
     piggyConn = RunService.Heartbeat:Connect(function()
         local valid = piggyEnabled
             and target.Character
@@ -1383,59 +1379,45 @@ piggyButton = CreateButton(ButtonFrame2Left, "Piggyback: OFF", function()
         end
 
         local tHead = target.Character.Head
-        -- offset = 0
+        -- dính ngay trên đầu (có offset nhỏ để không lọt vào trong Head)
         myHRP.CFrame = tHead.CFrame * CFrame.new(0, -0.6, 0.6)
         pcall(function()
             myHRP.AssemblyLinearVelocity = Vector3.zero
             myHRP.AssemblyAngularVelocity = Vector3.zero
         end)
     end)
-end)
+end
 
--- Giữ Piggyback khi respawn
-LocalPlayer.CharacterAdded:Connect(function()
-    if not piggyEnabled then return end
-    task.wait(0.5)
+-- Nút bật / tắt
+piggyButton = CreateButton(ButtonFrame2Left, "Piggyback: OFF", function()
+    piggyEnabled = not piggyEnabled
+    if not piggyEnabled then
+        stopPiggy()
+        sendNotification("Piggyback", "OFF")
+        return
+    end
 
     local target = getClosestSelected()
-    if not (target and target.Character and target.Character:FindFirstChild("Head")) then
+    if not target then
         stopPiggy()
         return
     end
 
-    local myChar = LocalPlayer.Character
-    local myHum  = myChar and myChar:FindFirstChildOfClass("Humanoid")
-    local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not (myHum and myHRP) then
+    startPiggy(target)
+end)
+
+-- Khi respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    if not piggyEnabled then return end
+    task.wait(0.5) -- đợi nhân vật mới load đủ
+
+    local target = getClosestSelected()
+    if not target then
         stopPiggy()
         return
     end
 
-    piggyAnim = Instance.new("Animation")
-    piggyAnim.AnimationId = "rbxassetid://115900505866868"
-    piggyTrack = myHum:LoadAnimation(piggyAnim)
-    piggyTrack:Play()
-
-    piggyConn = RunService.Heartbeat:Connect(function()
-        local ok = piggyEnabled
-            and target.Character
-            and target.Character:FindFirstChild("Head")
-            and myHRP
-            and myHRP.Parent
-
-        if not ok then
-            stopPiggy()
-            return
-        end
-
-        local tHead = target.Character.Head
-        -- offset = 0
-        myHRP.CFrame = tHead.CFrame * CFrame.new(0, -0.6, 0.6)
-        pcall(function()
-            myHRP.AssemblyLinearVelocity = Vector3.zero
-            myHRP.AssemblyAngularVelocity = Vector3.zero
-        end)
-    end)
+    startPiggy(target)
 end)
 -- ============ /PIGGYBACK ============
 
@@ -2196,100 +2178,6 @@ end)
 CreateButton(ButtonFrame2Right, "cutesit", function()
     playAnimation(animations.cutesit)
 end)
-
-local matchingEnabled = false
-local matchingConn
-local matchingButton
-local currentTrack -- track hiện tại của mình
-
--- Bảng cặp animation (matching1<->2, hug1<->2, ...)
-local specialPairs = {
-    ["rbxassetid://102139040629559"] = "rbxassetid://110235213168404",
-    ["rbxassetid://110235213168404"] = "rbxassetid://102139040629559",
-    ["rbxassetid://105797917228398"] = "rbxassetid://118264035209903",
-    ["rbxassetid://118264035209903"] = "rbxassetid://105797917228398",
-    ["rbxassetid://94749062881621"]  = "rbxassetid://110800242342916",
-    ["rbxassetid://110800242342916"] = "rbxassetid://94749062881621",
-}
-
-local function stopMatching()
-    if matchingConn then
-        matchingConn:Disconnect()
-        matchingConn = nil
-    end
-    if currentTrack then
-        currentTrack:Stop()
-        currentTrack = nil
-    end
-end
-
-local function startMatching()
-    local target = getClosestSelected()
-    if not target or not target.Character then
-        stopMatching()
-        return
-    end
-
-    local hum = target.Character:FindFirstChildOfClass("Humanoid")
-    local animator = hum and hum:FindFirstChildOfClass("Animator")
-    if not animator then
-        stopMatching()
-        return
-    end
-
-    local myChar = LocalPlayer.Character
-    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-    local myAnimator = myHum and myHum:FindFirstChildOfClass("Animator")
-    if not myAnimator then
-        stopMatching()
-        return
-    end
-
-    -- Lắng nghe target play animation
-    matchingConn = animator.AnimationPlayed:Connect(function(track)
-        if not matchingEnabled then return end
-        if currentTrack then currentTrack:Stop() end
-
-        local animId = track.Animation.AnimationId
-        local useId = specialPairs[animId] or animId
-
-        local anim = Instance.new("Animation")
-        anim.AnimationId = useId
-        currentTrack = myAnimator:LoadAnimation(anim)
-        currentTrack:Play()
-
-        -- Khi target dừng → mình cũng dừng
-        track.Stopped:Connect(function()
-            if currentTrack then
-                currentTrack:Stop()
-                currentTrack = nil
-            end
-        end)
-    end)
-end
-
--- Nút bật/tắt
-matchingButton = CreateButton(ButtonFrame2Right, "MatchEmote: OFF", function()
-    matchingEnabled = not matchingEnabled
-    matchingButton.Text = "MatchEmote: " .. (matchingEnabled and "ON" or "OFF")
-
-    stopMatching()
-    if matchingEnabled then
-        startMatching()
-    end
-end)
-
--- Respawn → tự kết nối lại nếu đang ON
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1) -- đợi nhân vật load
-    currentTrack = nil
-    if matchingEnabled then
-        stopMatching()
-        startMatching()
-        matchingButton.Text = "MatchEmote: ON"
-    end
-end)
--- ============ /MATCHING EMOTE ============
 
 CreateButton(ButtonFrame2Right, "matching1", function()
     playAnimation(animations.matching1)
