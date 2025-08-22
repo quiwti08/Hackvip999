@@ -2566,7 +2566,7 @@ end
 local function GetBestTargetPart()
     local bestPart, bestDist = nil, fovRadius
     for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and Config.SelectedPlayers[plr.Name] and IsValidTarget(plr) and plr.Character then
+        if plr ~= LocalPlayer and Config.SelectedPlayers[plr.Name] and isAlive(plr) and plr.Character then
             for _, partName in ipairs(hitParts) do
                 local part = plr.Character:FindFirstChild(partName)
                 if part and part:IsA("BasePart") then
@@ -2607,7 +2607,7 @@ local function GetClosestValidPlayer()
     if not myHRP then return nil end
 
     for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and Config.SelectedPlayers[plr.Name] and IsValidTarget(plr) and plr.Character then
+        if plr ~= LocalPlayer and Config.SelectedPlayers[plr.Name] and isAlive(plr) and plr.Character then
             local targetPart = plr.Character:FindFirstChild(getgenv().Aimbot.Hitpart)
             local targetHRP = plr.Character:FindFirstChild("HumanoidRootPart")
             if targetPart and targetHRP then
@@ -2631,7 +2631,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
 
     if Config.AimbotEnabled and getgenv().Aimbot.Status then
         Player = GetClosestValidPlayer()
-        if Player and isAlive(Player) and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
+        if Player and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
             local part = Player.Character[getgenv().Aimbot.Hitpart]
             local ping = Config.AutoPredictionEnabled and GetPing() or Config.CustomPing
             local predictedPos = CalculateVIPPrediction(part, ping)
@@ -2644,7 +2644,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
     -- TRIGGERBOT
     if tbEnabled then
         local part = GetBestTargetPart()
-        if part and isAlive(part) then
+        if part then
             task.spawn(function()
                 local cap = part
                 task.wait(0)
