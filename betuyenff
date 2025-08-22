@@ -914,32 +914,183 @@ triggerBotButton = CreateButton(ButtonFrame1, "TriggerBot: " .. (tbEnabled and "
     sendNotification("TRIGGERBOT", tbEnabled and "ON" or "OFF")
 end)
 
-tpAndStompButton = CreateButton(ButtonFrame1, "TP Player", function()
-    local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
-    if not myPos then return end
+-- Resolver Button (Page 2, Left Side)
+local resolverEnabled = false
 
-    local closestPlayer, minDist = nil, math.huge
+local resolverButton = CreateButton(ButtonFrame1, "Resolver: OFF", function()
+    resolverEnabled = not resolverEnabled
+    resolverButton.Text = "Resolver: " .. (resolverEnabled and "ON" or "OFF")
+    sendNotification("Resolver", resolverEnabled and "Enabled" or "Disabled")
+end)
 
-    for name, selected in pairs(Config.SelectedPlayers) do
-        if selected then
-            local plr = Players:FindFirstChild(name)
-            if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local pos = plr.Character.HumanoidRootPart.Position
-                local dist = (myPos - pos).Magnitude
-                if dist < minDist then
-                    closestPlayer = plr
-                    minDist = dist
-                end
+RunService.Heartbeat:Connect(function()
+    if resolverEnabled then
+        for _,plr in ipairs(Players:GetPlayers()) do
+            if plr ~= Players.LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                -- Reset velocity để aim không bị lệch
+                plr.Character.HumanoidRootPart.Velocity = Vector3.new(0, plr.Character.HumanoidRootPart.Velocity.Y, 0)
             end
         end
     end
+end)
 
-    if closestPlayer then
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            local pos = closestPlayer.Character.HumanoidRootPart.Position
-            root.CFrame = CFrame.new(pos + Vector3.new(0, 0, 0))
+-- AutoBring Toggle (Da Hood chuẩn)
+local autoBringEnabled = false
+local autoBringConn
+
+local autoBringButton = CreateButton(ButtonFrame1, "AutoBring: OFF", function()
+    autoBringEnabled = not autoBringEnabled
+    autoBringButton.Text = "AutoBring: " .. (autoBringEnabled and "ON" or "OFF")
+    sendNotification("AutoBring", autoBringEnabled and "Enabled" or "Disabled")
+
+    if autoBringEnabled then
+        autoBringConn = RunService.Heartbeat:Connect(function()
+            local myChar = LocalPlayer.Character
+            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local hum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+            if not (myHRP and hum and hum.Health > 0) then return end
+
+            for name, selected in pairs(Config.SelectedPlayers or {}) do
+                if selected then
+                    local plr = Players:FindFirstChild(name)
+                    local char = plr and plr.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    local bodyEffects = char and char:FindFirstChild("BodyEffects")
+                    local ko = bodyEffects and bodyEffects:FindFirstChild("K.O")
+
+                    if hrp and ko and ko.Value == true then
+                        -- Bring target về trước mặt
+                        hrp.CFrame = myHRP.CFrame * CFrame.new(0,0,-3)
+
+                        -- Nếu chưa bị Grab → gửi remote Grab
+                        local grabVal = bodyEffects and bodyEffects:FindFirstChild("Grabbed")
+                        if grabVal and grabVal.Value == false then
+                            local mainEvent = game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent")
+                            if mainEvent then
+                                mainEvent:FireServer("Grabbing", plr)
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    else
+        if autoBringConn then
+            autoBringConn:Disconnect()
+            autoBringConn = nil
         end
+    end
+end)
+
+-- AutoStomp Selected Toggle
+local autoStompEnabled = false
+local autoStompConn
+
+local autoStompButton = CreateButton(ButtonFrame1, "AutoStomp: OFF", function()
+    autoStompEnabled = not autoStompEnabled
+    autoStompButton.Text = "AutoStomp: " .. (autoStompEnabled and "ON" or "OFF")
+    sendNotification("AutoStomp", autoStompEnabled and "Enabled" or "Disabled")
+
+    if autoStompEnabled then
+        autoStompConn = RunService.Heartbeat:Connect(function()
+            local myChar = LocalPlayer.Character
+            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local hum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+            if not (myHRP and hum and hum.Health > 0) then return end
+
+            for name, selected in pairs(Config.SelectedPlayers or {}) do
+                if selected then
+                    local plr = Players:FindFirstChild(name)
+                    local char = plr and plr.Character
+                    local lowerTorso = char and char:FindFirstChild("LowerTorso")
+                    local bodyEffects = char and char:FindFirstChild("BodyEffects")
+                    local ko = bodyEffects and bodyEffects:FindFirstChild("K.O")
+
+                    if lowerTorso and ko and ko.Value == true then
+                        -- Lưu vị trí cũ
+                        local oldCFrame = myHRP.CFrame
+
+                        -- Đến gần vị trí LowerTorso của victim
+                        myHRP.CFrame = lowerTorso.CFrame * CFrame.new(0, 0, 3)
+
+                        -- Stomp
+                        local mainEvent = game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent")
+                        if mainEvent then
+                            mainEvent:FireServer("Stomp")
+                        end
+
+                        -- Delay nhỏ để chắc chắn stomp xong rồi về lại
+                        task.delay(0.5, function()
+                            if myHRP and autoStompEnabled then
+                                myHRP.CFrame = oldCFrame
+                            end
+                        end)
+                    end
+                end
+            end
+        end)
+    else
+        if autoStompConn then
+            autoStompConn:Disconnect()
+            autoStompConn = nil
+        end
+    end
+end)
+
+-- 0Delay Toggle (tích hợp AutoGunPatch)
+local zeroDelayEnabled = false
+local zeroDelayConn
+
+local zeroDelayButton = CreateButton(ButtonFrame1, "0Delay: OFF", function()
+    zeroDelayEnabled = not zeroDelayEnabled
+    zeroDelayButton.Text = "0Delay: " .. (zeroDelayEnabled and "ON" or "OFF")
+    sendNotification("0Delay", zeroDelayEnabled and "Enabled" or "Disabled")
+
+    -- Hàm patch súng
+    local function patchGun(tool)
+        if not tool or not zeroDelayEnabled then return end
+
+        -- Patch FireRate / ShotDelay / ReloadTime
+        local fireRate = tool:FindFirstChild("FireRate") or tool:FindFirstChild("ShotDelay") or tool:FindFirstChild("ReloadTime")
+        if fireRate and fireRate:IsA("NumberValue") then
+            fireRate.Value = 0
+        end
+
+        -- Ammo vô hạn
+        local ammo = tool:FindFirstChild("Ammo") or tool:FindFirstChild("AmmoCount")
+        if ammo and ammo:IsA("IntValue") then
+            ammo.Value = math.huge
+        end
+    end
+
+    -- Xử lý khi bật
+    if zeroDelayEnabled then
+        -- Patch tool đang cầm
+        local char = LocalPlayer.Character
+        if char then
+            for _, tool in ipairs(char:GetChildren()) do
+                if tool:IsA("Tool") then
+                    patchGun(tool)
+                end
+            end
+        end
+
+        -- Theo dõi equip mới
+        local function hookChar(c)
+            c.ChildAdded:Connect(function(child)
+                if child:IsA("Tool") then
+                    task.wait(0.1)
+                    patchGun(child)
+                end
+            end)
+        end
+
+        if LocalPlayer.Character then
+            hookChar(LocalPlayer.Character)
+        end
+        LocalPlayer.CharacterAdded:Connect(hookChar)
+    else
+        -- Tắt thì thôi, không restore (vì thường game sẽ tự reset value khi respawn)
     end
 end)
 
@@ -1863,6 +2014,35 @@ LocalPlayer.CharacterAdded:Connect(function()
             stopAnimAndTp()
             bangButton.Text = "BangPlayer: OFF"
             sendNotification("BangPlayer", "Mục tiêu không hợp lệ, đã tắt!")
+        end
+    end
+end)
+
+tpAndStompButton = CreateButton(ButtonFrame2Left, "TP Player", function()
+    local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
+    if not myPos then return end
+
+    local closestPlayer, minDist = nil, math.huge
+
+    for name, selected in pairs(Config.SelectedPlayers) do
+        if selected then
+            local plr = Players:FindFirstChild(name)
+            if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local pos = plr.Character.HumanoidRootPart.Position
+                local dist = (myPos - pos).Magnitude
+                if dist < minDist then
+                    closestPlayer = plr
+                    minDist = dist
+                end
+            end
+        end
+    end
+
+    if closestPlayer then
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            local pos = closestPlayer.Character.HumanoidRootPart.Position
+            root.CFrame = CFrame.new(pos + Vector3.new(0, 0, 0))
         end
     end
 end)
