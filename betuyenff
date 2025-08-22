@@ -1165,6 +1165,77 @@ unlock3rdButton = CreateButton(ButtonFrame2Left, "Unlock 3rd: OFF", function()
     end
 end)
 
+-- HugR6
+local hugEnabled = false
+local hugConn
+local hugButton
+
+hugButton = CreateButton(ButtonFrame2Left, "HugR6: OFF", function()
+    hugEnabled = not hugEnabled
+    hugButton.Text = "HugR6: " .. (hugEnabled and "ON" or "OFF")
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+
+    -- Load Animations
+    local Anim_1 = Instance.new("Animation")
+    Anim_1.AnimationId = "rbxassetid://283545583"
+    local Play_1 = hum:LoadAnimation(Anim_1)
+
+    local Anim_2 = Instance.new("Animation")
+    Anim_2.AnimationId = "rbxassetid://225975820"
+    local Play_2 = hum:LoadAnimation(Anim_2)
+
+    local function stopHug()
+        if hugConn then
+            hugConn:Disconnect()
+            hugConn = nil
+        end
+        Play_1:Stop()
+        Play_2:Stop()
+        hugEnabled = false
+        hugButton.Text = "HugR6: OFF"
+    end
+
+    if hugEnabled then
+        Play_1:Play()
+        Play_2:Play()
+
+        hugConn = game:GetService("RunService").Heartbeat:Connect(function()
+            local target = getClosestSelected()
+            if not (target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")) then
+                stopHug()
+                return
+            end
+
+            local myHRP = char:FindFirstChild("HumanoidRootPart")
+            local targetHRP = target.Character.HumanoidRootPart
+            if myHRP and targetHRP then
+                -- vị trí trước mặt target (1 stud)
+                local offset = targetHRP.CFrame * CFrame.new(0, 0, 1)
+                -- xoay mặt nhân vật về target
+                myHRP.CFrame = CFrame.new(offset.Position, targetHRP.Position)
+                -- triệt tiêu velocity để không trôi
+                pcall(function()
+                    myHRP.AssemblyLinearVelocity = Vector3.zero
+                    myHRP.AssemblyAngularVelocity = Vector3.zero
+                end)
+            end
+        end)
+    else
+        stopHug()
+    end
+end)
+
+-- Giữ HugR6 khi respawn
+game.Players.LocalPlayer.CharacterAdded:Connect(function()
+    if hugEnabled then
+        task.wait(0.5)
+        hugButton.Text = "HugR6: ON"
+    end
+end)
+
 -- Config
 getgenv().KorAnimEnabled = true
 getgenv().RightUpperLegAccessories = {
