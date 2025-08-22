@@ -983,37 +983,41 @@ tracerButton = CreateButton(ButtonFrame2Left, "Tracer Color: " .. tracerColors[c
     tracerButton.Text = "Tracer Color: " .. tracerColors[colorIndex][2]
 end)
 
-antiLockButton = CreateButton(ButtonFrame1, "AntiLock: " .. (Config.AntiLockEnabled and "ON" or "OFF"), function()
-    Config.AntiLockEnabled = not Config.AntiLockEnabled
-    antiLockButton.Text = "AntiLock: " .. (Config.AntiLockEnabled and "ON" or "OFF")
-    sendNotification("AntiLock", Config.AntiLockEnabled and "Enabled" or "Disabled")
-end)
+-- Danh sách mode AntiLock
+local antiLockModes = {
+    "OFF",
+    "Behind",
+    "Down",
+    "Forward",
+    "Left",
+    "One",
+    "Right",
+    "Up",
+    "Zero",
+}
 
--- Ô nhập mode cho AntiLock
-local modeBox = Instance.new("TextBox")
-modeBox.Size = UDim2.new(1, 0, 0, 20)
-modeBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-modeBox.TextColor3 = Color3.new(1, 1, 1)
-modeBox.Font = Enum.Font.GothamBold
-modeBox.TextSize = 12
-modeBox.ClearTextOnFocus = false
-modeBox.PlaceholderText = "Enter mode (default Behind)"
-modeBox.Text = Config.AntiLockType
-Instance.new("UICorner", modeBox).CornerRadius = UDim.new(0, 4)
-modeBox.Parent = ButtonFrame1
+Config.AntiLockType = "OFF"
+Config.AntiLockEnabled = false
+local modeIndex = 1
+local antiLockButton
 
-modeBox.FocusLost:Connect(function()
-    local input = modeBox.Text
-    if input == "" then
-        Config.AntiLockType = "Behind"
-    elseif antiLockModes[input] then
-        Config.AntiLockType = input
-    else
-        sendNotification("AntiLock", "Invalid mode! Keeping: " .. Config.AntiLockType)
-        modeBox.Text = Config.AntiLockType
-        return
+antiLockButton = CreateButton(ButtonFrame1, "AntiLock: OFF", function()
+    -- tăng mode
+    modeIndex = modeIndex + 1
+    if modeIndex > #antiLockModes then
+        modeIndex = 1
     end
-    sendNotification("AntiLock", "Type set to: " .. Config.AntiLockType)
+
+    local mode = antiLockModes[modeIndex]
+    if mode == "OFF" then
+        Config.AntiLockEnabled = false
+    else
+        Config.AntiLockEnabled = true
+        Config.AntiLockType = mode
+    end
+
+    antiLockButton.Text = "AntiLock: " .. mode
+    sendNotification("AntiLock", "Mode: " .. mode)
 end)
 
 -- ======= LOGIC ANTILOCK =======
@@ -1032,7 +1036,7 @@ _G.__vhuyhub_antilock_conn = RunService.Heartbeat:Connect(function()
     local t = Config.AntiLockType
     if     t == "Behind"  then dir = Vector3.new(0,  0, -1)
     elseif t == "Down"    then dir = Vector3.new(0, -1,  0)
-    elseif t == "ForWard" then dir = Vector3.new(0,  0,  1)
+    elseif t == "Forward" then dir = Vector3.new(0,  0,  1)
     elseif t == "Left"    then dir = Vector3.new(-1, 0,  0)
     elseif t == "One"     then dir = Vector3.new(1,  1,  1)
     elseif t == "Right"   then dir = Vector3.new(1,  0,  0)
