@@ -1221,9 +1221,9 @@ local hugEnabled = false
 local hugConn
 local hugButton
 
-hugButton = CreateButton(ButtonFrame2Left, "HugR6: OFF", function()
+hugButton = CreateButton(ButtonFrame2Left, "HugR6/R15: OFF", function()
     hugEnabled = not hugEnabled
-    hugButton.Text = "HugR6: " .. (hugEnabled and "ON" or "OFF")
+    hugButton.Text = "HugR6/R15: " .. (hugEnabled and "ON" or "OFF")
 
     local player = game.Players.LocalPlayer
     local char = player.Character or player.CharacterAdded:Wait()
@@ -1253,7 +1253,7 @@ hugButton = CreateButton(ButtonFrame2Left, "HugR6: OFF", function()
         if Play_1 then Play_1:Stop() end
         if Play_2 then Play_2:Stop() end
         hugEnabled = false
-        hugButton.Text = "HugR6: OFF"
+        hugButton.Text = "HugR6/R15: OFF"
     end
 
     if hugEnabled then
@@ -1291,7 +1291,7 @@ end)
 game.Players.LocalPlayer.CharacterAdded:Connect(function()
     if hugEnabled then
         task.wait(0.5)
-        hugButton.Text = "HugR6: ON"
+        hugButton.Text = "HugR6/R15: ON"
     end
 end)
 
