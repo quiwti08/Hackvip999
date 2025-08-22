@@ -1237,8 +1237,6 @@ hugButton = CreateButton(ButtonFrame2Left, "HugR6/R15: OFF", function()
             if myHRP and targetHRP then
                 -- Vị trí trước mặt target (1 stud)
                 local offsetPos = targetHRP.Position - targetHRP.CFrame.LookVector * 1
-                -- Đặt nhân vật vào đó và xoay mặt về target
-                myHRP.CFrame = CFrame.new(offsetPos, targetHRP.Position)
 
                 -- Giữ đứng yên, không trôi
                 pcall(function()
@@ -1345,6 +1343,9 @@ local function stopPiggy()
         piggyTrack:Stop()
         piggyTrack = nil
     end
+    local myChar = LocalPlayer.Character
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if myHum then myHum.Sit = false end
     piggyEnabled = false
     piggyButton.Text = "Piggyback: OFF"
 end
@@ -1360,16 +1361,24 @@ local function startPiggy(target)
         return
     end
 
-    -- Load lại animation mỗi lần bật
-    piggyAnim = Instance.new("Animation")
-    piggyAnim.AnimationId = "rbxassetid://115900505866868"
-    piggyTrack = myHum:LoadAnimation(piggyAnim)
-    piggyTrack:Play()
+    -- check RigType
+    local rigType = myHum.RigType
+
+    if rigType == Enum.HumanoidRigType.R15 then
+        -- R15: chạy animation piggyback
+        piggyAnim = Instance.new("Animation")
+        piggyAnim.AnimationId = "rbxassetid://115900505866868"
+        piggyTrack = myHum:LoadAnimation(piggyAnim)
+        piggyTrack:Play()
+    else
+        -- R6: vào trạng thái ngồi
+        myHum.Sit = true
+    end
 
     piggyButton.Text = ("Piggyback: ON (%s)"):format(target.Name)
     sendNotification("Piggyback", "Đang cõng " .. target.Name)
 
-    -- Loop để bám vào đầu target
+    -- Heartbeat loop
     piggyConn = RunService.Heartbeat:Connect(function()
         local valid = piggyEnabled
             and target.Character
@@ -1383,8 +1392,14 @@ local function startPiggy(target)
         end
 
         local tHead = target.Character.Head
-        -- dính ngay trên đầu (có offset nhỏ để không lọt vào trong Head)
-        myHRP.CFrame = tHead.CFrame * CFrame.new(0, -0.6, 0.6)
+        if rigType == Enum.HumanoidRigType.R15 then
+            -- bám đầu (R15 có animation nên offset thấp xuống chút cho khớp)
+            myHRP.CFrame = tHead.CFrame * CFrame.new(0, -0.6, 0.6)
+        else
+            -- R6: ngồi trên đầu, offset chuẩn
+            myHRP.CFrame = tHead.CFrame * CFrame.new(0, 1.6, 0)
+        end
+
         pcall(function()
             myHRP.AssemblyLinearVelocity = Vector3.zero
             myHRP.AssemblyAngularVelocity = Vector3.zero
@@ -1410,17 +1425,15 @@ piggyButton = CreateButton(ButtonFrame2Left, "Piggyback: OFF", function()
     startPiggy(target)
 end)
 
--- Khi respawn
+-- Giữ khi respawn
 LocalPlayer.CharacterAdded:Connect(function()
     if not piggyEnabled then return end
-    task.wait(0.5) -- đợi nhân vật mới load đủ
-
+    task.wait(0.5)
     local target = getClosestSelected()
     if not target then
         stopPiggy()
         return
     end
-
     startPiggy(target)
 end)
 -- ============ /PIGGYBACK ============
