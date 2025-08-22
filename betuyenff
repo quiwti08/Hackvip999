@@ -892,60 +892,6 @@ local function getMainEvent()
     return nil
 end
 
--- Khai báo biến global
-_G.AutoReload = false -- Để tương thích với logic bạn cung cấp
-
--- Cache để tối ưu hiệu suất
-local stompRemotes, reloadRemotes, bringRemotes = {}, {}, {}
-
--- AutoReload (tích hợp _G.AutoReload và case-insensitive)
-autoReloadButton = CreateButton(ButtonFrame1, "AutoReload: OFF", function()
-    _G.AutoReload = not _G.AutoReload
-    autoReloadButton.Text = "AutoReload: " .. (_G.AutoReload and "ON" or "OFF")
-    sendNotification("AutoReload", _G.AutoReload and "Enabled" or "Disabled")
-
-    if _G.AutoReload then
-        -- Cache remotes chứa "reload"
-        reloadRemotes = {}
-        for _, service in pairs({game:GetService("ReplicatedStorage"), game:GetService("ServerScriptService")}) do
-            for _, obj in pairs(service:GetDescendants()) do
-                if obj:IsA("RemoteEvent") and obj.Name:lower():find("reload") then
-                    table.insert(reloadRemotes, obj)
-                end
-            end
-        end
-
-        task.spawn(function()
-            while _G.AutoReload do
-                local myChar = LocalPlayer.Character
-                if myChar then
-                    local tool = myChar:FindFirstChildWhichIsA("Tool")
-                    if tool then
-                        -- Tìm Ammo case-insensitive
-                        local ammoValue
-                        for _, obj in pairs(tool:GetDescendants()) do
-                            if (obj:IsA("IntValue") or obj:IsA("NumberValue")) and obj.Name:lower():find("ammo") and obj.Value <= 0 then
-                                ammoValue = obj
-                                break
-                            end
-                        end
-
-                        if ammoValue then
-                            for _, remote in pairs(reloadRemotes) do
-                                pcall(function() remote:FireServer("Reload", tool) end)
-                            end
-                            task.wait(1) -- Cooldown để tránh spam
-                        end
-                    end
-                end
-                task.wait(0.5) -- Giảm tần suất kiểm tra
-            end
-        end)
-    else
-        reloadRemotes = {}
-    end
-end)
-
 local function isAlive(plr)
     if not plr or not plr.Character then return false end
     local hum = plr.Character:FindFirstChildOfClass("Humanoid")
