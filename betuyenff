@@ -57,10 +57,10 @@ local Config = {
     AutoWallhopEnabled = false,
     SpinbotEnabled = false,
     SpinbotSpeed = 450,
-    AutoPredictionEnabled = false,
     Unlock3rdEnabled = false,
     Prediction = nil,
 }
+
 local Keybinds = {}
 
 --// Helpers
@@ -453,6 +453,7 @@ CreateScriptItem("Doors", "https://raw.githubusercontent.com/DarkDoorsKing/Proje
 CreateScriptItem("Emote", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/emote")
 CreateScriptItem("Infinite Yield", "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source")
 CreateScriptItem("Dex", "https://raw.githubusercontent.com/infyiff/backup/main/dex.lua")
+CreateScriptItem("Hypershot", "https://api.luarmor.net/files/v3/loaders/c9f7b2cda8460f26a85bc14a419b3513.lua")
 
 --// Page 5 (Info)
 local Avatar = Instance.new("ImageLabel", Page5)
@@ -638,71 +639,6 @@ flyButton = CreateButton(ButtonFrame1, "Fly: OFF", function()
     Config.FlyEnabled = not Config.FlyEnabled
     flyButton.Text = "Fly: " .. (Config.FlyEnabled and "ON" or "OFF")
     sendNotification("FLY", Config.FlyEnabled and "ON" or "OFF")
-end)
-
-aimbotButton = CreateButton(ButtonFrame1, "Aimlock: OFF", function()
-    Config.AimbotEnabled = not Config.AimbotEnabled
-    aimbotButton.Text = "Aimlock: " .. (Config.AimbotEnabled and "ON" or "OFF")
-    sendNotification("AIMLOCK", Config.AimbotEnabled and "ON" or "OFF")
-end)
-
--- Hàm GetPing
-local function GetPing()
-    local stats = game:GetService("Stats"):FindFirstChild("Network")
-    local data = stats and stats:FindFirstChild("DataPing")
-    return data and math.clamp(data:GetValue(), 10, 300) or 40
-end
-
-local function CalculateVIPPrediction(part, ping)
-    if not part or not part:IsA("BasePart") then return nil end
-    local velocity = part.Velocity
-    local origin = Camera.CFrame.Position
-    local distance = (part.Position - origin).Magnitude
-    local delay = (ping or GetPing()) / 1000
-    local distanceFactor = math.clamp(distance / 100, 1, 3)
-    return part.Position + velocity * delay * distanceFactor
-end
-
-
--- Loop cập nhật Prediction
-task.spawn(function()
-    while task.wait(0.2) do
-        local ping = GetPing()
-        if Config.AutoPredictionEnabled then
-            Config.Prediction = CalculateVIPPrediction(ping)
-        else
-            local cp = Config.CustomPing or ping
-            Config.Prediction = CalculateVIPPrediction(cp)
-        end
-    end
-end)
-
--- Ô nhập Ping (bỏ qua khi AutoPrediction bật)
-local predictionBox = Instance.new("TextBox")
-predictionBox.Size = UDim2.new(1, -10, 0, 25)
-predictionBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-predictionBox.BackgroundTransparency = 0.2
-predictionBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-predictionBox.TextSize = 14
-predictionBox.Font = Enum.Font.Gotham
-predictionBox.PlaceholderText = "Nhập Ping"
-predictionBox.Text = tostring(Config.CustomPing or 40)
-predictionBox.ClearTextOnFocus = false
-predictionBox.Parent = ButtonFrame1
-Instance.new("UICorner", predictionBox).CornerRadius = UDim.new(0, 6)
-
-predictionBox:GetPropertyChangedSignal("Text"):Connect(function()
-    if Config.AutoPredictionEnabled then return end -- khi auto bật thì bỏ qua input
-    local num = tonumber(predictionBox.Text)
-    if num then
-        Config.CustomPing = math.clamp(num, 10, 300)
-    end
-end)
-
-autoPredictionButton = CreateButton(ButtonFrame1, "Auto Prediction: OFF", function()
-    Config.AutoPredictionEnabled = not Config.AutoPredictionEnabled
-    autoPredictionButton.Text = "Auto Prediction: " .. (Config.AutoPredictionEnabled and "ON" or "OFF")
-    sendNotification("Auto Prediction", Config.AutoPredictionEnabled and "ON" or "OFF")
 end)
 
 macroLegitButton = CreateButton(ButtonFrame1, "Macro Legit: " .. (Config.MacroLegitEnabled and "ON" or "OFF"), function()
@@ -1145,6 +1081,39 @@ fovBox:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 -- ============ /CUSTOM FOV ============
 
+aimbotButton = CreateButton(ButtonFrame2Left, "Aimlock: OFF", function()
+    Config.AimbotEnabled = not Config.AimbotEnabled
+    aimbotButton.Text = "Aimlock: " .. (Config.AimbotEnabled and "ON" or "OFF")
+    sendNotification("AIMLOCK", Config.AimbotEnabled and "ON" or "OFF")
+end)
+
+-- Hàm GetPing
+local function GetPing()
+    local stats = game:GetService("Stats"):FindFirstChild("Network")
+    local data = stats and stats:FindFirstChild("DataPing")
+    return data and math.clamp(data:GetValue(), 10, 300) or 40
+end
+
+local function CalculateVIPPrediction(part, ping)
+    if not part or not part:IsA("BasePart") then return nil end
+    local velocity = part.Velocity
+    local origin = Camera.CFrame.Position
+    local distance = (part.Position - origin).Magnitude
+    local delay = (ping or GetPing()) / 1000
+    local distanceFactor = math.clamp(distance / 100, 1, 3)
+    return part.Position + velocity * delay * distanceFactor
+end
+
+-- Loop cập nhật Prediction
+task.spawn(function()
+    while task.wait(0.2) do
+        local ping = GetPing()
+            local cp = Config.CustomPing or ping
+            Config.Prediction = CalculateVIPPrediction(cp)
+        end
+    end
+end)
+
 local oldMinZoom, oldMaxZoom, oldMode = nil, nil, nil
 
 unlock3rdButton = CreateButton(ButtonFrame2Left, "Unlock 3rd: OFF", function()
@@ -1176,8 +1145,14 @@ end)
 
 -- HugR6
 local hugEnabled = false
-local hugConn
 local hugButton
+local Play_1, Play_2
+
+local function stopAnim()
+    if Play_1 then Play_1:Stop() end
+    if Play_2 then Play_2:Stop() end
+    Play_1, Play_2 = nil, nil
+end
 
 hugButton = CreateButton(ButtonFrame2Left, "HugR6: OFF", function()
     hugEnabled = not hugEnabled
@@ -1187,70 +1162,34 @@ hugButton = CreateButton(ButtonFrame2Left, "HugR6: OFF", function()
     local char = player.Character or player.CharacterAdded:Wait()
     local hum = char:WaitForChild("Humanoid")
 
-    -- Load Animations theo Rig
-    local Play_1, Play_2
-    if hum.RigType == Enum.HumanoidRigType.R6 then
-        local Anim_1 = Instance.new("Animation")
-        Anim_1.AnimationId = "rbxassetid://283545583"
-        Play_1 = hum:LoadAnimation(Anim_1)
-
-        local Anim_2 = Instance.new("Animation")
-        Anim_2.AnimationId = "rbxassetid://225975820"
-        Play_2 = hum:LoadAnimation(Anim_2)
-    else
-        local Anim_R15 = Instance.new("Animation")
-        Anim_R15.AnimationId = "rbxassetid://118478639008343"
-        Play_1 = hum:LoadAnimation(Anim_R15)
-    end
-
-    local function stopHug()
-        if hugConn then
-            hugConn:Disconnect()
-            hugConn = nil
-        end
-        if Play_1 then Play_1:Stop() end
-        if Play_2 then Play_2:Stop() end
-        hugEnabled = false
-        hugButton.Text = "HugR6: OFF"
-    end
-
+    -- Nếu bật thì tạo anim và play
     if hugEnabled then
+        if hum.RigType == Enum.HumanoidRigType.R6 then
+            local Anim_1 = Instance.new("Animation")
+            Anim_1.AnimationId = "rbxassetid://283545583"
+            Play_1 = hum:LoadAnimation(Anim_1)
+
+            local Anim_2 = Instance.new("Animation")
+            Anim_2.AnimationId = "rbxassetid://225975820"
+            Play_2 = hum:LoadAnimation(Anim_2)
+        else
+            local Anim_R15 = Instance.new("Animation")
+            Anim_R15.AnimationId = "rbxassetid://118478639008343"
+            Play_1 = hum:LoadAnimation(Anim_R15)
+        end
+
         if Play_1 then Play_1:Play() end
         if Play_2 then Play_2:Play() end
-
-        hugConn = game:GetService("RunService").Heartbeat:Connect(function()
-            local target = getClosestSelected()
-            if not (target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")) then
-                stopHug()
-                return
-            end
-
-            local myHRP = char:FindFirstChild("HumanoidRootPart")
-            local targetHRP = target.Character.HumanoidRootPart
-            if myHRP and targetHRP then
-                -- Vị trí trước mặt target (1 stud)
-                local offsetPos = targetHRP.Position - targetHRP.CFrame.LookVector * 1
-                -- Đặt nhân vật vào đó và xoay mặt về target
-                myHRP.CFrame = CFrame.new(offsetPos, targetHRP.Position)
-
-                -- Giữ đứng yên, không trôi
-                pcall(function()
-                    myHRP.AssemblyLinearVelocity = Vector3.zero
-                    myHRP.AssemblyAngularVelocity = Vector3.zero
-                end)
-            end
-        end)
     else
-        stopHug()
+        stopAnim()
     end
 end)
 
--- Giữ HugR6 khi respawn
+-- Khi respawn thì tự tắt HugR6
 game.Players.LocalPlayer.CharacterAdded:Connect(function()
-    if hugEnabled then
-        task.wait(0.5)
-        hugButton.Text = "HugR6: ON"
-    end
+    hugEnabled = false
+    stopAnim()
+    hugButton.Text = "HugR6: OFF"
 end)
 
 -- Config
@@ -2662,7 +2601,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         Player = GetClosestValidPlayer()
         if Player and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
             local part = Player.Character[getgenv().Aimbot.Hitpart]
-            local ping = Config.AutoPredictionEnabled and GetPing() or Config.CustomPing
+            local ping = Config.CustomPing
             local predictedPos = CalculateVIPPrediction(part, ping)
             if predictedPos and not IsObstructed(Camera.CFrame.Position, predictedPos) then
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, predictedPos)
