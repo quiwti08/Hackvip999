@@ -61,6 +61,44 @@ local Config = {
     Prediction = nil,
 }
 
+Config.Nemesis = {
+    Disabling = {Toggle = false, Keybind = "H"},
+    UpdateTickDelay = 0.05,
+    Camlock = {
+        Toggling = { Enable = true, Keybind = "Q" },
+        Settings = {
+            Prediction = { true, 999.999, false, .003 },
+            Smoothing = { smoothness = true, x = 1, y = 1 },
+            OffSets = { Jump = { Enable = false, [1] = Vector3.new(0, 3, 0) } }
+        },
+        Conditions = {
+            Player = { WallCheck = false, Grabbed = false, Knocked = false, CrewID = false },
+            BodyParts = {"HumanoidRootPart", "Head"}
+        }
+    },
+    Silent = {
+        Toggling = { Enable = false },
+        Settings = {
+            Prediction = { true , 0.11934 , false, 0.003 },
+            HitChance = 100,
+            Resolver = true,
+            OffSets = { Jump = { Enable = false, [1] = Vector3.new(0, 0, 0) } }
+        },
+        Conditions = {
+            Player = { WallCheck = false, Grabbed = false, Knocked = false, CrewID = false },
+            BodyParts = {"HumanoidRootPart", "UpperTorso", "Head"}
+        }
+    },
+    FieldOfView = { Enable = true, Size = 1000, Color = Color3.fromRGB(50, 50, 50) },
+    Miscs = {
+        Sorting = { Toggled = false, Key = "F", alphabetically = true, Ammo = false, Custom = { Enable = false, List = {[1] = "[Revolver]", [2] = "[Chicken]"} } }
+    }
+}
+-- Thêm bi?n b? sung cho Nemesis
+Config.NemesisTargets = { [1] = nil, [2] = nil }  -- Target cho Camlock [1] và Silent [2]
+Config.NemesisBodyParts = { [1] = "", [2] = "" }  -- Bodypart cho t?ng
+Config.NemesisCFPosition = nil  -- V? trí predict cho Silent
+
 local Keybinds = {}
 
 --// Helpers
@@ -174,6 +212,54 @@ local function CreateButton(parent, name, callback)
     end)
 
     return button
+end
+
+local function Velocity(Target, resolver)
+    if resolver then  -- Resolver method (tính velocity chính xác hon)
+        local pos = Target.Character.HumanoidRootPart.Position
+        local lastTime = tick()
+        local currentPos, currentTime
+        local connection = RunService.Heartbeat:Connect(function()
+            currentPos = Target.Character.HumanoidRootPart.Position
+            currentTime = tick()
+            connection:Disconnect()
+        end)
+        task.wait(0.01)
+        local velocity = (currentPos - pos) / (currentTime - lastTime)
+        return Vector3.new(math.floor(velocity.X), math.floor(velocity.Y), math.floor(velocity.Z))
+    else
+        return Target.Character:FindFirstChild("HumanoidRootPart").AssemblyLinearVelocity
+    end
+end
+
+local function UpdateSilent()
+    local SilentTable = Config.Nemesis.Silent
+    if SilentTable.Toggling.Enable then
+        -- S? d?ng SelectedPlayers d? ch?n target (closest trong list)
+        Config.NemesisTargets[2] = nil
+        local closestDist = math.huge
+        for name, selected in pairs(Config.SelectedPlayers) do
+            if selected then
+                local plr = Players:FindFirstChild(name)
+                if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+                    if dist < closestDist then
+                        Config.NemesisTargets[2] = plr
+                        closestDist = dist
+                    end
+                end
+            end
+        end
+        if Config.NemesisTargets[2] ~= nil and Config.NemesisTargets[2].Character ~= nil and Config.NemesisTargets[2].Character:FindFirstChild("HumanoidRootPart") then
+            local part = ClosestPart(Config.NemesisTargets[2], SilentTable.Conditions.BodyParts)
+            Config.NemesisBodyParts[2] = part and part.Name or "HumanoidRootPart"
+            local position = Config.NemesisTargets[2].Character[Config.NemesisBodyParts[2]].Position
+            if SilentTable.Settings.OffSets.Jump.Enable and Config.NemesisTargets[2].Character:FindFirstChildOfClass("Humanoid"):GetState() == Enum.HumanoidStateType.Freefall then
+                position = position + SilentTable.Settings.OffSets.Jump[1]
+            end
+            Config.NemesisCFPosition = position + (SilentTable.Settings.Prediction[1] and Velocity(Config.NemesisTargets[2], SilentTable.Settings.Resolver) * GetPrediction() or Vector3.new(0,0,0))
+        end
+    end
 end
 
 --// Toggle Button
@@ -626,6 +712,64 @@ aimbotButton = CreateButton(ButtonFrame1, "Aimlock: OFF", function()
     Config.AimbotEnabled = not Config.AimbotEnabled
     aimbotButton.Text = "Aimlock: " .. (Config.AimbotEnabled and "ON" or "OFF")
     sendNotification("AIMLOCK", Config.AimbotEnabled and "ON" or "OFF")
+end)
+
+-- Hàm GetPing
+local function GetPing()
+    local stats = game:GetService("Stats"):FindFirstChild("Network")
+    local data = stats and stats:FindFirstChild("DataPing")
+    return data and math.clamp(data:GetValue(), 10, 300) or 40
+end
+
+local function CalculateVIPPrediction(part, ping)
+    if not part or not part:IsA("BasePart") then return nil end
+    local velocity = part.Velocity
+    local origin = Camera.CFrame.Position
+    local distance = (part.Position - origin).Magnitude
+    local delay = (ping or GetPing()) / 1000
+    local distanceFactor = math.clamp(distance / 100, 1, 3)
+    return part.Position + velocity * delay * distanceFactor
+end
+
+-- Loop cập nhật Prediction
+task.spawn(function()
+    while task.wait(0.2) do
+        local ping = GetPing()
+        if Config.AutoPredictionEnabled then
+            Config.Prediction = CalculateVIPPrediction(ping)
+        else
+            local cp = Config.CustomPing or ping
+            Config.Prediction = CalculateVIPPrediction(cp)
+        end
+    end
+end)
+
+-- Ô nhập Ping (bỏ qua khi AutoPrediction bật)
+local predictionBox = Instance.new("TextBox")
+predictionBox.Size = UDim2.new(1, -10, 0, 25)
+predictionBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+predictionBox.BackgroundTransparency = 0.2
+predictionBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+predictionBox.TextSize = 14
+predictionBox.Font = Enum.Font.Gotham
+predictionBox.PlaceholderText = "Nhập Ping"
+predictionBox.Text = tostring(Config.CustomPing or 40)
+predictionBox.ClearTextOnFocus = false
+predictionBox.Parent = ButtonFrame2Left
+Instance.new("UICorner", predictionBox).CornerRadius = UDim.new(0, 6)
+
+predictionBox:GetPropertyChangedSignal("Text"):Connect(function()
+    if Config.AutoPredictionEnabled then return end -- khi auto bật thì bỏ qua input
+    local num = tonumber(predictionBox.Text)
+    if num then
+        Config.CustomPing = math.clamp(num, 10, 300)
+    end
+end)
+
+autoPredictionButton = CreateButton(ButtonFrame1, "Auto Prediction: OFF", function()
+    Config.AutoPredictionEnabled = not Config.AutoPredictionEnabled
+    autoPredictionButton.Text = "Auto Prediction: " .. (Config.AutoPredictionEnabled and "ON" or "OFF")
+    sendNotification("Auto Prediction", Config.AutoPredictionEnabled and "ON" or "OFF")
 end)
 
 local hitpartOptions = {"Head", "HumanoidRootPart", "UpperTorso"}  -- Danh sách part
@@ -2715,19 +2859,12 @@ RunService.RenderStepped:Connect(function(deltaTime)
     UpdateFly(deltaTime)
     UpdateSilent()
 
-    -- AIMBOT
     if Config.AimbotEnabled and getgenv().Aimbot.Status then
         Player = GetClosestValidPlayer()
         if Player and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
             local part = Player.Character[getgenv().Aimbot.Hitpart]
-            -- Prediction từ script kia (thay CalculateVIPPrediction)
-            local predValue = GetPrediction()  -- Auto hoặc manual ping từ script kia
-            local velocity = Velocity(Player, Config.AimbotPrediction.Resolver)  -- Với resolver nếu bật
-            local predictedPos = part.Position + velocity * predValue
-            -- Áp dụng offsets jump nếu bật (từ script kia)
-            if Config.AimbotOffsets.Jump.Enable and Player.Character:FindFirstChildOfClass("Humanoid"):GetState() == Enum.HumanoidStateType.Freefall then
-                predictedPos = predictedPos + Config.AimbotOffsets.Jump.Value
-            end
+            local ping = Config.AutoPredictionEnabled and GetPing() or Config.CustomPing
+            local predictedPos = CalculateVIPPrediction(part, ping)
             if predictedPos and not IsObstructed(Camera.CFrame.Position, predictedPos) then
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, predictedPos)
             end
