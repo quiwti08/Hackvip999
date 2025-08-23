@@ -755,7 +755,7 @@ predictionBox.Font = Enum.Font.Gotham
 predictionBox.PlaceholderText = "Nhập Ping"
 predictionBox.Text = tostring(Config.CustomPing or 40)
 predictionBox.ClearTextOnFocus = false
-predictionBox.Parent = ButtonFrame2Left
+predictionBox.Parent = ButtonFrame1
 Instance.new("UICorner", predictionBox).CornerRadius = UDim.new(0, 6)
 
 predictionBox:GetPropertyChangedSignal("Text"):Connect(function()
@@ -1182,20 +1182,6 @@ end)
 local customFovEnabled = false
 local defaultFov = Workspace.CurrentCamera.FieldOfView
 
--- Ô nhập giá trị FOV (mặc định 120)
-local fovBox = Instance.new("TextBox")
-fovBox.Size = UDim2.new(1, -10, 0, 25)
-fovBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-fovBox.BackgroundTransparency = 0.2
-fovBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-fovBox.TextSize = 14
-fovBox.Font = Enum.Font.Gotham
-fovBox.Text = "120" -- mặc định giá trị 120
-fovBox.PlaceholderText = "Nhập FOV (40-120)"
-fovBox.ClearTextOnFocus = false
-fovBox.Parent = ButtonFrame2Left
-Instance.new("UICorner", fovBox).CornerRadius = UDim.new(0, 6)
-
 -- Nút bật tắt Custom FOV
 customFovButton = CreateButton(ButtonFrame2Left, "Custom FOV: OFF", function()
     customFovEnabled = not customFovEnabled
@@ -1216,6 +1202,20 @@ customFovButton = CreateButton(ButtonFrame2Left, "Custom FOV: OFF", function()
         sendNotification("Custom FOV", "Đã trả về FOV mặc định " .. defaultFov)
     end
 end)
+
+-- Ô nhập giá trị FOV (mặc định 120)
+local fovBox = Instance.new("TextBox")
+fovBox.Size = UDim2.new(1, -10, 0, 25)
+fovBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+fovBox.BackgroundTransparency = 0.2
+fovBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+fovBox.TextSize = 14
+fovBox.Font = Enum.Font.Gotham
+fovBox.Text = "120" -- mặc định giá trị 120
+fovBox.PlaceholderText = "Nhập FOV (40-120)"
+fovBox.ClearTextOnFocus = false
+fovBox.Parent = ButtonFrame2Left
+Instance.new("UICorner", fovBox).CornerRadius = UDim.new(0, 6)
 
 -- Nếu người dùng thay đổi giá trị trong ô khi đang bật Custom FOV
 fovBox:GetPropertyChangedSignal("Text"):Connect(function()
