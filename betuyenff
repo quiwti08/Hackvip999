@@ -177,14 +177,12 @@ local function CreateButton(parent, name, callback)
 end
 
 --// Toggle Button
-local ToggleButton = Instance.new("TextButton")
+local ToggleButton = Instance.new("ImageButton")
 ToggleButton.Size = UDim2.new(0, 45, 0, 45)
 ToggleButton.Position = UDim2.new(0, 15, 0, 250)
 ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
-ToggleButton.Text = "≡"
-ToggleButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-ToggleButton.TextSize = 20
-ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Image = "rbxassetid://80952463173309"
+ToggleButton.ScaleType = Enum.ScaleType.Fit -- để ảnh không bị méo
 ToggleButton.Parent = gui
 Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 10)
 attachButtonEffects(ToggleButton, 5)
@@ -1176,37 +1174,21 @@ unlock3rdButton = CreateButton(ButtonFrame2Left, "Unlock 3rd: OFF", function()
     end
 end)
 
--- ============ HUG R6 / R15 ============
+-- HugR6
 local hugEnabled = false
 local hugConn
 local hugButton
-local Play_1, Play_2 -- giữ track để stop được cả khi OFF
 
-local function stopHug()
-    if hugConn then
-        hugConn:Disconnect()
-        hugConn = nil
-    end
-    if Play_1 then Play_1:Stop() end
-    if Play_2 then Play_2:Stop() end
-    hugEnabled = false
-    hugButton.Text = "HugR6/R15: OFF"
-end
-
-hugButton = CreateButton(ButtonFrame2Left, "HugR6/R15: OFF", function()
+hugButton = CreateButton(ButtonFrame2Left, "HugR6: OFF", function()
     hugEnabled = not hugEnabled
-    hugButton.Text = "HugR6/R15: " .. (hugEnabled and "ON" or "OFF")
+    hugButton.Text = "HugR6: " .. (hugEnabled and "ON" or "OFF")
 
     local player = game.Players.LocalPlayer
     local char = player.Character or player.CharacterAdded:Wait()
     local hum = char:WaitForChild("Humanoid")
 
-    -- Reset track cũ
-    if Play_1 then Play_1:Stop() end
-    if Play_2 then Play_2:Stop() end
-    Play_1, Play_2 = nil, nil
-
     -- Load Animations theo Rig
+    local Play_1, Play_2
     if hum.RigType == Enum.HumanoidRigType.R6 then
         local Anim_1 = Instance.new("Animation")
         Anim_1.AnimationId = "rbxassetid://283545583"
@@ -1219,6 +1201,17 @@ hugButton = CreateButton(ButtonFrame2Left, "HugR6/R15: OFF", function()
         local Anim_R15 = Instance.new("Animation")
         Anim_R15.AnimationId = "rbxassetid://118478639008343"
         Play_1 = hum:LoadAnimation(Anim_R15)
+    end
+
+    local function stopHug()
+        if hugConn then
+            hugConn:Disconnect()
+            hugConn = nil
+        end
+        if Play_1 then Play_1:Stop() end
+        if Play_2 then Play_2:Stop() end
+        hugEnabled = false
+        hugButton.Text = "HugR6: OFF"
     end
 
     if hugEnabled then
@@ -1237,6 +1230,8 @@ hugButton = CreateButton(ButtonFrame2Left, "HugR6/R15: OFF", function()
             if myHRP and targetHRP then
                 -- Vị trí trước mặt target (1 stud)
                 local offsetPos = targetHRP.Position - targetHRP.CFrame.LookVector * 1
+                -- Đặt nhân vật vào đó và xoay mặt về target
+                myHRP.CFrame = CFrame.new(offsetPos, targetHRP.Position)
 
                 -- Giữ đứng yên, không trôi
                 pcall(function()
@@ -1254,13 +1249,9 @@ end)
 game.Players.LocalPlayer.CharacterAdded:Connect(function()
     if hugEnabled then
         task.wait(0.5)
-        hugButton.Text = "HugR6/R15: ON"
-        -- Respawn thì stop animation cũ, sẽ play lại khi Heartbeat chạy
-        if Play_1 then Play_1:Stop() end
-        if Play_2 then Play_2:Stop() end
+        hugButton.Text = "HugR6: ON"
     end
 end)
--- ============ /HUG R6 / R15 ============
 
 -- Config
 getgenv().CustomAnimEnabled = true
@@ -1338,8 +1329,7 @@ local function startPiggy(target)
         end
 
         local tHead = target.Character.Head
-        -- offset cố định: hạ xuống -0.6 và lùi ra sau 0.6 stud
-        myHRP.CFrame = tHead.CFrame * CFrame.new(0, -0.6, -0.6)
+        myHRP.CFrame = tHead.CFrame * CFrame.new(0, -1.6, 0.7)
 
         -- chống trôi
         pcall(function()
