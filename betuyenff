@@ -622,6 +622,21 @@ task.delay(4, function()
     end)
 end)
 
+aimbotButton = CreateButton(ButtonFrame1, "Aimlock: OFF", function()
+    Config.AimbotEnabled = not Config.AimbotEnabled
+    aimbotButton.Text = "Aimlock: " .. (Config.AimbotEnabled and "ON" or "OFF")
+    sendNotification("AIMLOCK", Config.AimbotEnabled and "ON" or "OFF")
+end)
+
+local hitpartOptions = {"Head", "HumanoidRootPart", "UpperTorso"}  -- Danh sách part
+local hitpartIndex = 1
+hitpartButton = CreateButton(ButtonFrame1, "Hitpart: Head", function()
+    hitpartIndex = (hitpartIndex % #hitpartOptions) + 1
+    getgenv().Aimbot.Hitpart = hitpartOptions[hitpartIndex]
+    hitpartButton.Text = "Hitpart: " .. getgenv().Aimbot.Hitpart
+    sendNotification("Aimlock", "Hitpart changed to " .. getgenv().Aimbot.Hitpart)
+end)
+
 -- Nút cho trang 1
 espButton = CreateButton(ButtonFrame1, "ESP: OFF", function()
     Config.ESPEnabled = not Config.ESPEnabled
@@ -657,81 +672,6 @@ macroLegitButton = CreateButton(ButtonFrame1, "Macro Legit: " .. (Config.MacroLe
             until not Config.MacroLegitEnabled
         end)
     end
-end)
-
-silentButton = CreateButton(ButtonFrame1, "Silent Aim: OFF", function()
-    Config.SilentEnabled = not Config.SilentEnabled
-    silentButton.Text = "Silent Aim: " .. (Config.SilentEnabled and "ON" or "OFF")
-    sendNotification("Silent Aim", Config.SilentEnabled and "ON" or "OFF")
-end)
-
-camlockButton = CreateButton(ButtonFrame1, "Aimlock: OFF", function()
-    Config.CamlockEnabled = not Config.CamlockEnabled
-    if Config.CamlockEnabled then
-        Storage.targets[1] = GetClosest(Config)  -- Chọn target từ SelectedPlayers khi toggle on.
-        if Storage.targets[1] then
-            Storage.bodyparts[1] = tostring(ClosestPart(Storage.targets[1], Config.CamlockBodyParts))
-        end
-    else
-        Storage.targets[1] = nil
-    end
-    camlockButton.Text = "Aimlock: " .. (Config.CamlockEnabled and "ON" or "OFF")
-    sendNotification("Aimlock", Config.CamlockEnabled and "ON" or "OFF")
-end)
-
-sortingButton = CreateButton(ButtonFrame1, "Sorting", function()
-    local items = {}
-    if Config.SortingCustomEnable then
-        for _, customName in ipairs(Config.SortingCustomList) do
-            for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-                if item:IsA("Tool") and item.Name == customName then
-                    table.insert(items, 1, item)
-                    break
-                end
-            end
-        end
-    end
-    for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-        if item:IsA("Tool") and (not Config.SortingCustomEnable or not isInCustomList(item.Name)) then
-            table.insert(items, item)
-        end
-    end
-    if Config.SortingAlphabetically and not Config.SortingCustomEnable then
-        table.sort(items, function(a, b) return a.Name < b.Name end)
-    end
-    if Config.SortingAmmo and not Config.SortingCustomEnable then
-        table.sort(items, function(a, b) return a.Value > b.Value end)
-    end
-    for _, item in ipairs(items) do
-        item.Parent = nil
-        wait(0.01)
-        item.Parent = LocalPlayer.Backpack
-    end
-    sendNotification("Sorting", "Items sorted!")
-end)
-
-fovButton = CreateButton(ButtonFrame1, "FOV: ON", function()
-    Config.FOVEnable = not Config.FOVEnable
-    fovButton.Text = "FOV: " .. (Config.FOVEnable and "ON" or "OFF")
-    sendNotification("FOV", Config.FOVEnable and "ON" or "OFF")
-end)
-
--- Ô input cho FOV Size (dưới nút FOV)
-local fovSizeBox = Instance.new("TextBox")
-fovSizeBox.Size = UDim2.new(1, -10, 0, 25)
-fovSizeBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-fovSizeBox.BackgroundTransparency = 0.2
-fovSizeBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-fovSizeBox.TextSize = 14
-fovSizeBox.Font = Enum.Font.Gotham
-fovSizeBox.Text = tostring(Config.FOVSize)
-fovSizeBox.PlaceholderText = "FOV Size"
-fovSizeBox.ClearTextOnFocus = false
-fovSizeBox.Parent = ButtonFrame1
-Instance.new("UICorner", fovSizeBox).CornerRadius = UDim.new(0, 6)
-fovSizeBox.FocusLost:Connect(function()
-    local num = tonumber(fovSizeBox.Text)
-    if num then Config.FOVSize = num end
 end)
 
 -- Danh sách mode AntiLock
@@ -893,17 +833,6 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
-
--- Hàm tìm RemoteEvent bất kể viết hoa/thường/có dấu cách
-local function getMainEvent()
-    local rs = game:GetService("ReplicatedStorage")
-    for _, obj in ipairs(rs:GetDescendants()) do
-        if obj:IsA("RemoteEvent") and string.lower(obj.Name):gsub("%s+", "") == "mainevent" then
-            return obj
-        end
-    end
-    return nil
-end
 
 local function isAlive(plr)
     if not plr or not plr.Character then return false end
@@ -1156,63 +1085,150 @@ fovBox:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 -- ============ /CUSTOM FOV ============
 
-aimbotButton = CreateButton(ButtonFrame2Left, "Aimlock: OFF", function()
-    Config.AimbotEnabled = not Config.AimbotEnabled
-    aimbotButton.Text = "Aimlock: " .. (Config.AimbotEnabled and "ON" or "OFF")
-    sendNotification("AIMLOCK", Config.AimbotEnabled and "ON" or "OFF")
-end)
+-- Nút Big Head
+Config.BigHeadEnabled = false
+Config.BigHeadSize = 5
 
--- Hàm GetPing
-local function GetPing()
-    local stats = game:GetService("Stats"):FindFirstChild("Network")
-    local data = stats and stats:FindFirstChild("DataPing")
-    return data and math.clamp(data:GetValue(), 10, 300) or 40
+local function applyBigHead(plr)
+    if not plr.Character then return end
+    local head = plr.Character:FindFirstChild("Head")
+    if not head then return end
+
+    if Config.BigHeadEnabled then
+        head.Size = Vector3.new(Config.BigHeadSize, Config.BigHeadSize, Config.BigHeadSize)
+        local mesh = head:FindFirstChildOfClass("SpecialMesh")
+        if mesh then mesh:Destroy() end
+    else
+        head.Size = Vector3.new(2,1,1) -- size mặc định R15 (có thể điều chỉnh tùy rig)
+    end
 end
 
-local function CalculateVIPPrediction(part, ping)
-    if not part or not part:IsA("BasePart") then return nil end
-    local velocity = part.Velocity
-    local origin = Camera.CFrame.Position
-    local distance = (part.Position - origin).Magnitude
-    local delay = (ping or GetPing()) / 1000
-    local distanceFactor = math.clamp(distance / 100, 1, 3)
-    return part.Position + velocity * delay * distanceFactor
-end
+bigHeadButton = CreateButton(ButtonFrame2Left, "Big Head: OFF", function()
+    Config.BigHeadEnabled = not Config.BigHeadEnabled
+    bigHeadButton.Text = "Big Head: " .. (Config.BigHeadEnabled and "ON" or "OFF")
+    sendNotification("Big Head", Config.BigHeadEnabled and "ON" or "OFF")
 
-
--- Loop cập nhật Prediction
-task.spawn(function()
-    while task.wait(0.2) do
-        local ping = GetPing()
-        if Config.AutoPredictionEnabled then
-            Config.Prediction = CalculateVIPPrediction(ping)
-        else
-            local cp = Config.CustomPing or ping
-            Config.Prediction = CalculateVIPPrediction(cp)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            applyBigHead(plr)
         end
     end
 end)
 
--- Ô nhập Ping (bỏ qua khi AutoPrediction bật)
-local predictionBox = Instance.new("TextBox")
-predictionBox.Size = UDim2.new(1, -10, 0, 25)
-predictionBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-predictionBox.BackgroundTransparency = 0.2
-predictionBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-predictionBox.TextSize = 14
-predictionBox.Font = Enum.Font.Gotham
-predictionBox.PlaceholderText = "Nhập Ping"
-predictionBox.Text = tostring(Config.CustomPing or 40)
-predictionBox.ClearTextOnFocus = false
-predictionBox.Parent = ButtonFrame2Left
-Instance.new("UICorner", predictionBox).CornerRadius = UDim.new(0, 6)
+-- Ô nhập size cho Big Head
+local bigHeadSizeBox = Instance.new("TextBox")
+bigHeadSizeBox.Size = UDim2.new(1, -10, 0, 25)
+bigHeadSizeBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+bigHeadSizeBox.BackgroundTransparency = 0.2
+bigHeadSizeBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+bigHeadSizeBox.TextSize = 14
+bigHeadSizeBox.Font = Enum.Font.Gotham
+bigHeadSizeBox.PlaceholderText = "Nhập size (vd: 10)"
+bigHeadSizeBox.Text = tostring(Config.BigHeadSize or 5)
+bigHeadSizeBox.ClearTextOnFocus = false
+bigHeadSizeBox.Parent = ButtonFrame2Left
+Instance.new("UICorner", bigHeadSizeBox).CornerRadius = UDim.new(0, 6)
 
-predictionBox:GetPropertyChangedSignal("Text"):Connect(function()
-    if Config.AutoPredictionEnabled then return end -- khi auto bật thì bỏ qua input
-    local num = tonumber(predictionBox.Text)
+bigHeadSizeBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local num = tonumber(bigHeadSizeBox.Text)
     if num then
-        Config.CustomPing = math.clamp(num, 10, 300)
+        Config.BigHeadSize = math.clamp(num, 2, 50)
+        if Config.BigHeadEnabled then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer then
+                    applyBigHead(plr)
+                end
+            end
+        end
     end
+end)
+
+-- Auto áp dụng khi người chơi respawn
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(1)
+        if Config.BigHeadEnabled then
+            applyBigHead(plr)
+        end
+    end)
+end)
+
+-- Nút bật/tắt Hitbox (3 trạng thái)
+local hitboxModes = {"OFF", "NoVisual", "Visual"}
+local hitboxModeIndex = 1
+Config.HitboxSize = 5
+Config.HitboxMode = "OFF"
+
+local function applyHitbox(plr)
+    if not plr.Character then return end
+    local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    if Config.HitboxMode == "OFF" then
+        hrp.Size = Vector3.new(2,2,1) -- size mặc định HRP
+        hrp.Transparency = 1
+        hrp.Material = Enum.Material.Plastic
+    elseif Config.HitboxMode == "NoVisual" then
+        hrp.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
+        hrp.Transparency = 1
+        hrp.CanCollide = false
+    elseif Config.HitboxMode == "Visual" then
+        hrp.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
+        hrp.Transparency = 0.4
+        hrp.CanCollide = false
+        hrp.Material = Enum.Material.Neon
+        hrp.Color = Color3.fromRGB(180, 180, 180) -- màu xám sáng theo theme GUI
+    end
+end
+
+hitboxButton = CreateButton(ButtonFrame2Left, "Hitbox: OFF", function()
+    hitboxModeIndex = hitboxModeIndex + 1
+    if hitboxModeIndex > #hitboxModes then hitboxModeIndex = 1 end
+    Config.HitboxMode = hitboxModes[hitboxModeIndex]
+    hitboxButton.Text = "Hitbox: " .. Config.HitboxMode
+    sendNotification("Hitbox", "Mode: " .. Config.HitboxMode)
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            applyHitbox(plr)
+        end
+    end
+end)
+
+-- Ô nhập size Hitbox
+local hitboxSizeBox = Instance.new("TextBox")
+hitboxSizeBox.Size = UDim2.new(1, -10, 0, 25)
+hitboxSizeBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+hitboxSizeBox.BackgroundTransparency = 0.2
+hitboxSizeBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+hitboxSizeBox.TextSize = 14
+hitboxSizeBox.Font = Enum.Font.Gotham
+hitboxSizeBox.PlaceholderText = "Nhập size (vd: 10)"
+hitboxSizeBox.Text = tostring(Config.HitboxSize or 5)
+hitboxSizeBox.ClearTextOnFocus = false
+hitboxSizeBox.Parent = ButtonFrame2Left
+Instance.new("UICorner", hitboxSizeBox).CornerRadius = UDim.new(0, 6)
+
+hitboxSizeBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local num = tonumber(hitboxSizeBox.Text)
+    if num then
+        Config.HitboxSize = math.clamp(num, 2, 50)
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                applyHitbox(plr)
+            end
+        end
+    end
+end)
+
+-- Auto áp dụng khi người chơi respawn
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(1)
+        if Config.HitboxMode ~= "OFF" then
+            applyHitbox(plr)
+        end
+    end)
 end)
 
 local oldMinZoom, oldMaxZoom, oldMode = nil, nil, nil
@@ -1228,8 +1244,8 @@ unlock3rdButton = CreateButton(ButtonFrame2Left, "Unlock 3rd: OFF", function()
 
         -- Mở khóa góc nhìn thứ 3
         LocalPlayer.CameraMode = Enum.CameraMode.Classic
-        LocalPlayer.CameraMinZoomDistance = 300
-        LocalPlayer.CameraMaxZoomDistance = 128 -- Roblox default max zoom
+        LocalPlayer.CameraMinZoomDistance = 0.5   -- cho phép zoom sát
+        LocalPlayer.CameraMaxZoomDistance = 300   -- cho phép zoom xa
 
         unlock3rdButton.Text = "Unlock 3rd: ON"
         sendNotification("Unlock 3rd", "Third Person Enabled")
@@ -2698,14 +2714,20 @@ RunService.RenderStepped:Connect(function(deltaTime)
     UpdateSpeed()
     UpdateFly(deltaTime)
     UpdateSilent()
-    UpdateCamlock()
 
+    -- AIMBOT
     if Config.AimbotEnabled and getgenv().Aimbot.Status then
         Player = GetClosestValidPlayer()
         if Player and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
             local part = Player.Character[getgenv().Aimbot.Hitpart]
-            local ping = Config.AutoPredictionEnabled and GetPing() or Config.CustomPing
-            local predictedPos = CalculateVIPPrediction(part, ping)
+            -- Prediction từ script kia (thay CalculateVIPPrediction)
+            local predValue = GetPrediction()  -- Auto hoặc manual ping từ script kia
+            local velocity = Velocity(Player, Config.AimbotPrediction.Resolver)  -- Với resolver nếu bật
+            local predictedPos = part.Position + velocity * predValue
+            -- Áp dụng offsets jump nếu bật (từ script kia)
+            if Config.AimbotOffsets.Jump.Enable and Player.Character:FindFirstChildOfClass("Humanoid"):GetState() == Enum.HumanoidStateType.Freefall then
+                predictedPos = predictedPos + Config.AimbotOffsets.Jump.Value
+            end
             if predictedPos and not IsObstructed(Camera.CFrame.Position, predictedPos) then
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, predictedPos)
             end
@@ -2756,10 +2778,14 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     end
 
-    local oldIndex = hookmetamethod(game, "__index", function(t, k)
+    -- Hook metatable cho Silent Aim (thay đổi Mouse.Hit/Target)
+    local oldIndex = nil
+    oldIndex = hookmetamethod(game, "__index", function(t, k)
         if t:IsA("Mouse") and (k == "Hit" or k == "Target") then
-            if Config.SilentEnabled and Chance(Config.SilentHitChance, 100) and Storage.targets[2] then
-                local Hit = CFrame.new(Storage.CFposition)
+            if Config.Nemesis.Silent.Toggling.Enable 
+            and Chance(Config.Nemesis.Silent.Settings.HitChance, 100) 
+            and Config.NemesisTargets[2] ~= nil then
+                local Hit = CFrame.new(Config.NemesisCFPosition)
                 return (k == "Hit" and Hit)
             end
         end
