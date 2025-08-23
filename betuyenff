@@ -1263,67 +1263,19 @@ end)
 -- ============ /HUG R6 / R15 ============
 
 -- Config
-getgenv().KorAnimEnabled = true
-getgenv().RightUpperLegAccessories = {
-    {id = 18457575895}, -- accessory ID
-}
-getgenv().KorAnimDelay = 1 -- thời gian chờ sau khi spawn trước khi chỉnh
-
-local function hideRightLegAndAddAccessories(character)
-    local rightUpperLeg = character:FindFirstChild("RightUpperLeg")
-    if rightUpperLeg then
-        -- Ẩn Upper Leg
-        rightUpperLeg.Transparency = 1
-
-        -- Xóa Lower Leg & Foot
-        local rightLowerLeg = character:FindFirstChild("RightLowerLeg")
-        local rightFoot = character:FindFirstChild("RightFoot")
-        if rightLowerLeg then rightLowerLeg:Destroy() end
-        if rightFoot then rightFoot:Destroy() end
-
-        -- Gắn accessories
-        for _, accessoryData in ipairs(getgenv().RightUpperLegAccessories) do
-            local accessory = game:GetObjects("rbxassetid://" .. tostring(accessoryData.id))[1]
-            if accessory then
-                accessory.Parent = game.Workspace
-                local handle = accessory:FindFirstChild("Handle")
-                if handle then
-                    handle.CFrame = rightUpperLeg.CFrame
-                    local weld = Instance.new("Weld")
-                    weld.Part0 = handle
-                    weld.Part1 = rightUpperLeg
-                    weld.C0 = CFrame.new(0, -0.12, 0)
-                    weld.Parent = handle
-                    accessory.Parent = character
-                end
-            end
-        end
-    end
-end
-
-local function applyKorAnim(character)
-    task.wait(getgenv().KorAnimDelay)
-    hideRightLegAndAddAccessories(character)
-end
-
--- Theo dõi khi spawn nhân vật mới
-game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
-    applyKorAnim(char)
-end)
-
--- Nếu đang sống thì áp dụng luôn
-if game.Players.LocalPlayer.Character then
-    applyKorAnim(game.Players.LocalPlayer.Character)
-end
+getgenv().CustomAnimEnabled = true
 
 -- Đổi animation liên tục
 game:GetService("RunService").Stepped:Connect(function()
-    if not getgenv().KorAnimEnabled then return end
+    if not getgenv().CustomAnimEnabled then return end
     local char = game.Players.LocalPlayer.Character
     if char and char:FindFirstChild("Animate") then
         local anim = char.Animate
+        -- Chạy
         anim.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+        -- Nhảy
         anim.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
+        -- Rơi
         anim.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
     end
 end)
@@ -1354,31 +1306,25 @@ local function startPiggy(target)
     local myChar = LocalPlayer.Character
     local myHum  = myChar and myChar:FindFirstChildOfClass("Humanoid")
     local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local tHead  = target.Character and target.Character:FindFirstChild("Head")
+    local head   = target.Character and target.Character:FindFirstChild("Head")
 
-    if not (myHum and myHRP and tHead) then
+    if not (myHum and myHRP and head) then
         stopPiggy()
         return
     end
 
-    -- check RigType
-    local rigType = myHum.RigType
+    -- ép nhân vật vào trạng thái ngồi
+    myHum.Sit = true
 
-    if rigType == Enum.HumanoidRigType.R15 then
-        -- R15: chạy animation piggyback
-        piggyAnim = Instance.new("Animation")
-        piggyAnim.AnimationId = "rbxassetid://115900505866868"
-        piggyTrack = myHum:LoadAnimation(piggyAnim)
-        piggyTrack:Play()
-    else
-        -- R6: vào trạng thái ngồi
-        myHum.Sit = true
-    end
+    -- load animation piggyback
+    piggyAnim = Instance.new("Animation")
+    piggyAnim.AnimationId = "rbxassetid://115900505866868"
+    piggyTrack = myHum:LoadAnimation(piggyAnim)
+    piggyTrack:Play()
 
     piggyButton.Text = ("Piggyback: ON (%s)"):format(target.Name)
     sendNotification("Piggyback", "Đang cõng " .. target.Name)
 
-    -- Heartbeat loop
     piggyConn = RunService.Heartbeat:Connect(function()
         local valid = piggyEnabled
             and target.Character
@@ -1392,14 +1338,10 @@ local function startPiggy(target)
         end
 
         local tHead = target.Character.Head
-        if rigType == Enum.HumanoidRigType.R15 then
-            -- bám đầu (R15 có animation nên offset thấp xuống chút cho khớp)
-            myHRP.CFrame = tHead.CFrame * CFrame.new(0, -0.6, 0.6)
-        else
-            -- R6: ngồi trên đầu, offset chuẩn
-            myHRP.CFrame = tHead.CFrame * CFrame.new(0, 1.6, 0)
-        end
+        -- offset cố định: hạ xuống -0.6 và lùi ra sau 0.6 stud
+        myHRP.CFrame = tHead.CFrame * CFrame.new(0, -0.6, -0.6)
 
+        -- chống trôi
         pcall(function()
             myHRP.AssemblyLinearVelocity = Vector3.zero
             myHRP.AssemblyAngularVelocity = Vector3.zero
@@ -1425,7 +1367,7 @@ piggyButton = CreateButton(ButtonFrame2Left, "Piggyback: OFF", function()
     startPiggy(target)
 end)
 
--- Giữ khi respawn
+-- Giữ Piggyback khi respawn
 LocalPlayer.CharacterAdded:Connect(function()
     if not piggyEnabled then return end
     task.wait(0.5)
