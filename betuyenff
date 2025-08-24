@@ -59,38 +59,9 @@ local Config = {
     Unlock3rdEnabled = false,
     Prediction = nil,
     FakeSpeedEnabled = false,
-    FakeSpeedAmount = 190,
+    FakeSpeedAmount = 300,
+    OnlyTargetHitbox = false
 }
-
-Config.Nemesis = {
-    Disabling = {Toggle = false, Keybind = "H"},
-    UpdateTickDelay = 0.05,
-    Camlock = {
-        Toggling = { Enable = true, Keybind = "Q" },
-        Settings = {
-            Prediction = { true, 999.999, false, .003 },
-            Smoothing = { smoothness = true, x = 0.025, y = 0.025 },
-            OffSets = { Jump = { Enable = false, [1] = Vector3.new(0, 3, 0) } }
-        },
-    },
-    Silent = {
-        Toggling = { Enable = false },
-        Settings = {
-            Prediction = { true , 0.11934 , false, 0.003 },
-            HitChance = 100,
-            Resolver = true,
-            OffSets = { Jump = { Enable = false, [1] = Vector3.new(0, 0, 0) } }
-        },
-        Conditions = {
-            Player = { WallCheck = false, Grabbed = false, Knocked = false, CrewID = false },
-            BodyParts = {"HumanoidRootPart", "UpperTorso", "Head"}
-        }
-    },
-}
--- Thêm bi?n b? sung cho Nemesis
-Config.NemesisTargets = { [1] = nil, [2] = nil }  -- Target cho Camlock [1] và Silent [2]
-Config.NemesisBodyParts = { [1] = "", [2] = "" }  -- Bodypart cho t?ng
-Config.NemesisCFPosition = nil  -- V? trí predict cho Silent
 
 getgenv().HitboxSize = 15
 getgenv().HitboxTransparency = 0.9
@@ -1099,7 +1070,7 @@ local function isAlive(plr)
     local be = plr.Character:FindFirstChild("BodyEffects")
     if be then
         local ko = be:FindFirstChild("K.O")
-        local grabbed = be:FindFirstChild("Grabbed")
+        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
         if (ko and ko.Value) or (grabbed and grabbed.Value) then
             return false
         end
@@ -1338,6 +1309,12 @@ fovBox:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 -- ============ /CUSTOM FOV ============
+
+onlyTargetHitboxButton = CreateButton(ButtonFrame1, "OnlyTargetHitbox: OFF", function()
+    Config.OnlyTargetHitbox = not Config.OnlyTargetHitbox
+    onlyTargetHitboxButton.Text = "OnlyTargetHitbox: " .. (Config.OnlyTargetHitbox and "ON" or "OFF")
+    sendNotification("OnlyTargetHitbox", Config.OnlyTargetHitbox and "ON" or "OFF")
+end)
 
 -- Nút toggle Hitbox
 hitboxButton = CreateButton(ButtonFrame2Left, "Hitbox: OFF", function()
@@ -2328,18 +2305,6 @@ CreateButton(ButtonFrame2Right, "sit2", function()
     playAnimation(animations.sit2)
 end)
 
--- BRING
-bringButton = CreateButton(ButtonFrame2Right, "Bring", function()
-    local target = getClosestSelected()
-    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = target.Character.HumanoidRootPart
-        local myHRP = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if myHRP then
-            hrp.CFrame = myHRP.CFrame * CFrame.new(0,0,-3)
-        end
-    end
-end)
-
 -- LOOP BRING
 local loopBring = false
 local loopBringConn
@@ -2348,13 +2313,17 @@ loopBringButton = CreateButton(ButtonFrame2Right, "Loop Bring: OFF", function()
     loopBringButton.Text = "Loop Bring: " .. (loopBring and "ON" or "OFF")
 
     if loopBring then
-        loopBringConn = game:GetService("RunService").Heartbeat:Connect(function()
-            local target = getClosestSelected()
-            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = target.Character.HumanoidRootPart
-                local myHRP = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myHRP then
-                    hrp.CFrame = myHRP.CFrame * CFrame.new(0,0,-3)
+        loopBringConn = RunService.Heartbeat:Connect(function()
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not myHRP then return end
+
+            for name, selected in pairs(Config.SelectedPlayers) do
+                if selected then
+                    local target = Players:FindFirstChild(name)
+                    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                        local hrp = target.Character.HumanoidRootPart
+                        hrp.CFrame = myHRP.CFrame * CFrame.new(0, 0, -3)
+                    end
                 end
             end
         end)
@@ -2592,17 +2561,6 @@ local function IsValidTarget(player)
         or not player.Character:FindFirstChild("HumanoidRootPart") 
         or player.Character.Humanoid.Health <= 0 then
         return false
-    end
-
-    local bodyEffects = player.Character:FindFirstChild("BodyEffects")
-    local koValue = bodyEffects and bodyEffects:FindFirstChild("K.O")
-    if koValue and koValue.Value then
-        return false -- Bỏ qua người chơi nếu họ bị K.O
-    end
-
-    -- Kiểm tra trạng thái Grab
-    if player.Character:FindFirstChild("GRABBING_CONSTRAINT") then
-        return false -- Bỏ qua nếu đang bị grab
     end
 
     return true
@@ -2861,8 +2819,11 @@ RunService.RenderStepped:Connect(function(deltaTime)
     end
 
     if getgenv().HitboxStatus == "NoVisual" or getgenv().HitboxStatus == "Visual" then
-        for i, v in next, game:GetService('Players'):GetPlayers() do
+        for _, v in next, game:GetService('Players'):GetPlayers() do
             if v.Name ~= game:GetService('Players').LocalPlayer.Name then
+                if Config.OnlyTargetHitbox and not Config.SelectedPlayers[v.Name] then
+                    continue -- Skip if OnlyTargetHitbox is ON and player is not selected
+                end
                 if getgenv().TeamCheck == true and game:GetService('Players').LocalPlayer.Team == v.Team then
                     continue
                 end
@@ -2876,7 +2837,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
             end
         end
     else
-        for i, v in next, game:GetService('Players'):GetPlayers() do
+        for _, v in next, game:GetService('Players'):GetPlayers() do
             if v.Name ~= game:GetService('Players').LocalPlayer.Name then
                 pcall(function()
                     v.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
