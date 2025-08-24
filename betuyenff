@@ -143,6 +143,11 @@ Config.NemesisTargets = { [1] = nil, [2] = nil }  -- Target cho Camlock [1] và 
 Config.NemesisBodyParts = { [1] = "", [2] = "" }  -- Bodypart cho t?ng
 Config.NemesisCFPosition = nil  -- V? trí predict cho Silent
 
+getgenv().HitboxSize = 15
+getgenv().HitboxTransparency = 0.9
+getgenv().HitboxStatus = false
+getgenv().TeamCheck = false
+
 local Keybinds = {}
 local Script = {}
 
@@ -1431,6 +1436,26 @@ fovBox:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 -- ============ /CUSTOM FOV ============
+
+-- Nút toggle Hitbox
+hitboxButton = CreateButton(ButtonFrame2Left, "Hitbox: OFF", function()
+    if getgenv().HitboxStatus == "OFF" then
+        getgenv().HitboxStatus = "NoVisual"
+        getgenv().HitboxTransparency = 1  -- Không thấy hitbox
+    elseif getgenv().HitboxStatus == "NoVisual" then
+        getgenv().HitboxStatus = "Visual"
+        getgenv().HitboxTransparency = 0.9  -- Thấy hitbox
+    else
+        getgenv().HitboxStatus = "OFF"
+        getgenv().HitboxTransparency = 1  -- Reset
+    end
+    hitboxButton.Text = "Hitbox: " .. getgenv().HitboxStatus
+    if typeof(sendNotification) == "function" then
+        sendNotification("Hitbox", getgenv().HitboxStatus)
+    else
+        print("Hitbox: " .. getgenv().HitboxStatus)
+    end
+end)
 
 local oldMinZoom, oldMaxZoom, oldMode = nil, nil, nil
 
@@ -2964,6 +2989,35 @@ RunService.RenderStepped:Connect(function(deltaTime)
                 Camera.CFrame = (sx == 1 and sy == 1)
                     and CFrame.new(Camera.CFrame.Position, predictedPos)
                     or Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, predictedPos), alpha)
+            end
+        end
+    end
+
+    if getgenv().HitboxStatus == "NoVisual" or getgenv().HitboxStatus == "Visual" then
+        for i, v in next, game:GetService('Players'):GetPlayers() do
+            if v.Name ~= game:GetService('Players').LocalPlayer.Name then
+                if getgenv().TeamCheck == true and game:GetService('Players').LocalPlayer.Team == v.Team then
+                    continue
+                end
+                pcall(function()
+                    v.Character.HumanoidRootPart.Size = Vector3.new(getgenv().HitboxSize, getgenv().HitboxSize, getgenv().HitboxSize)
+                    v.Character.HumanoidRootPart.Transparency = getgenv().HitboxTransparency
+                    v.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really black")
+                    v.Character.HumanoidRootPart.Material = "Neon"
+                    v.Character.HumanoidRootPart.CanCollide = false
+                end)
+            end
+        end
+    else
+        for i, v in next, game:GetService('Players'):GetPlayers() do
+            if v.Name ~= game:GetService('Players').LocalPlayer.Name then
+                pcall(function()
+                    v.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+                    v.Character.HumanoidRootPart.Transparency = 1
+                    v.Character.HumanoidRootPart.BrickColor = BrickColor.new("Medium stone grey")
+                    v.Character.HumanoidRootPart.Material = "Plastic"
+                    v.Character.HumanoidRootPart.CanCollide = false
+                end)
             end
         end
     end
