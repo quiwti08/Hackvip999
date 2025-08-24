@@ -53,7 +53,7 @@ local Config = {
     CsyncOrbitEnabled = false,
     CsyncRadius = 10,
     CsyncHeight = 5,
-    CsyncSpeed = 2,
+    CsyncSpeed = 5,
     AutoWallhopEnabled = false,
     SpinbotEnabled = false,
     SpinbotSpeed = 450,
@@ -71,7 +71,6 @@ getgenv().TeamCheck = false
 
 local Keybinds = {}
 local Script = {}
-local modifiedParts = {}
 
 --// Helpers
 local function attachButtonEffects(btn, shrinkPx)
@@ -195,7 +194,6 @@ ToggleButton.Image = "rbxassetid://80952463173309"
 ToggleButton.ScaleType = Enum.ScaleType.Fit -- để ảnh không bị méo
 ToggleButton.Parent = gui
 Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 10)
-attachButtonEffects(ToggleButton, 5)
 makeSmoothDraggable(ToggleButton, 0.18)
 
 --// MainFrame
@@ -203,7 +201,7 @@ local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 400, 0, 300)
 MainFrame.Position = UDim2.new(0.08, 0, 0.2, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-MainFrame.Visible = false
+MainFrame.Visible = true
 MainFrame.Parent = gui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 makeSmoothDraggable(MainFrame, 0.2)
@@ -710,21 +708,35 @@ end
 -- Gọi hàm setup để gắn auto bắn
 Script.SetupConnections()
 
--- Hàm GetPing
 local function GetPing()
     local stats = game:GetService("Stats"):FindFirstChild("Network")
     local data = stats and stats:FindFirstChild("DataPing")
     return data and math.clamp(data:GetValue(), 10, 300) or 40
 end
 
+-- Thêm hàm tính prediction scalar dựa trên ping (standard cho Da Hood)
+local function GetPredFromPing(p)
+    if p < 20 then return 0.119
+    elseif p < 30 then return 0.122
+    elseif p < 40 then return 0.126
+    elseif p < 50 then return 0.130
+    elseif p < 60 then return 0.133
+    elseif p < 70 then return 0.136
+    elseif p < 80 then return 0.139
+    elseif p < 90 then return 0.143
+    elseif p < 100 then return 0.146
+    elseif p < 150 then return 0.150
+    elseif p < 200 then return 0.155
+    else return 0.165 + (p - 200) / 1000  -- Tăng dần cho ping cao
+    end
+end
+
+-- Sửa hàm CalculateVIPPrediction (bỏ distanceFactor để giống standard Da Hood, dùng scalar pred)
 local function CalculateVIPPrediction(part, ping)
     if not part or not part:IsA("BasePart") then return nil end
     local velocity = part.Velocity
-    local origin = Camera.CFrame.Position
-    local distance = (part.Position - origin).Magnitude
-    local delay = (ping or GetPing()) / 1000
-    local distanceFactor = math.clamp(distance / 100, 1, 3)
-    return part.Position + velocity * delay * distanceFactor
+    local pred = GetPredFromPing(ping)  -- Tính scalar pred từ ping
+    return part.Position + velocity * pred
 end
 
 task.spawn(function()
@@ -763,7 +775,7 @@ predictionBox.Parent = ButtonFrame1
 Instance.new("UICorner", predictionBox).CornerRadius = UDim.new(0, 6)
 
 predictionBox:GetPropertyChangedSignal("Text"):Connect(function()
-    if Config.AutoPredictionEnabled then return end -- khi auto bật thì bỏ qua input
+    if Config.AutoPredictionEnabled then return end 
     local num = tonumber(predictionBox.Text)
     if num then
         Config.CustomPing = math.clamp(num, 10, 300)
@@ -970,71 +982,6 @@ _G.__vhuyhub_antilock_conn = RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ==== UTILS ====
-local function getMyHumanoid()
-    local char = LocalPlayer.Character
-    if not char then return nil,nil,nil end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    return char, hum, hrp
-end
-
-local function getClosestSelected()
-    local _, _, myHRP = getMyHumanoid()
-    if not myHRP then return end
-    
-    local myPos, closest, minDist = myHRP.Position, nil, math.huge
-    for name, selected in pairs(Config.SelectedPlayers or {}) do
-        if selected then
-            local hrp = Players:FindFirstChild(name)
-                and Players[name].Character
-                and Players[name].Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local dist = (myPos - hrp.Position).Magnitude
-                if dist < minDist then
-                    closest, minDist = Players[name], dist
-                end
-            end
-        end
-    end
-    return closest
-end
-
-local lastTargetName, lastNotify = nil, 0
-
--- LOOK AT chỉ hoạt động khi Csync bật
-RunService.RenderStepped:Connect(function()
-    if not (Config.CsyncOrbitEnabled or Config.CsyncRandomEnabled) then
-        Config.LookAtEnabled = false
-        return
-    end
-    
-    Config.LookAtEnabled = true
-    local char, hum, hrp = getMyHumanoid()
-    if not (hum and hrp) then return end
-    hum.AutoRotate = false
-
-    local targetPlr = getClosestSelected()
-    if not targetPlr then return end
-
-    local thrp = targetPlr.Character and targetPlr.Character:FindFirstChild("HumanoidRootPart")
-    if not thrp then return end
-
-    local myPos = hrp.Position
-    local tPos = thrp.Position
-    local facePos = Vector3.new(tPos.X, myPos.Y, tPos.Z)
-
-    hrp.CFrame = hrp.CFrame:Lerp(CFrame.lookAt(myPos, facePos), 0.35)
-end)
-
--- Khi chết → tự reset AutoRotate
-LocalPlayer.CharacterAdded:Connect(function()
-    task.defer(function()
-        local _, hum = getMyHumanoid()
-        if hum then hum.AutoRotate = true end
-    end)
-end)
-
 triggerBotButton = CreateButton(ButtonFrame1, "TriggerBot: " .. (tbEnabled and "ON" or "OFF"), function()
     tbEnabled = not tbEnabled
     triggerBotButton.Text = "TriggerBot: " .. (tbEnabled and "ON" or "OFF")
@@ -1081,19 +1028,21 @@ local function isAlive(plr)
     return true
 end
 
+-- Hàm tìm player gần nhất trong danh sách SelectedPlayers
 local function getClosestSelected()
+    local closest, dist = nil, math.huge
     local myChar = LocalPlayer.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myHRP then return nil end
-    local closest, minDist
+
     for name, selected in pairs(Config.SelectedPlayers or {}) do
         if selected then
             local plr = Players:FindFirstChild(name)
-            local hrp = plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local dist = (myHRP.Position - hrp.Position).Magnitude
-                if not minDist or dist < minDist then
-                    closest, minDist = plr, dist
+            if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local d = (myHRP.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    closest = plr
                 end
             end
         end
@@ -1101,26 +1050,33 @@ local function getClosestSelected()
     return closest
 end
 
-local function getNextTarget(currentTarget)
-    local myChar = LocalPlayer.Character
-    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil end
-    local candidates = {}
-    for name, selected in pairs(Config.SelectedPlayers or {}) do
-        if selected then
-            local plr = Players:FindFirstChild(name)
-            if plr and plr ~= currentTarget and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                table.insert(candidates, plr)
+-- Thêm hàm GetClosestTarget
+local function GetClosestTarget()
+    local closestPlayer = nil
+    local closestDistance = math.huge
+    local localPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
+
+    if not localPos then
+        return nil
+    end
+
+    for playerName, isSelected in pairs(Config.SelectedPlayers) do
+        if isSelected then
+            local player = Players:FindFirstChild(playerName)
+            if player and IsAlive(player) then
+                local targetPos = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position
+                if targetPos then
+                    local distance = (localPos - targetPos).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestPlayer = player
+                    end
+                end
             end
         end
     end
-    table.sort(candidates, function(a, b)
-        local ha = a.Character and a.Character:FindFirstChild("HumanoidRootPart")
-        local hb = b.Character and b.Character:FindFirstChild("HumanoidRootPart")
-        if not ha or not hb then return false end
-        return (myHRP.Position - ha.Position).Magnitude < (myHRP.Position - hb.Position).Magnitude
-    end)
-    return candidates[1]
+
+    return closestPlayer
 end
 
 -- ========================
@@ -1194,7 +1150,7 @@ if _G.VHUB_CSYNC_LOOP then _G.VHUB_CSYNC_LOOP:Disconnect() end
 _G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function()
     -- Nếu chưa có target hoặc target không tồn tại → tìm mới
     if not currentTarget or not currentTarget.Parent then
-        currentTarget = getClosestSelected()
+        currentTarget = GetClosestTarget()
     end
 
     -- Nếu đang pause thì thử tìm lại target để resume
@@ -1210,17 +1166,6 @@ _G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function()
     if not currentTarget then
         csyncPaused = true
         return
-    end
-
-    -- Nếu target bị KO → đổi target hoặc pause
-    if isAlive(currentTarget) then
-        local nextTarget = getNextTarget(currentTarget)
-        if nextTarget then
-            currentTarget = nextTarget
-        else
-            csyncPaused = true
-            return
-        end
     end
 
     -- Thực hiện Csync nếu không pause
@@ -1245,20 +1190,6 @@ _G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function()
             )
             myHRP.CFrame = CFrame.new(hrp.Position + offset, hrp.Position)
         end
-    end
-end)
-
--- ========================
--- Khi chết → tắt Csync + Look At
--- ========================
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
-    if Config.CsyncOrbitEnabled or Config.CsyncRandomEnabled then
-        Config.CsyncOrbitEnabled = false
-        Config.CsyncRandomEnabled = false
-        csyncOrbitButton.Text = "Csync Orbit: OFF"
-        csyncRandomButton.Text = "Csync Random: OFF"
-        sendNotification("Csync", "Đã tắt vì bạn chết")
     end
 end)
 
@@ -1941,7 +1872,7 @@ end)
 -- Xử lý khi respawn
 LocalPlayer.CharacterAdded:Connect(function()
     if animEnabled then
-        task.wait(0.5) -- Đợi nhân vật load
+        task.wait(0.5) 
         local target = getClosestSelected()
         if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
             local myChar = LocalPlayer.Character
@@ -1951,12 +1882,6 @@ LocalPlayer.CharacterAdded:Connect(function()
                 -- Chọn lại animation theo rig type
                 local anim = Instance.new("Animation")
                 anim.AnimationId = myHum.RigType == Enum.HumanoidRigType.R6 and "rbxassetid://148840371" or "rbxassetid://5918726674"
-                
-                -- Xóa quần áo nếu có
-                pcall(function()
-                    myChar.Pants:Destroy()
-                    myChar.Shirt:Destroy()
-                end)
 
                 -- Phát lại animation
                 animTrack = myHum:LoadAnimation(anim)
@@ -1970,14 +1895,12 @@ LocalPlayer.CharacterAdded:Connect(function()
                     else
                         stopAnimAndTp()
                         bangButton.Text = "BangPlayer: OFF"
-                        sendNotification("BangPlayer", "Mục tiêu không hợp lệ, đã tắt!")
                     end
                 end)
             end
         else
             stopAnimAndTp()
             bangButton.Text = "BangPlayer: OFF"
-            sendNotification("BangPlayer", "Mục tiêu không hợp lệ, đã tắt!")
         end
     end
 end)
@@ -2844,39 +2767,30 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     end
 
-    -- Reset previously modified parts to avoid desync
-    for player, part in pairs(modifiedParts) do
-        if part and part.Parent then
-            pcall(function()
-                part.Size = Vector3.new(1, 1, 1) -- Adjust based on part, e.g., Head is smaller
-                part.Transparency = 1
-                part.BrickColor = BrickColor.new("Medium stone grey")
-                part.Material = "Plastic"
-                part.CanCollide = true
-            end)
-        end
-    end
-    modifiedParts = {} -- Clear table for new modifications
-
     if getgenv().HitboxStatus == "NoVisual" or getgenv().HitboxStatus == "Visual" then
-        for _, v in next, game:GetService('Players'):GetPlayers() do
+        for i, v in next, game:GetService('Players'):GetPlayers() do
             if v.Name ~= game:GetService('Players').LocalPlayer.Name then
-                if Config.OnlyTargetHitbox and not Config.SelectedPlayers[v.Name] then
-                    continue -- Skip if OnlyTargetHitbox is ON and player is not selected
-                end
                 if getgenv().TeamCheck == true and game:GetService('Players').LocalPlayer.Team == v.Team then
                     continue
                 end
                 pcall(function()
-                    local targetPart = v.Character:FindFirstChild(getgenv().Aimbot.Hitpart)
-                    if targetPart and targetPart:IsA("BasePart") then
-                        targetPart.Size = Vector3.new(getgenv().HitboxSize, getgenv().HitboxSize, getgenv().HitboxSize)
-                        targetPart.Transparency = getgenv().HitboxTransparency
-                        targetPart.BrickColor = BrickColor.new("Really black")
-                        targetPart.Material = "Neon"
-                        targetPart.CanCollide = false
-                        modifiedParts[v] = targetPart -- Track modified part
-                    end
+                    v.Character.HumanoidRootPart.Size = Vector3.new(getgenv().HitboxSize, getgenv().HitboxSize, getgenv().HitboxSize)
+                    v.Character.HumanoidRootPart.Transparency = getgenv().HitboxTransparency
+                    v.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really black")
+                    v.Character.HumanoidRootPart.Material = "Neon"
+                    v.Character.HumanoidRootPart.CanCollide = false
+                end)
+            end
+        end
+    else
+        for i, v in next, game:GetService('Players'):GetPlayers() do
+            if v.Name ~= game:GetService('Players').LocalPlayer.Name then
+                pcall(function()
+                    v.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+                    v.Character.HumanoidRootPart.Transparency = 1
+                    v.Character.HumanoidRootPart.BrickColor = BrickColor.new("Medium stone grey")
+                    v.Character.HumanoidRootPart.Material = "Plastic"
+                    v.Character.HumanoidRootPart.CanCollide = false
                 end)
             end
         end
