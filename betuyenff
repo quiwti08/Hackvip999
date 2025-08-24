@@ -185,16 +185,27 @@ local function CreateButton(parent, name, callback)
     return button
 end
 
---// Toggle Button
+-- Hàm kiểm tra xem có phải thiết bị cảm ứng không
+local function isTouchDevice()
+    return UserInputService.TouchEnabled and not (UserInputService.MouseEnabled or UserInputService.KeyboardEnabled)
+end
+
+-- Tạo Toggle Button
 local ToggleButton = Instance.new("ImageButton")
 ToggleButton.Size = UDim2.new(0, 45, 0, 45)
-ToggleButton.Position = UDim2.new(0, 15, 0, 250)
 ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 ToggleButton.Image = "rbxassetid://80952463173309"
-ToggleButton.ScaleType = Enum.ScaleType.Fit -- để ảnh không bị méo
+ToggleButton.ScaleType = Enum.ScaleType.Fit
 ToggleButton.Parent = gui
 Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 10)
 makeSmoothDraggable(ToggleButton, 0.18)
+
+-- Đặt vị trí dựa trên thiết bị
+if isTouchDevice() then
+    ToggleButton.Position = UDim2.new(0, 15, 0, 250) -- Giữ nguyên cho điện thoại
+else
+    ToggleButton.Position = UDim2.new(0, 770, 0, 715) -- Vị trí cho PC
+end
 
 --// MainFrame
 local MainFrame = Instance.new("Frame")
