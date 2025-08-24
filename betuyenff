@@ -101,6 +101,8 @@ local Config = {
     SpinbotSpeed = 450,
     Unlock3rdEnabled = false,
     Prediction = nil,
+    FakeSpeedEnabled = false,
+    FakeSpeedAmount = 190,
 }
 
 Config.Nemesis = {
@@ -760,6 +762,18 @@ task.delay(4, function()
     end)
 end)
 
+silentButton = CreateButton(ButtonFrame1, "Silent Aim: OFF", function()
+    Config.SilentEnabled = not Config.SilentEnabled
+    silentButton.Text = "Silent Aim: " .. (Config.SilentEnabled and "ON" or "OFF")
+    sendNotification("Silent Aim", Config.SilentEnabled and "ON" or "OFF")
+end)
+
+aimbotButton = CreateButton(ButtonFrame1, "Aimlock: OFF", function()
+    Config.AimbotEnabled = not Config.AimbotEnabled
+    aimbotButton.Text = "Aimlock: " .. (Config.AimbotEnabled and "ON" or "OFF")
+    sendNotification("AIMLOCK", Config.AimbotEnabled and "ON" or "OFF")
+end)
+
 -- ========== AUTO AIR ==========
 Script.AutoAir = function(Target)
     if getgenv().Extort and getgenv().Extort['Features'] and getgenv().Extort['Features']['Auto Air'] 
@@ -822,18 +836,6 @@ end
 
 -- Gọi hàm setup để gắn auto bắn
 Script.SetupConnections()
-
-silentButton = CreateButton(ButtonFrame1, "Silent Aim: OFF", function()
-    Config.SilentEnabled = not Config.SilentEnabled
-    silentButton.Text = "Silent Aim: " .. (Config.SilentEnabled and "ON" or "OFF")
-    sendNotification("Silent Aim", Config.SilentEnabled and "ON" or "OFF")
-end)
-
-aimbotButton = CreateButton(ButtonFrame1, "Aimlock: OFF", function()
-    Config.AimbotEnabled = not Config.AimbotEnabled
-    aimbotButton.Text = "Aimlock: " .. (Config.AimbotEnabled and "ON" or "OFF")
-    sendNotification("AIMLOCK", Config.AimbotEnabled and "ON" or "OFF")
-end)
 
 -- Hàm GetPing
 local function GetPing()
@@ -902,111 +904,42 @@ hitpartButton = CreateButton(ButtonFrame1, "Hitpart: Head", function()
     sendNotification("Aimlock", "Hitpart changed to " .. getgenv().Aimbot.Hitpart)
 end)
 
--- ========== HITBOX EXPANDER ==========
-local hitboxMode = 0 -- 0 = OFF, 1 = NOVISUAL, 2 = VISUAL
-local hitboxSize = 10
-local hitboxConn
-
-local function updateHitboxButton()
-    local text = "Hitbox: "
-    if hitboxMode == 0 then
-        text = text .. "OFF"
-    elseif hitboxMode == 1 then
-        text = text .. "NOVISUAL"
-    elseif hitboxMode == 2 then
-        text = text .. "VISUAL"
-    end
-    hitboxButton.Text = text
-end
-
-local function stopHitbox()
-    if hitboxConn then
-        hitboxConn:Disconnect()
-        hitboxConn = nil
-    end
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer 
-        and player.Character 
-        and player.Character:FindFirstChild("HumanoidRootPart") then
-            local root = player.Character.HumanoidRootPart
-            root.Size = Vector3.new(2, 2, 1) -- size gốc
-            if root:FindFirstChild("HitboxAdornment") then
-                root.HitboxAdornment:Destroy()
-            end
-        end
-    end
-end
-
-hitboxButton = CreateButton(ButtonFrame1, "Hitbox: OFF", function()
-    hitboxMode = (hitboxMode + 1) % 3
-    updateHitboxButton()
-    sendNotification("Hitbox", hitboxButton.Text)
-
-    -- Nếu OFF thì dừng hết
-    if hitboxMode == 0 then
-        stopHitbox()
-        return
-    end
-
-    -- Nếu NOVISUAL hoặc VISUAL thì bật loop
-    if not hitboxConn then
-        hitboxConn = game:GetService("RunService").Heartbeat:Connect(function()
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer 
-                and player.Character 
-                and player.Character:FindFirstChild("HumanoidRootPart") then
-                    local root = player.Character.HumanoidRootPart
-                    root.CanCollide = false
-                    root.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-
-                    if hitboxMode == 2 then -- Visual
-                        if not root:FindFirstChild("HitboxAdornment") then
-                            local adorn = Instance.new("BoxHandleAdornment")
-                            adorn.Name = "HitboxAdornment"
-                            adorn.Adornee = root
-                            adorn.AlwaysOnTop = true
-                            adorn.ZIndex = 5
-                            adorn.Size = root.Size
-                            adorn.Transparency = 0.5
-                            adorn.Color3 = Color3.fromRGB(255, 0, 0)
-                            adorn.Parent = root
-                        else
-                            root.HitboxAdornment.Size = root.Size
-                        end
-                    else -- NOVISUAL
-                        if root:FindFirstChild("HitboxAdornment") then
-                            root.HitboxAdornment:Destroy()
-                        end
-                    end
-                end
-            end
-        end)
-    end
-end)
-
--- TextBox chỉnh size
-local hitboxTextBox = Instance.new("TextBox")
-hitboxTextBox.Size = UDim2.new(1, -10, 0, 25)
-hitboxTextBox.Position = UDim2.new(0, 5, 0, hitboxButton.Position.Y.Offset + hitboxButton.Size.Y.Offset + 5)
-hitboxTextBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-hitboxTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-hitboxTextBox.Text = tostring(hitboxSize)
-hitboxTextBox.Parent = ButtonFrame1
-hitboxTextBox.FocusLost:Connect(function()
-    local num = tonumber(hitboxTextBox.Text)
-    if num and num > 0 then
-        hitboxSize = num
-        sendNotification("Hitbox Size", "Đã đổi thành " .. num)
-    else
-        hitboxTextBox.Text = tostring(hitboxSize)
-    end
-end)
-
 -- Nút cho trang 1
 espButton = CreateButton(ButtonFrame1, "ESP: OFF", function()
     Config.ESPEnabled = not Config.ESPEnabled
     espButton.Text = "ESP: " .. (Config.ESPEnabled and "ON" or "OFF")
     sendNotification("ESP", Config.ESPEnabled and "ON" or "OFF")
+end)
+
+-- Nút FakeSpeed (chạy 1 lần khi bấm)
+fakeSpeedButton = CreateButton(ButtonFrame1, "FakeSpeed", function()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.Velocity = hrp.CFrame.LookVector * (Config.FakeSpeedAmount or 190)
+        sendNotification("FakeSpeed", "Đã kích hoạt speed " .. tostring(Config.FakeSpeedAmount or 190))
+    end
+end)
+
+-- Ô nhập Speed cho FakeSpeed (mặc định 190)
+local fakeSpeedBox = Instance.new("TextBox")
+fakeSpeedBox.Size = UDim2.new(1, -10, 0, 25)
+fakeSpeedBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+fakeSpeedBox.BackgroundTransparency = 0.2
+fakeSpeedBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+fakeSpeedBox.TextSize = 14
+fakeSpeedBox.Font = Enum.Font.Gotham
+fakeSpeedBox.PlaceholderText = "Nhập Speed"
+fakeSpeedBox.Text = "190" -- mặc định
+fakeSpeedBox.ClearTextOnFocus = false
+fakeSpeedBox.Parent = ButtonFrame1
+Instance.new("UICorner", fakeSpeedBox).CornerRadius = UDim.new(0, 6)
+
+fakeSpeedBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local num = tonumber(fakeSpeedBox.Text)
+    if num then
+        Config.FakeSpeedAmount = num
+    end
 end)
 
 speedButton = CreateButton(ButtonFrame1, "Speed: OFF", function()
@@ -1019,6 +952,54 @@ flyButton = CreateButton(ButtonFrame1, "Fly: OFF", function()
     Config.FlyEnabled = not Config.FlyEnabled
     flyButton.Text = "Fly: " .. (Config.FlyEnabled and "ON" or "OFF")
     sendNotification("FLY", Config.FlyEnabled and "ON" or "OFF")
+end)
+
+-- ========== RAPIDFIRE ==========
+local utility = {}
+getgenv().config = { enable = false, delay = 0.01 }
+getgenv().is_firing = false
+
+utility.get_gun = function()
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, tool in next, char:GetChildren() do
+        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
+            return tool
+        end
+    end
+end
+
+utility.rapid = function(tool)
+    tool:Activate()
+end
+
+-- Nút RapidFire toggle trong GUI
+rapidButton = CreateButton(ButtonFrame1, "RapidFire: OFF", function()
+    config.enable = not config.enable
+    rapidButton.Text = "RapidFire: " .. (config.enable and "ON" or "OFF")
+    sendNotification("RapidFire", config.enable and "ON" or "OFF")
+end)
+
+local UIS = game:GetService("UserInputService")
+
+-- PC: giữ chuột trái
+UIS.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        local gun = utility.get_gun()
+        if config.enable and gun and not is_firing then
+            is_firing = true
+            while is_firing do
+                utility.rapid(gun)
+                task.wait(config.delay)
+            end
+        end
+    end
+end)
+
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        is_firing = false
+    end
 end)
 
 macroLegitButton = CreateButton(ButtonFrame1, "Macro Legit: " .. (Config.MacroLegitEnabled and "ON" or "OFF"), function()
@@ -2379,198 +2360,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local SkidFling = function(TargetPlayer)
-    local Character = Player.Character
-    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-    local RootPart = Humanoid and Humanoid.RootPart
-
-    local TCharacter = TargetPlayer.Character
-    local THumanoid
-    local TRootPart
-    local THead
-    local Accessory
-    local Handle
-
-    if TCharacter:FindFirstChildOfClass("Humanoid") then
-        THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
-    end
-    if THumanoid and THumanoid.RootPart then
-        TRootPart = THumanoid.RootPart
-    end
-    if TCharacter:FindFirstChild("Head") then
-        THead = TCharacter.Head
-    end
-    if TCharacter:FindFirstChildOfClass("Accessory") then
-        Accessory = TCharacter:FindFirstChildOfClass("Accessory")
-    end
-    if Accessoy and Accessory:FindFirstChild("Handle") then
-        Handle = Accessory.Handle
-    end
-
-    if Character and Humanoid and RootPart then
-        if RootPart.Velocity.Magnitude < 50 then
-            getgenv().OldPos = RootPart.CFrame
-        end
-        if THumanoid and THumanoid.Sit and not AllBool then
-            return Message("Error Occurred", "Targeting is sitting", 5) -- u can remove dis part if u want lol
-        end
-        if THead then
-            workspace.CurrentCamera.CameraSubject = THead
-        elseif not THead and Handle then
-            workspace.CurrentCamera.CameraSubject = Handle
-        elseif THumanoid and TRootPart then
-            workspace.CurrentCamera.CameraSubject = THumanoid
-        end
-        if not TCharacter:FindFirstChildWhichIsA("BasePart") then
-            return
-        end
-        
-        local FPos = function(BasePart, Pos, Ang)
-            RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
-            Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
-            RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
-            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
-        end
-        
-        local SFBasePart = function(BasePart)
-            local TimeToWait = 2
-            local Time = tick()
-            local Angle = 0
-
-            repeat
-                if RootPart and THumanoid then
-                    if BasePart.Velocity.Magnitude < 50 then
-                        Angle = Angle + 100
-
-                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(2.25, 1.5, -2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(-2.25, -1.5, 2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection,CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection,CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-                    else
-                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-                        
-                        FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, -1.5, -TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(0, 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, -1.5 ,0), CFrame.Angles(math.rad(-90), 0, 0))
-                        task.wait()
-
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
-                        task.wait()
-                    end
-                else
-                    break
-                end
-            until BasePart.Velocity.Magnitude > 500 or BasePart.Parent ~= TargetPlayer.Character or TargetPlayer.Parent ~= Players or not TargetPlayer.Character == TCharacter or THumanoid.Sit or Humanoid.Health <= 0 or tick() > Time + TimeToWait
-        end
-        
-        workspace.FallenPartsDestroyHeight = 0/0
-        
-        local BV = Instance.new("BodyVelocity")
-        BV.Name = "EpixVel"
-        BV.Parent = RootPart
-        BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
-        BV.MaxForce = Vector3.new(1/0, 1/0, 1/0)
-        
-        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-        
-        if TRootPart and THead then
-            if (TRootPart.CFrame.p - THead.CFrame.p).Magnitude > 5 then
-                SFBasePart(THead)
-            else
-                SFBasePart(TRootPart)
-            end
-        elseif TRootPart and not THead then
-            SFBasePart(TRootPart)
-        elseif not TRootPart and THead then
-            SFBasePart(THead)
-        elseif not TRootPart and not THead and Accessory and Handle then
-            SFBasePart(Handle)
-        end
-        
-        BV:Destroy()
-        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-        workspace.CurrentCamera.CameraSubject = Humanoid
-        
-        repeat
-            RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
-            Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
-            Humanoid:ChangeState("GettingUp")
-            table.foreach(Character:GetChildren(), function(_, x)
-                if x:IsA("BasePart") then
-                    x.Velocity, x.RotVelocity = Vector3.new(), Vector3.new()
-                end
-            end)
-            task.wait()
-        until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25
-        workspace.FallenPartsDestroyHeight = getgenv().FPDH
-    end
-end
-
--- Hàm tìm player gần chuột
-local Camera = workspace.CurrentCamera
-local function getClosestToMouse()
-    local mouse = Player:GetMouse()
-    local closestPlr, closestDist = nil, math.huge
-
-    for _,plr in ipairs(Players:GetPlayers()) do
-        if plr ~= Player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = plr.Character.HumanoidRootPart
-            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-            if onScreen then
-                local dist = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closestPlr = plr
-                end
-            end
-        end
-    end
-
-    return closestPlr
-end
-
--- Nút fling gần chuột
-flingNearestButton = CreateButton(ButtonFrame2Right, "Fling Nearest", function()
-    local target = getClosestToMouse()
-    if target then
-        SkidFling(target) -- dùng nguyên hàm gốc
-        sendNotification("Fling", "Đã fling: " .. target.Name, 5)
-    end
-end)
-
 -- Tạo 2 nút
 CreateButton(ButtonFrame2Right, "Happier Jump", function()
     playAnimation(animations.happier)
@@ -3168,7 +2957,12 @@ RunService.RenderStepped:Connect(function(deltaTime)
             local ping = Config.AutoPredictionEnabled and GetPing() or Config.CustomPing
             local predictedPos = CalculateVIPPrediction(part, ping)
             if predictedPos and not IsObstructed(Camera.CFrame.Position, predictedPos) then
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, predictedPos)
+                local S = (Config and Config.Nemesis and Config.Nemesis.Camlock and Config.Nemesis.Camlock.Settings and Config.Nemesis.Camlock.Settings.Smoothing) or {}
+                local sx, sy = (S.x or 1), (S.y or 1)
+                local alpha = math.clamp(math.min(sx, sy), 0, 1)
+                Camera.CFrame = (sx == 1 and sy == 1)
+                    and CFrame.new(Camera.CFrame.Position, predictedPos)
+                    or Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, predictedPos), alpha)
             end
         end
     end
