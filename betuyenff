@@ -13,7 +13,6 @@ local StarterGui = game:GetService("StarterGui")
 local Camera = Workspace.CurrentCamera
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
-
 local TextChatService = game:GetService("TextChatService")
 
 local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
@@ -72,6 +71,7 @@ getgenv().TeamCheck = false
 
 local Keybinds = {}
 local Script = {}
+local modifiedParts = {}
 
 --// Helpers
 local function attachButtonEffects(btn, shrinkPx)
@@ -190,7 +190,7 @@ end
 local ToggleButton = Instance.new("ImageButton")
 ToggleButton.Size = UDim2.new(0, 45, 0, 45)
 ToggleButton.Position = UDim2.new(0, 15, 0, 250)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 ToggleButton.Image = "rbxassetid://80952463173309"
 ToggleButton.ScaleType = Enum.ScaleType.Fit -- để ảnh không bị méo
 ToggleButton.Parent = gui
@@ -2568,6 +2568,19 @@ local function IsValidTarget(player)
     return true
 end
 
+-- Hàm kiểm tra trạng thái K.O hoặc GRABBING_CONSTRAINT (chỉ cho Da Hood)
+local function IsPlayerKnockedOrGrabbed(player)
+    -- Kiểm tra xem game có folder BodyEffects không (đặc trưng của Da Hood)
+    local bodyEffects = player.Character and player.Character:FindFirstChild("BodyEffects")
+    if not bodyEffects then
+        return false -- Nếu không có BodyEffects, bỏ qua (game không phải Da Hood)
+    end
+
+    local ko = bodyEffects:FindFirstChild("K.O")
+    local grabbed = bodyEffects:FindFirstChild("GRABBING_CONSTRAINT")
+    return (ko and ko.Value) or (grabbed and grabbed.Value)
+end
+
 local function CreateESP(player)
     if ESPs[player] or player == LocalPlayer then return end
     local label = Instance.new("TextLabel")
@@ -2625,8 +2638,19 @@ local function UpdateESP()
                 local esp = ESPs[player]
                 if esp then
                     local isSelected = Config.SelectedPlayers[player.Name]
-                    esp.label.TextColor3 = isSelected and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 255, 255)
-                    esp.highlight.FillColor = isSelected and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(255, 255, 255)
+                    -- Kiểm tra trạng thái K.O hoặc grab
+                    local isKnockedOrGrabbed = IsPlayerKnockedOrGrabbed(player)
+                    if isKnockedOrGrabbed then
+                        -- Màu vàng cho K.O hoặc grab
+                        esp.label.TextColor3 = Color3.fromRGB(255, 255, 0)
+                        esp.highlight.FillColor = Color3.fromRGB(255, 255, 0)
+                        esp.highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
+                    else
+                        -- Màu cho người được chọn hoặc không chọn
+                        esp.label.TextColor3 = isSelected and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(255, 255, 255)
+                        esp.highlight.FillColor = isSelected and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(255, 255, 255)
+                        esp.highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- Giữ outline trắng
+                    end
                     if onScreen then
                         esp.label.Visible = true
                         esp.label.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y - 20)
@@ -2820,6 +2844,20 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     end
 
+    -- Reset previously modified parts to avoid desync
+    for player, part in pairs(modifiedParts) do
+        if part and part.Parent then
+            pcall(function()
+                part.Size = Vector3.new(1, 1, 1) -- Adjust based on part, e.g., Head is smaller
+                part.Transparency = 1
+                part.BrickColor = BrickColor.new("Medium stone grey")
+                part.Material = "Plastic"
+                part.CanCollide = true
+            end)
+        end
+    end
+    modifiedParts = {} -- Clear table for new modifications
+
     if getgenv().HitboxStatus == "NoVisual" or getgenv().HitboxStatus == "Visual" then
         for _, v in next, game:GetService('Players'):GetPlayers() do
             if v.Name ~= game:GetService('Players').LocalPlayer.Name then
@@ -2837,21 +2875,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
                         targetPart.BrickColor = BrickColor.new("Really black")
                         targetPart.Material = "Neon"
                         targetPart.CanCollide = false
-                    end
-                end)
-            end
-        end
-    else
-        for _, v in next, game:GetService('Players'):GetPlayers() do
-            if v.Name ~= game:GetService('Players').LocalPlayer.Name then
-                pcall(function()
-                    local targetPart = v.Character:FindFirstChild(getgenv().Aimbot.Hitpart)
-                    if targetPart and targetPart:IsA("BasePart") then
-                        targetPart.Size = Vector3.new(2, 2, 1) -- Default size, adjust based on part
-                        targetPart.Transparency = 1
-                        targetPart.BrickColor = BrickColor.new("Medium stone grey")
-                        targetPart.Material = "Plastic"
-                        targetPart.CanCollide = false
+                        modifiedParts[v] = targetPart -- Track modified part
                     end
                 end)
             end
