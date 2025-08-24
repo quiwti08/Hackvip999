@@ -429,36 +429,44 @@ UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
 end)
 
--- Populate PlayerList
-local function updatePlayerList()
-    for _, child in ipairs(PlayerListFrame:GetChildren()) do
-        if child:IsA("Frame") then
+local function UpdatePlayerList()
+    for _, child in pairs(PlayerListFrame:GetChildren()) do
+        if child:IsA("TextButton") then
             child:Destroy()
         end
     end
-
     for _, player in ipairs(Players:GetPlayers()) do
-        local playerFrame = Instance.new("Frame", PlayerListFrame)
-        playerFrame.Size = UDim2.new(1, -10, 0, 30)
-        playerFrame.BackgroundTransparency = 0.2
-        playerFrame.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
+        if player ~= LocalPlayer then
+            local button = Instance.new("TextButton")
+            button.Size = UDim2.new(1, -4, 0, 20)
+            button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            button.BackgroundTransparency = 0.2
+            button.TextColor3 = Color3.fromRGB(0, 0, 0)
+            button.TextSize = 14
+            button.Font = Enum.Font.Gotham
+            button.AutoButtonColor = false
+            button.Parent = PlayerListFrame
 
-        local playerLabel = Instance.new("TextLabel", playerFrame)
-        playerLabel.Size = UDim2.new(1, -5, 1, 0)
-        playerLabel.BackgroundTransparency = 1
-        playerLabel.Text = player.DisplayName .. " (@" .. player.Name .. ")"
-        playerLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-        playerLabel.TextSize = 14
-        playerLabel.Font = Enum.Font.Gotham
-        playerLabel.TextXAlignment = Enum.TextXAlignment.Left
+            local function UpdateButtonText()
+                local isSelected = Config.SelectedPlayers[player.Name]
+                button.Text = (isSelected and "✓ " or "") .. player.DisplayName  -- Chỉ giữ DisplayName, xóa tên gốc để gọn
+            end
 
-        Instance.new("UICorner", playerFrame).CornerRadius = UDim.new(0, 6)
+            button.MouseButton1Click:Connect(function()
+                Config.SelectedPlayers[player.Name] = not Config.SelectedPlayers[player.Name]
+                UpdateButtonText()
+            end)
+
+            attachButtonEffects(button, 3)
+            UpdateButtonText()
+        end
     end
 end
 
-Players.PlayerAdded:Connect(updatePlayerList)
-Players.PlayerRemoving:Connect(updatePlayerList)
-updatePlayerList()
+-- Gọi ban đầu và khi player add/remove
+UpdatePlayerList()
+Players.PlayerAdded:Connect(UpdatePlayerList)
+Players.PlayerRemoving:Connect(UpdatePlayerList)
 
 --// Page 2 (Universal)
 local ButtonFrame2Left = Instance.new("ScrollingFrame", Page2)
@@ -2751,35 +2759,6 @@ local function UpdateFly(deltaTime)
         root.CFrame = root.CFrame + moveDirection * deltaTime * flySpeed * 10
         root.CFrame = root.CFrame + Vector3.new(0, vertical, 0)
         root.Velocity = root.Velocity * Vector3.new(1, 0, 1) + Vector3.new(0, 1.9, 0)
-    end
-end
-
-local function UpdatePlayerList()
-    for _, cd in pairs(PlayerListFrame:GetChildren()) do
-        if cd:IsA("TextButton") then cd:Destroy() end
-    end
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local button = Instance.new("TextButton")
-            button.Size = UDim2.new(1, -4, 0, 20)
-            button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            button.BackgroundTransparency = 0.2
-            button.TextColor3 = Color3.fromRGB(0, 0, 0)
-            button.TextSize = 14
-            button.Font = Enum.Font.Gotham
-            button.AutoButtonColor = false
-            button.Parent = PlayerListFrame
-            local function UpdateButtonText()
-                local isSelected = Config.SelectedPlayers[player.Name]
-                button.Text = (isSelected and "✓ " or "") .. player.DisplayName
-            end
-            button.MouseButton1Click:Connect(function()
-                Config.SelectedPlayers[player.Name] = not Config.SelectedPlayers[player.Name]
-                UpdateButtonText()
-            end)
-            attachButtonEffects(button, 3)
-            UpdateButtonText()
-        end
     end
 end
 
