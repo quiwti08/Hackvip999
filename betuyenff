@@ -594,6 +594,7 @@ CreateScriptItem("Emote", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/
 CreateScriptItem("Infinite Yield", "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source")
 CreateScriptItem("Dex", "https://raw.githubusercontent.com/infyiff/backup/main/dex.lua")
 CreateScriptItem("Hypershot", "https://api.luarmor.net/files/v3/loaders/c9f7b2cda8460f26a85bc14a419b3513.lua")
+CreateScriptItem("simpleaim", "https://raw.githubusercontent.com/quiwti08/Hackvip999/refs/heads/main/simpleaimlockvip"
 
 --// Page 5 (Info)
 local Avatar = Instance.new("ImageLabel", Page5)
