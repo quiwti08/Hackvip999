@@ -750,27 +750,6 @@ local function CalculateVIPPrediction(part, ping)
     return part.Position + velocity * pred
 end
 
-task.spawn(function()
-    while task.wait(0.03) do -- ~30ms
-        if not Config.AimbotEnabled then
-            Config.Prediction = nil
-        else
-            local ping = Config.AutoPredictionEnabled and GetPing() or tonumber(Config.CustomPing) or 0
-            local target = GetClosestValidPlayer()
-            if target and target.Character then
-                local part = target.Character:FindFirstChild(getgenv().Aimbot.Hitpart)
-                if part then
-                    Config.Prediction = CalculateVIPPrediction(part, ping) -- should return Vector3
-                else
-                    Config.Prediction = nil
-                end
-            else
-                Config.Prediction = nil
-            end
-        end
-    end
-end)
-
 -- Ô nhập Ping (bỏ qua khi AutoPrediction bật)
 local predictionBox = Instance.new("TextBox")
 predictionBox.Size = UDim2.new(1, -10, 0, 25)
@@ -2842,18 +2821,14 @@ RunService.RenderStepped:Connect(function(deltaTime)
     UpdateFly(deltaTime)
 
     if Config.AimbotEnabled and getgenv().Aimbot.Status then
-        Player = GetClosestValidPlayer()
-        if Player and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
-            local part = Player.Character[getgenv().Aimbot.Hitpart]
-            local ping = Config.AutoPredictionEnabled and GetPing() or Config.CustomPing
+        local target = GetClosestValidPlayer()
+        if target and target.Character and target.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
+            local part = target.Character[getgenv().Aimbot.Hitpart]
+            local ping = Config.AutoPredictionEnabled and GetPing() or (tonumber(Config.CustomPing) or 0.15)
             local predictedPos = CalculateVIPPrediction(part, ping)
             if predictedPos and not IsObstructed(Camera.CFrame.Position, predictedPos) then
-                local S = (Config and Config.Nemesis and Config.Nemesis.Camlock and Config.Nemesis.Camlock.Settings and Config.Nemesis.Camlock.Settings.Smoothing) or {}
-                local sx, sy = (S.x or 1), (S.y or 1)
-                local alpha = math.clamp(math.min(sx, sy), 0, 1)
-                Camera.CFrame = (sx == 0.025 and sy == 0.025)
-                    and CFrame.new(Camera.CFrame.Position, predictedPos)
-                    or Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, predictedPos), alpha)
+                local smoothing = 0.1 -- Giá trị smoothing cố định, có thể điều chỉnh
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, predictedPos), smoothing)
             end
         end
     end
