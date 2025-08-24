@@ -94,7 +94,7 @@ Config.NemesisCFPosition = nil  -- V? trí predict cho Silent
 
 getgenv().HitboxSize = 15
 getgenv().HitboxTransparency = 0.9
-getgenv().HitboxStatus = false
+getgenv().HitboxStatus = "OFF"  -- "OFF", "NoVisual", "Visual"
 getgenv().TeamCheck = false
 
 local Keybinds = {}
@@ -1406,54 +1406,29 @@ hitboxButton = CreateButton(ButtonFrame2Left, "Hitbox: OFF", function()
     end
 end)
 
--- Thêm TextBox ngay dưới nút
+-- Ô nhập giá trị Hitbox Size (mặc định 15)
 local hitboxBox = Instance.new("TextBox")
-hitboxBox.Size = UDim2.new(0, 80, 0, 25)
-hitboxBox.Position = UDim2.new(0, 0, 0, 30) -- nằm ngay dưới nút
-hitboxBox.Parent = hitboxButton
-hitboxBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-hitboxBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-hitboxBox.PlaceholderText = "Size"
-hitboxBox.Text = tostring(Config.HitboxSize or 5)
+hitboxBox.Size = UDim2.new(1, -10, 0, 25)
+hitboxBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+hitboxBox.BackgroundTransparency = 0.2
+hitboxBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+hitboxBox.TextSize = 14
+hitboxBox.Font = Enum.Font.Gotham
+hitboxBox.Text = tostring(getgenv().HitboxSize or 15) -- mặc định giá trị 15
+hitboxBox.PlaceholderText = "Nhập Hitbox Size"
+hitboxBox.ClearTextOnFocus = false
+hitboxBox.Parent = ButtonFrame2Left
+Instance.new("UICorner", hitboxBox).CornerRadius = UDim.new(0, 6)
 
--- Cập nhật giá trị khi người dùng nhập
-hitboxBox.FocusLost:Connect(function()
-    local newSize = tonumber(hitboxBox.Text)
-    if newSize and newSize > 0 then
-        Config.HitboxSize = newSize
-    else
-        hitboxBox.Text = tostring(Config.HitboxSize)
+-- Nếu người dùng nhập giá trị hợp lệ thì cập nhật
+hitboxBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local num = tonumber(hitboxBox.Text)
+    if num and num > 0 then
+        getgenv().HitboxSize = num
+        sendNotification("Hitbox", "Size = "..num)
     end
 end)
 
-local oldMinZoom, oldMaxZoom, oldMode = nil, nil, nil
-
-unlock3rdButton = CreateButton(ButtonFrame2Left, "Unlock 3rd: OFF", function()
-    Config.Unlock3rdEnabled = not Config.Unlock3rdEnabled
-
-    if Config.Unlock3rdEnabled then
-        -- Lưu lại config camera cũ
-        oldMinZoom = LocalPlayer.CameraMinZoomDistance
-        oldMaxZoom = LocalPlayer.CameraMaxZoomDistance
-        oldMode    = LocalPlayer.CameraMode
-
-        -- Mở khóa góc nhìn thứ 3
-        LocalPlayer.CameraMode = Enum.CameraMode.Classic
-        LocalPlayer.CameraMinZoomDistance = 0.5   -- cho phép zoom sát
-        LocalPlayer.CameraMaxZoomDistance = 300   -- cho phép zoom xa
-
-        unlock3rdButton.Text = "Unlock 3rd: ON"
-        sendNotification("Unlock 3rd", "Third Person Enabled")
-    else
-        -- Trả về camera cũ
-        if oldMinZoom then LocalPlayer.CameraMinZoomDistance = oldMinZoom end
-        if oldMaxZoom then LocalPlayer.CameraMaxZoomDistance = oldMaxZoom end
-        if oldMode then LocalPlayer.CameraMode = oldMode end
-
-        unlock3rdButton.Text = "Unlock 3rd: OFF"
-        sendNotification("Unlock 3rd", "Third Person Disabled")
-    end
-end)
 
 -- HugR6
 local hugEnabled = false
