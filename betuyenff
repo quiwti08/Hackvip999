@@ -804,6 +804,57 @@ espButton = CreateButton(ButtonFrame1, "ESP: OFF", function()
     sendNotification("ESP", Config.ESPEnabled and "ON" or "OFF")
 end)
 
+-- Thêm biến và nút toggle cho No Slowdown trong Page 1 (Da Hood)
+Config.NoSlowdownEnabled = false
+noSlowButton = CreateButton(ButtonFrame1, "No Slowdown: OFF", function()
+    Config.NoSlowdownEnabled = not Config.NoSlowdownEnabled
+    noSlowButton.Text = "No Slowdown: " .. (Config.NoSlowdownEnabled and "ON" or "OFF")
+    sendNotification("No Slowdown", Config.NoSlowdownEnabled and "ON" or "OFF")
+end)
+
+-- Logic No Slowdown: Dùng CFrame để di chuyển thay vì WalkSpeed
+local function applyNoSlowdown()
+    if not Config.NoSlowdownEnabled then return end
+
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not (hrp and hum) then return end
+
+    -- Kiểm tra trạng thái giảm tốc (reload, punch, v.v.)
+    local bodyEffects = char:FindFirstChild("BodyEffects")
+    local isSlowed = false
+    if bodyEffects then
+        local reload = bodyEffects:FindFirstChild("Reload")
+        local movement = bodyEffects:FindFirstChild("Movement")
+        -- Kiểm tra trạng thái reload hoặc movement bị giới hạn
+        isSlowed = (reload and reload.Value) or (movement and movement.Value < 1)
+    end
+
+    -- Nếu đang bị giảm tốc hoặc tốc độ nhỏ hơn bình thường
+    if isSlowed or hum.WalkSpeed < 16 then
+        local moveDirection = hum.MoveDirection
+        if moveDirection.Magnitude > 0 then
+            -- Di chuyển nhân vật bằng CFrame với tốc độ tương đương WalkSpeed 16
+            local speed = 16 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
+            hrp.CFrame = hrp.CFrame + moveDirection * speed
+        end
+    end
+end
+
+-- Chạy logic No Slowdown mỗi frame
+local noSlowConnection
+if noSlowConnection then noSlowConnection:Disconnect() end
+noSlowConnection = RunService.Heartbeat:Connect(applyNoSlowdown)
+
+-- Đảm bảo No Slowdown hoạt động sau khi respawn
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    if Config.NoSlowdownEnabled then
+        task.wait(0.5) -- Đợi nhân vật load đầy đủ
+        applyNoSlowdown()
+    end
+end)
+
 -- Nút FakeSpeed (chạy 1 lần khi bấm)
 fakeSpeedButton = CreateButton(ButtonFrame1, "FakeSpeed", function()
     local char = LocalPlayer.Character
@@ -1050,23 +1101,24 @@ local function getClosestSelected()
     return closest
 end
 
--- Thêm hàm GetClosestTarget
 local function GetClosestTarget()
     local closestPlayer = nil
     local closestDistance = math.huge
-    local localPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
-
-    if not localPos then
+    local myChar = LocalPlayer.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then
+        print("Debug: No local HumanoidRootPart found")
         return nil
     end
+    local localPos = myHRP.Position
 
-    for playerName, isSelected in pairs(Config.SelectedPlayers) do
+    for playerName, isSelected in pairs(Config.SelectedPlayers or {}) do
         if isSelected then
             local player = Players:FindFirstChild(playerName)
-            if player and IsAlive(player) then
-                local targetPos = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position
-                if targetPos then
-                    local distance = (localPos - targetPos).Magnitude
+            if player and isAlive(player) then -- Sử dụng hàm isAlive đã có
+                local targetHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                if targetHRP then
+                    local distance = (localPos - targetHRP.Position).Magnitude
                     if distance < closestDistance then
                         closestDistance = distance
                         closestPlayer = player
@@ -1076,6 +1128,11 @@ local function GetClosestTarget()
         end
     end
 
+    if not closestPlayer then
+        print("Debug: No valid target found")
+    else
+        print("Debug: Selected target:", closestPlayer.Name)
+    end
     return closestPlayer
 end
 
@@ -1147,101 +1204,124 @@ local currentTarget = nil
 local csyncPaused = false
 
 if _G.VHUB_CSYNC_LOOP then _G.VHUB_CSYNC_LOOP:Disconnect() end
-_G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function()
-    -- Nếu chưa có target hoặc target không tồn tại → tìm mới
-    if not currentTarget or not currentTarget.Parent then
-        currentTarget = GetClosestTarget()
-    end
-
-    -- Nếu đang pause thì thử tìm lại target để resume
-    if csyncPaused then
-        if currentTarget then
-            csyncPaused = false
-        else
-            return
-        end
-    end
-
-    -- Nếu vẫn không có target thì dừng (pause)
-    if not currentTarget then
+_G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function(deltaTime)
+    if not (Config.CsyncRandomEnabled or Config.CsyncOrbitEnabled) then
         csyncPaused = true
         return
     end
 
-    -- Thực hiện Csync nếu không pause
-    if not csyncPaused then
-        local hrp = currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
-        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp or not myHRP then return end
-
-        if Config.CsyncOrbitEnabled then
-            local t = tick() * Config.CsyncSpeed
-            local pos = hrp.Position + Vector3.new(
-                math.cos(t) * Config.CsyncRadius,
-                Config.CsyncHeight,
-                math.sin(t) * Config.CsyncRadius
-            )
-            myHRP.CFrame = CFrame.new(pos, hrp.Position)
-        elseif Config.CsyncRandomEnabled then
-            local offset = Vector3.new(
-                math.random(-Config.CsyncRadius, Config.CsyncRadius),
-                Config.CsyncHeight,
-                math.random(-Config.CsyncRadius, Config.CsyncRadius)
-            )
-            myHRP.CFrame = CFrame.new(hrp.Position + offset, hrp.Position)
+    -- Tìm target mới nếu cần
+    if not currentTarget or not currentTarget.Parent or not isAlive(currentTarget) then
+        currentTarget = GetClosestTarget()
+        if not currentTarget then
+            csyncPaused = true
+            print("Debug: Csync paused - no valid target")
+            return
         end
+    end
+
+    -- Kiểm tra nhân vật và HumanoidRootPart
+    local hrp = currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
+    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not myHRP then
+        csyncPaused = true
+        print("Debug: Missing HRP for local or target player")
+        return
+    end
+
+    csyncPaused = false
+    local targetPos = hrp.Position
+
+    -- Csync Orbit
+    if Config.CsyncOrbitEnabled then
+        local t = tick() * (Config.CsyncSpeed or 1)
+        local offset = Vector3.new(
+            math.cos(t) * (Config.CsyncRadius or 10),
+            Config.CsyncHeight or 0,
+            math.sin(t) * (Config.CsyncRadius or 10)
+        )
+        myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
+        print("Debug: Orbiting at position:", (targetPos + offset))
+
+    -- Csync Random
+    elseif Config.CsyncRandomEnabled then
+        local offset = Vector3.new(
+            math.random(-(Config.CsyncRadius or 10), Config.CsyncRadius or 10),
+            Config.CsyncHeight or 0,
+            math.random(-(Config.CsyncRadius or 10), Config.CsyncRadius or 10)
+        )
+        myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
+        print("Debug: Random position:", (targetPos + offset))
     end
 end)
 
-local customFovEnabled = false
-local defaultFov = Workspace.CurrentCamera.FieldOfView
+-- Khởi tạo giá trị FOV mặc định trong Config
+Config.CustomFOV = Config.CustomFOV or 70 -- FOV mặc định của Roblox
+Config.CustomFOVEnabled = Config.CustomFOVEnabled or false
 
--- Nút bật tắt Custom FOV
-customFovButton = CreateButton(ButtonFrame2Left, "Custom FOV: OFF", function()
-    customFovEnabled = not customFovEnabled
-    customFovButton.Text = "Custom FOV: " .. (customFovEnabled and "ON" or "OFF")
-
-    if customFovEnabled then
-        local num = tonumber(fovBox.Text)
-        if num and num >= 40 and num <= 120 then
-            Workspace.CurrentCamera.FieldOfView = num
-            sendNotification("Custom FOV", "Đã đặt FOV thành " .. num)
-        else
-            fovBox.Text = "120"
-            Workspace.CurrentCamera.FieldOfView = 120
-            sendNotification("Custom FOV", "Đã đặt FOV mặc định 120")
-        end
+-- Hàm áp dụng FOV
+local function applyFOV()
+    if Config.CustomFOVEnabled then
+        Workspace.CurrentCamera.FieldOfView = Config.CustomFOV
+        print("Debug: Applied FOV =", Config.CustomFOV)
     else
-        Workspace.CurrentCamera.FieldOfView = defaultFov
-        sendNotification("Custom FOV", "Đã trả về FOV mặc định " .. defaultFov)
+        Workspace.CurrentCamera.FieldOfView = 70 -- Khôi phục FOV mặc định
+        print("Debug: Restored default FOV = 70")
     end
+end
+
+-- Tạo nút toggle Custom FOV
+fovButton = CreateButton(ButtonFrame2Left, "Custom FOV: " .. (Config.CustomFOVEnabled and "ON" or "OFF"), function()
+    Config.CustomFOVEnabled = not Config.CustomFOVEnabled
+    fovButton.Text = "Custom FOV: " .. (Config.CustomFOVEnabled and "ON" or "OFF")
+    sendNotification("Custom FOV", Config.CustomFOVEnabled and "Enabled (FOV: " .. Config.CustomFOV .. ")" or "Disabled")
+    applyFOV()
 end)
 
--- Ô nhập giá trị FOV (mặc định 120)
+-- Tạo ô nhập FOV
 local fovBox = Instance.new("TextBox")
 fovBox.Size = UDim2.new(1, -10, 0, 25)
-fovBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-fovBox.BackgroundTransparency = 0.2
-fovBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-fovBox.TextSize = 14
-fovBox.Font = Enum.Font.Gotham
-fovBox.Text = "120" -- mặc định giá trị 120
-fovBox.PlaceholderText = "Nhập FOV (40-120)"
+fovBox.Position = UDim2.new(0, 0, 0, 40) -- Điều chỉnh vị trí theo GUI của bạn
+fovBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+fovBox.TextColor3 = Color3.new(1, 1, 1)
+fovBox.Text = tostring(Config.CustomFOV)
+fovBox.PlaceholderText = "FOV (40-120)"
 fovBox.ClearTextOnFocus = false
+fovBox.Font = Enum.Font.GothamBold
+fovBox.TextSize = 12
 fovBox.Parent = ButtonFrame2Left
-Instance.new("UICorner", fovBox).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", fovBox).CornerRadius = UDim.new(0, 4)
 
--- Nếu người dùng thay đổi giá trị trong ô khi đang bật Custom FOV
+-- Xử lý khi người dùng nhập FOV
 fovBox:GetPropertyChangedSignal("Text"):Connect(function()
-    if customFovEnabled then
-        local num = tonumber(fovBox.Text)
-        if num and num >= 40 and num <= 120 then
-            Workspace.CurrentCamera.FieldOfView = num
-            sendNotification("Custom FOV", "Đã đặt FOV thành " .. num)
+    local num = tonumber(fovBox.Text)
+    if num then
+        -- Giới hạn giá trị trong khoảng 40-120
+        Config.CustomFOV = math.clamp(num, 40, 120)
+        fovBox.Text = tostring(Config.CustomFOV) -- Cập nhật ô nhập
+        if Config.CustomFOVEnabled then
+            applyFOV()
+            sendNotification("Custom FOV", "Đã đặt FOV thành " .. Config.CustomFOV)
         end
+    else
+        fovBox.Text = tostring(Config.CustomFOV) -- Khôi phục giá trị hợp lệ
     end
 end)
--- ============ /CUSTOM FOV ============
+
+-- Áp dụng FOV khi nhân vật respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5) -- Đợi nhân vật load
+    applyFOV()
+end)
+
+-- Kiểm tra và áp dụng FOV mỗi frame để chống reset
+local fovConnection
+if fovConnection then fovConnection:Disconnect() end
+fovConnection = RunService.Heartbeat:Connect(function()
+    if Config.CustomFOVEnabled and Workspace.CurrentCamera.FieldOfView ~= Config.CustomFOV then
+        applyFOV()
+    end
+end)
 
 onlyTargetHitboxButton = CreateButton(ButtonFrame2Left, "OnlyTargetHitbox: OFF", function()
     Config.OnlyTargetHitbox = not Config.OnlyTargetHitbox
