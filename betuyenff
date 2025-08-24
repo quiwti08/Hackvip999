@@ -32,7 +32,7 @@ gui.Parent = playerGui
 
 --// Config
 local Config = { 
-    CustomPing = nil,
+    CustomPing = 40,
     Buttons = {}, 
     ESPEnabled = false,
     SpeedEnabled = false,
@@ -768,7 +768,22 @@ predictionBox:GetPropertyChangedSignal("Text"):Connect(function()
     if Config.AutoPredictionEnabled then return end 
     local num = tonumber(predictionBox.Text)
     if num then
-        Config.CustomPing = math.clamp(num, 10, 300)
+        Config.CustomPing = math.clamp(num, 0, 1000)
+    else
+        Config.CustomPing = 40
+        predictionBox.Text = "40"
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.2) do
+        local ping = GetPing()
+        if Config.AutoPredictionEnabled then
+            Config.Prediction = CalculateVIPPrediction(ping)
+        else
+            local cp = Config.CustomPing or ping
+            Config.Prediction = CalculateVIPPrediction(cp)
+        end
     end
 end)
 
@@ -2821,14 +2836,13 @@ RunService.RenderStepped:Connect(function(deltaTime)
     UpdateFly(deltaTime)
 
     if Config.AimbotEnabled and getgenv().Aimbot.Status then
-        local target = GetClosestValidPlayer()
-        if target and target.Character and target.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
-            local part = target.Character[getgenv().Aimbot.Hitpart]
-            local ping = Config.AutoPredictionEnabled and GetPing() or (tonumber(Config.CustomPing) or 0.15)
+        Player = GetClosestValidPlayer()
+        if Player and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
+            local part = Player.Character[getgenv().Aimbot.Hitpart]
+            local ping = Config.AutoPredictionEnabled and GetPing() or (Config.CustomPing or GetPing())
             local predictedPos = CalculateVIPPrediction(part, ping)
             if predictedPos and not IsObstructed(Camera.CFrame.Position, predictedPos) then
-                local smoothing = 0.1 -- Giá trị smoothing cố định, có thể điều chỉnh
-                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, predictedPos), smoothing)
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, predictedPos)
             end
         end
     end
