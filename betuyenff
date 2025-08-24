@@ -1414,6 +1414,26 @@ hitboxButton = CreateButton(ButtonFrame2Left, "Hitbox: OFF", function()
     end
 end)
 
+-- Thêm TextBox ngay dưới nút
+local hitboxBox = Instance.new("TextBox")
+hitboxBox.Size = UDim2.new(0, 80, 0, 25)
+hitboxBox.Position = UDim2.new(0, 0, 0, 30) -- nằm ngay dưới nút
+hitboxBox.Parent = hitboxButton
+hitboxBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+hitboxBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+hitboxBox.PlaceholderText = "Size"
+hitboxBox.Text = tostring(Config.HitboxSize or 5)
+
+-- Cập nhật giá trị khi người dùng nhập
+hitboxBox.FocusLost:Connect(function()
+    local newSize = tonumber(hitboxBox.Text)
+    if newSize and newSize > 0 then
+        Config.HitboxSize = newSize
+    else
+        hitboxBox.Text = tostring(Config.HitboxSize)
+    end
+end)
+
 local oldMinZoom, oldMaxZoom, oldMode = nil, nil, nil
 
 unlock3rdButton = CreateButton(ButtonFrame2Left, "Unlock 3rd: OFF", function()
