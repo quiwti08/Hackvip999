@@ -2959,82 +2959,86 @@ local function GetClosestValidPlayer()
     return closest
 end
 
--- Tạo nút nổi ngoài màn hình
-local selectGui = Instance.new("ScreenGui")
-selectGui.Name = "SelectTargetGui"
-selectGui.ResetOnSpawn = false -- chết không mất
-selectGui.Parent = CoreGui
+-- chỉ tạo nút khi đang trên mobile
+if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
+    -- Tạo nút nổi ngoài màn hình
+    local selectGui = Instance.new("ScreenGui")
+    selectGui.Name = "SelectTargetGui"
+    selectGui.ResetOnSpawn = false -- chết không mất
+    selectGui.Parent = CoreGui
 
-local selectBtn = Instance.new("TextButton")
-selectBtn.Size = UDim2.new(0, 110, 0, 35)
-selectBtn.Position = UDim2.new(0, 300, 0, 200)
-selectBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-selectBtn.Text = "Set Target"
-selectBtn.Font = Enum.Font.GothamBold
-selectBtn.TextSize = 14
-selectBtn.TextColor3 = Color3.new(230, 230, 230)
-selectBtn.Parent = selectGui
-Instance.new("UICorner", selectBtn).CornerRadius = UDim.new(0, 8)
+    local selectBtn = Instance.new("TextButton")
+    selectBtn.Size = UDim2.new(0, 110, 0, 35)
+    selectBtn.Position = UDim2.new(0, 300, 0, 200)
+    selectBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    selectBtn.Text = "Set Target"
+    selectBtn.Font = Enum.Font.GothamBold
+    selectBtn.TextSize = 14
+    selectBtn.TextColor3 = Color3.new(230, 230, 230)
+    selectBtn.Parent = selectGui
+    Instance.new("UICorner", selectBtn).CornerRadius = UDim.new(0, 8)
+    makeSmoothDraggable(selectBtn, 0.2)
 
--- Cho phép kéo nút
-local dragging, dragStart, startPos
-selectBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = selectBtn.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
+    -- Cho phép kéo nút
+    local dragging, dragStart, startPos
+    selectBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = selectBtn.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            selectBtn.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    -- Xử lý khi click
+    selectBtn.MouseButton1Click:Connect(function()
+        local target = GetClosestValidPlayer()
+        if target then
+            local displayName = target.DisplayName
+            local username = target.Name
+
+            if Config.SelectedPlayers[username] then
+                Config.SelectedPlayers[username] = nil
+                game.StarterGui:SetCore("SendNotification", {
+                    Title = "Set Target",
+                    Text = "Bỏ chọn: " .. displayName,
+                    Duration = 2
+                })
+            else
+                Config.SelectedPlayers[username] = true
+                game.StarterGui:SetCore("SendNotification", {
+                    Title = "Select Target",
+                    Text = "Đã chọn: " .. displayName,
+                    Duration = 2
+                })
             end
-        end)
-    end
-end)
 
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        selectBtn.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
-        )
-    end
-end)
-
--- Xử lý khi click
-selectBtn.MouseButton1Click:Connect(function()
-    local target = GetClosestValidPlayer()
-    if target then
-        local displayName = target.DisplayName
-        local username = target.Name
-
-        if Config.SelectedPlayers[username] then
-            Config.SelectedPlayers[username] = nil
+            if UpdateSelectedPlayersUI then
+                UpdateSelectedPlayersUI() -- cập nhật danh sách GUI ngay
+            end
+        else
             game.StarterGui:SetCore("SendNotification", {
                 Title = "Set Target",
-                Text = "Bỏ chọn: " .. displayName,
-                Duration = 2
-            })
-        else
-            Config.SelectedPlayers[username] = true
-            game.StarterGui:SetCore("SendNotification", {
-                Title = "Select Target",
-                Text = "Đã chọn: " .. displayName,
+                Text = "Không tìm thấy mục tiêu trong FOV",
                 Duration = 2
             })
         end
-
-        if UpdateSelectedPlayersUI then
-            UpdateSelectedPlayersUI() -- cập nhật danh sách GUI ngay
-        end
-    else
-        game.StarterGui:SetCore("SendNotification", {
-            Title = "Set Target",
-            Text = "Không tìm thấy mục tiêu trong FOV",
-            Duration = 2
-        })
-    end
-end)
+    end)
+end
 
 -- Bắt sự kiện bấm chuột giữa để chọn target
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
