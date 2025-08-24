@@ -69,7 +69,7 @@ Config.Nemesis = {
         Toggling = { Enable = true, Keybind = "Q" },
         Settings = {
             Prediction = { true, 999.999, false, .003 },
-            Smoothing = { smoothness = true, x = 1, y = 1 },
+            Smoothing = { smoothness = true, x = 0.025, y = 0.025 },
             OffSets = { Jump = { Enable = false, [1] = Vector3.new(0, 3, 0) } }
         },
     },
@@ -211,63 +211,6 @@ local function CreateButton(parent, name, callback)
     end)
 
     return button
-end
-
-local function GetPrediction()
-    local currentPing = game:GetService("Stats").PerformanceStats.Ping:GetValue() * 0.003
-    if Config.AimbotPrediction.Auto then
-        return currentPing
-    else
-        return Config.AimbotPrediction.Value
-    end
-end
-
-local function Velocity(Target, resolver)
-    if resolver then  
-        local pos = Target.Character.HumanoidRootPart.Position
-        local lastTime = tick()
-        local currentPos, currentTime
-        local connection = RunService.Heartbeat:Connect(function()
-            currentPos = Target.Character.HumanoidRootPart.Position
-            currentTime = tick()
-            connection:Disconnect()
-        end)
-        task.wait(0.01)
-        local velocity = (currentPos - pos) / (currentTime - lastTime)
-        return Vector3.new(math.floor(velocity.X), math.floor(velocity.Y), math.floor(velocity.Z))
-    else
-        return Target.Character:FindFirstChild("HumanoidRootPart").AssemblyLinearVelocity
-    end
-end
-
-local function UpdateSilent()
-    local SilentTable = Config.Nemesis.Silent
-    if SilentTable.Toggling.Enable then
-        -- S? d?ng SelectedPlayers d? ch?n target (closest trong list)
-        Config.NemesisTargets[2] = nil
-        local closestDist = math.huge
-        for name, selected in pairs(Config.SelectedPlayers) do
-            if selected then
-                local plr = Players:FindFirstChild(name)
-                if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-                    if dist < closestDist then
-                        Config.NemesisTargets[2] = plr
-                        closestDist = dist
-                    end
-                end
-            end
-        end
-        if Config.NemesisTargets[2] ~= nil and Config.NemesisTargets[2].Character ~= nil and Config.NemesisTargets[2].Character:FindFirstChild("HumanoidRootPart") then
-            local part = ClosestPart(Config.NemesisTargets[2], SilentTable.Conditions.BodyParts)
-            Config.NemesisBodyParts[2] = part and part.Name or "HumanoidRootPart"
-            local position = Config.NemesisTargets[2].Character[Config.NemesisBodyParts[2]].Position
-            if SilentTable.Settings.OffSets.Jump.Enable and Config.NemesisTargets[2].Character:FindFirstChildOfClass("Humanoid"):GetState() == Enum.HumanoidStateType.Freefall then
-                position = position + SilentTable.Settings.OffSets.Jump[1]
-            end
-            Config.NemesisCFPosition = position + (SilentTable.Settings.Prediction[1] and Velocity(Config.NemesisTargets[2], SilentTable.Settings.Resolver) * GetPrediction() or Vector3.new(0,0,0))
-        end
-    end
 end
 
 --// Toggle Button
@@ -725,12 +668,6 @@ task.delay(4, function()
     end)
 end)
 
-silentButton = CreateButton(ButtonFrame1, "Silent Aim: OFF", function()
-    Config.SilentEnabled = not Config.SilentEnabled
-    silentButton.Text = "Silent Aim: " .. (Config.SilentEnabled and "ON" or "OFF")
-    sendNotification("Silent Aim", Config.SilentEnabled and "ON" or "OFF")
-end)
-
 aimbotButton = CreateButton(ButtonFrame1, "Aimlock: OFF", function()
     Config.AimbotEnabled = not Config.AimbotEnabled
     aimbotButton.Text = "Aimlock: " .. (Config.AimbotEnabled and "ON" or "OFF")
@@ -817,15 +754,23 @@ local function CalculateVIPPrediction(part, ping)
     return part.Position + velocity * delay * distanceFactor
 end
 
--- Loop cập nhật Prediction
 task.spawn(function()
-    while task.wait(0.2) do
-        local ping = GetPing()
-        if Config.AutoPredictionEnabled then
-            Config.Prediction = CalculateVIPPrediction(ping)
+    while task.wait(0.03) do -- ~30ms
+        if not Config.AimbotEnabled then
+            Config.Prediction = nil
         else
-            local cp = Config.CustomPing or ping
-            Config.Prediction = CalculateVIPPrediction(cp)
+            local ping = Config.AutoPredictionEnabled and GetPing() or tonumber(Config.CustomPing) or 0
+            local target = GetClosestValidPlayer()
+            if target and target.Character then
+                local part = target.Character:FindFirstChild(getgenv().Aimbot.Hitpart)
+                if part then
+                    Config.Prediction = CalculateVIPPrediction(part, ping) -- should return Vector3
+                else
+                    Config.Prediction = nil
+                end
+            else
+                Config.Prediction = nil
+            end
         end
     end
 end)
@@ -893,7 +838,7 @@ fakeSpeedBox.TextColor3 = Color3.fromRGB(0, 0, 0)
 fakeSpeedBox.TextSize = 14
 fakeSpeedBox.Font = Enum.Font.Gotham
 fakeSpeedBox.PlaceholderText = "Nhập Speed"
-fakeSpeedBox.Text = "190" -- mặc định
+fakeSpeedBox.Text = "300" -- mặc định
 fakeSpeedBox.ClearTextOnFocus = false
 fakeSpeedBox.Parent = ButtonFrame1
 Instance.new("UICorner", fakeSpeedBox).CornerRadius = UDim.new(0, 6)
@@ -2897,7 +2842,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
     UpdateESP()
     UpdateSpeed()
     UpdateFly(deltaTime)
-    UpdateSilent()
 
     if Config.AimbotEnabled and getgenv().Aimbot.Status then
         Player = GetClosestValidPlayer()
@@ -2909,7 +2853,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
                 local S = (Config and Config.Nemesis and Config.Nemesis.Camlock and Config.Nemesis.Camlock.Settings and Config.Nemesis.Camlock.Settings.Smoothing) or {}
                 local sx, sy = (S.x or 1), (S.y or 1)
                 local alpha = math.clamp(math.min(sx, sy), 0, 1)
-                Camera.CFrame = (sx == 1 and sy == 1)
+                Camera.CFrame = (sx == 0.025 and sy == 0.025)
                     and CFrame.new(Camera.CFrame.Position, predictedPos)
                     or Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, predictedPos), alpha)
             end
@@ -2988,20 +2932,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
             end)
         end
     end
-
-    -- Hook metatable cho Silent Aim (thay đổi Mouse.Hit/Target)
-    local oldIndex = nil
-    oldIndex = hookmetamethod(game, "__index", function(t, k)
-        if t:IsA("Mouse") and (k == "Hit" or k == "Target") then
-            if Config.Nemesis.Silent.Toggling.Enable 
-            and Chance(Config.Nemesis.Silent.Settings.HitChance, 100) 
-            and Config.NemesisTargets[2] ~= nil then
-                local Hit = CFrame.new(Config.NemesisCFPosition)
-                return (k == "Hit" and Hit)
-            end
-        end
-        return oldIndex(t, k)
-    end)
 end)
 
 local Connections = {}
