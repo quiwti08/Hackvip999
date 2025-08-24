@@ -72,10 +72,6 @@ Config.Nemesis = {
             Smoothing = { smoothness = true, x = 1, y = 1 },
             OffSets = { Jump = { Enable = false, [1] = Vector3.new(0, 3, 0) } }
         },
-        Conditions = {
-            Player = { WallCheck = false, Grabbed = false, Knocked = false, CrewID = false },
-            BodyParts = {"HumanoidRootPart", "Head"}
-        }
     },
     Silent = {
         Toggling = { Enable = false },
@@ -90,10 +86,6 @@ Config.Nemesis = {
             BodyParts = {"HumanoidRootPart", "UpperTorso", "Head"}
         }
     },
-    FieldOfView = { Enable = true, Size = 1000, Color = Color3.fromRGB(50, 50, 50) },
-    Miscs = {
-        Sorting = { Toggled = false, Key = "F", alphabetically = true, Ammo = false, Custom = { Enable = false, List = {[1] = "[Revolver]", [2] = "[Chicken]"} } }
-    }
 }
 -- Thêm bi?n b? sung cho Nemesis
 Config.NemesisTargets = { [1] = nil, [2] = nil }  -- Target cho Camlock [1] và Silent [2]
