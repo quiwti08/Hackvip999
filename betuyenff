@@ -27,6 +27,8 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "DhuyxMenu"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+gui.DisplayOrder = 999
 gui.Parent = playerGui
 
 --// Config
