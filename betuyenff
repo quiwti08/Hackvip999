@@ -191,7 +191,7 @@ end
 -- Tạo Toggle Button
 local ToggleButton = Instance.new("ImageButton")
 ToggleButton.Size = UDim2.new(0, 45, 0, 45)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 ToggleButton.Image = "rbxassetid://80952463173309"
 ToggleButton.ScaleType = Enum.ScaleType.Fit
 ToggleButton.Parent = gui
@@ -209,7 +209,7 @@ end
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 400, 0, 300)
 MainFrame.Position = UDim2.new(0.08, 0, 0.2, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 MainFrame.Visible = true
 MainFrame.Parent = gui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
@@ -231,7 +231,7 @@ shadow.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, -10, 0, 35)
 Title.Position = UDim2.new(0, 5, 0, 5)
-Title.Text = "DhuyxDtuyen"
+Title.Text = "Xinloinguoiyeu"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 18
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
