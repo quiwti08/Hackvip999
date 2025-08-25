@@ -561,7 +561,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-local function SendNotification(title, text, duration)
+local function sendNotification(title, text, duration)
     -- Xóa các thông báo cũ để tránh chồng chéo
     for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
         if gui.Name:find("DhuyxNotification_") then
@@ -831,7 +831,7 @@ espButton = CreateButton(ButtonFrame1, "ESP: OFF", function()
 end)
 
 -- Thêm biến và nút toggle cho No Slowdown trong Page 1 (Da Hood)
-Config.NoSlowdownEnabled = false
+Config.NoSlowdownEnabled = true
 noSlowButton = CreateButton(ButtonFrame1, "No Slowdown: OFF", function()
     Config.NoSlowdownEnabled = not Config.NoSlowdownEnabled
     noSlowButton.Text = "No Slowdown: " .. (Config.NoSlowdownEnabled and "ON" or "OFF")
@@ -862,7 +862,7 @@ local function applyNoSlowdown()
         local moveDirection = hum.MoveDirection
         if moveDirection.Magnitude > 0 then
             -- Di chuyển nhân vật bằng CFrame với tốc độ tương đương WalkSpeed 16
-            local speed = 18 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
+            local speed = 20 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
             hrp.CFrame = hrp.CFrame + moveDirection * speed
         end
     end
