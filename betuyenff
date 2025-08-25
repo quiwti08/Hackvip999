@@ -561,30 +561,26 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-local function sendNotification(title, text, duration)
-    -- Xóa các thông báo cũ để tránh chồng chéo
-    for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
-        if gui.Name:find("DhuyxNotification_") then
-            gui:Destroy()
-        end
-    end
+local Notifications = {} -- Danh sách để theo dõi các thông báo hiện tại
 
+local function sendNotification(title, text, duration)
     -- Tạo ScreenGui mới cho thông báo
     local notifGui = Instance.new("ScreenGui")
     notifGui.Name = "DhuyxNotification_" .. tostring(tick())
     notifGui.Parent = game:GetService("CoreGui")
     notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    notifGui.DisplayOrder = 999999 -- Tăng để đảm bảo hiển thị trên các GUI khác
+    notifGui.DisplayOrder = 999999 - #Notifications -- Giảm DisplayOrder cho thông báo mới
     notifGui.IgnoreGuiInset = true
     notifGui.ResetOnSpawn = false
 
-    -- Tạo Frame cho thông báo
+    -- Tính toán vị trí dựa trên số lượng thông báo hiện tại
+    local offsetY = 20 + (#Notifications * 80) -- Mỗi thông báo cách nhau 80 pixel (70 pixel chiều cao + 10 pixel khoảng cách)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 280, 0, 70)
     frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     frame.BorderSizePixel = 0
     frame.AnchorPoint = Vector2.new(1, 1)
-    frame.Position = UDim2.new(1, -20, 1, -20) -- Đặt vị trí cố định, phù hợp cho cả PC và mobile
+    frame.Position = UDim2.new(1, -20, 1, -offsetY) -- Đặt vị trí, thông báo mới ở dưới
     frame.Transparency = 1 -- Ban đầu trong suốt cho hiệu ứng fade-in
     frame.Parent = notifGui
 
@@ -642,6 +638,9 @@ local function sendNotification(title, text, duration)
     textLabel.TextTruncate = Enum.TextTruncate.AtEnd
     textLabel.Parent = frame
 
+    -- Thêm thông báo vào danh sách
+    table.insert(Notifications, notifGui)
+
     -- Fade in animation
     local fadeIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
     fadeIn:Play()
@@ -652,7 +651,24 @@ local function sendNotification(title, text, duration)
         local fadeOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1})
         fadeOut:Play()
         fadeOut.Completed:Connect(function()
+            -- Xóa thông báo khỏi danh sách và hủy nó
+            for i, gui in ipairs(Notifications) do
+                if gui == notifGui then
+                    table.remove(Notifications, i)
+                    break
+                end
+            end
             notifGui:Destroy()
+
+            -- Cập nhật lại vị trí của các thông báo còn lại
+            for i, gui in ipairs(Notifications) do
+                local frame = gui:FindFirstChildOfClass("Frame")
+                if frame then
+                    local newOffsetY = 20 + ((i - 1) * 80) -- Cập nhật vị trí
+                    local tween = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -newOffsetY)})
+                    tween:Play()
+                end
+            end
         end)
     end)
 end
@@ -2357,6 +2373,53 @@ RunService.Heartbeat:Connect(function()
         lastPos = hrp.Position
     end
 end)
+
+--// Track trạng thái Alive / KO / Grab trong Da Hood
+local lastState = {}
+
+local function getDHState(plr)
+    if not plr.Character then return "None" end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then
+        return "Dead"
+    end
+
+    local be = plr.Character:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        if ko and ko.Value then
+            return "K.O"
+        end
+        local grab = be:FindFirstChild("GRABBING_CONSTRAINT")
+        if grab and grab.Parent then
+            return "Grab"
+        end
+    end
+
+    return "Alive"
+end
+
+local function checkPlayerState(plr)
+    local state = getDHState(plr)
+    if lastState[plr] ~= state then
+        lastState[plr] = state
+        -- Thông báo 1 lần khi đổi trạng thái
+        sendNotification(plr.DisplayName, "is now " .. state, 3)
+    end
+end
+
+-- Lặp kiểm tra
+game:GetService("RunService").Heartbeat:Connect(function()
+    for name, selected in pairs(Config.SelectedPlayers) do
+        if selected then
+            local plr = Players:FindFirstChild(name)
+            if plr then
+                checkPlayerState(plr)
+            end
+        end
+    end
+end)
+
 
 local hiddenFling = false
 local flingPower = 55000
