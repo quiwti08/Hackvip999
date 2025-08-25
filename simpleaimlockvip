@@ -1,5 +1,126 @@
-local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+local ESPEnabled = false
+local ESPs = {}
+
+-- Tạo ESP cho player
+local function CreateESP(player)
+    if ESPs[player] or player == LocalPlayer then return end
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+
+    -- BillboardGui để hiện tên
+    local billboard = Instance.new("BillboardGui")
+    billboard.Adornee = player.Character:WaitForChild("Head")
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 2, 0) -- cao hơn đầu
+    billboard.AlwaysOnTop = true
+
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 255, 255) -- màu xám đẹp
+    label.TextSize = 16
+    label.Font = Enum.Font.GothamBold
+    label.Text = player.DisplayName
+    label.TextStrokeTransparency = 0.5
+    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.AnchorPoint = Vector2.new(0.5, 0.5)
+    label.Position = UDim2.new(0.5, 0, 0.5, 0)
+    label.Parent = billboard
+
+    -- Highlight xuyên tường
+    local highlight = Instance.new("Highlight")
+    highlight.Enabled = true
+    highlight.FillTransparency = 0.6
+    highlight.OutlineTransparency = 0.2
+    highlight.FillColor = Color3.fromRGB(55, 55, 55) -- xám
+    highlight.OutlineColor = Color3.fromRGB(0, 0, 0) -- viền mặc định
+    highlight.Adornee = player.Character
+    highlight.Parent = player.Character
+
+    ESPs[player] = {
+        Billboard = billboard,
+        Label = label,
+        Highlight = highlight
+    }
+
+    billboard.Parent = player.Character:WaitForChild("Head")
+end
+
+-- Xoá ESP khi player rời game
+local function RemoveESP(player)
+    if ESPs[player] then
+        if ESPs[player].Billboard then ESPs[player].Billboard:Destroy() end
+        if ESPs[player].Highlight then ESPs[player].Highlight:Destroy() end
+        ESPs[player] = nil
+    end
+end
+
+-- Cập nhật màu highlight theo máu
+RunService.Heartbeat:Connect(function()
+    if not ESPEnabled then
+        for _, v in pairs(ESPs) do
+            v.Billboard.Enabled = false
+            v.Highlight.Enabled = false
+        end
+        return
+    end
+
+    for player, data in pairs(ESPs) do
+        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            data.Billboard.Enabled = true
+            data.Highlight.Enabled = true
+
+            if hum.Health < hum.MaxHealth then
+                data.Highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- viền trắng khi mất máu
+                data.Highlight.OutlineTransparency = 0.1
+            else
+                data.Highlight.OutlineColor = Color3.fromRGB(0, 0, 0) -- viền đen khi full máu
+                data.Highlight.OutlineTransparency = 0.5
+            end
+        end
+    end
+end)
+
+-- Toggle ESP bằng phím T
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.T then
+        ESPEnabled = not ESPEnabled
+        print("ESP:", ESPEnabled and "ON" or "OFF")
+
+        if ESPEnabled then
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    CreateESP(player)
+                end
+            end
+        else
+            for _, data in pairs(ESPs) do
+                data.Billboard.Enabled = false
+                data.Highlight.Enabled = false
+            end
+        end
+    end
+end)
+
+-- Tạo ESP khi có người mới join
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        if ESPEnabled then
+            task.wait(1)
+            CreateESP(player)
+        end
+    end)
+end)
+
+-- Xoá ESP khi player rời
+Players.PlayerRemoving:Connect(RemoveESP)
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
