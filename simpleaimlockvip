@@ -1,3 +1,29 @@
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local CFrameSpeedEnabled = false
+local SpeedValue = 2
+
+-- Toggle bằng phím Z
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.Z then
+        CFrameSpeedEnabled = not CFrameSpeedEnabled
+        print("CFrame Speed:", CFrameSpeedEnabled and "ON" or "OFF")
+    end
+end)
+
+-- Di chuyển bằng CFrame Speed
+RunService.Heartbeat:Connect(function()
+    if CFrameSpeedEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local HRP = LocalPlayer.Character.HumanoidRootPart
+        HRP.CFrame = HRP.CFrame + (LocalPlayer.Character.Humanoid.MoveDirection * SpeedValue)
+    end
+end)
+
+
 getgenv().Settings = {
     Main = {
         Enable = true,
@@ -773,26 +799,3 @@ PingLabel:GetPropertyChangedSignal("Text"):Connect(
         end
     end
 )
-
-plr = game:GetService('Players').LocalPlayer
-down = true
- 
-function onButton1Down(mouse)
-    down = true
-    while down do
-        if not down then break end
-        local char = plr.Character
-        char.HumanoidRootPart.Velocity = char.HumanoidRootPart.CFrame.lookVector * 190
-        wait()
-    end
-end
- 
-function onButton1Up(mouse)
-    down = false
-end
- 
-function onSelected(mouse)
-    mouse.KeyDown:connect(function(c) if c:lower()=="c"then onButton1Down(mouse)end end)
-    mouse.KeyUp:connect(function(c) if c:lower()=="c"then onButton1Up(mouse)end end)
-end
-onSelected(game.Players.LocalPlayer:GetMouse())
