@@ -132,19 +132,29 @@ local CharacterConnections = {} -- Store CharacterAdded connections
 
 -- Tạo ESP cho player
 local function CreateESP(player)
-    if ESPs[player] or player == LocalPlayer then return end
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    -- Không tạo ESP cho LocalPlayer, xóa ESP cũ nếu tồn tại
+    if player == LocalPlayer then return end
+    RemoveESP(player) -- Xóa ESP cũ trước khi tạo mới
+
+    -- Đợi nhân vật và Head tải
+    local character = player.Character
+    if not character then
+        character = player.CharacterAdded:Wait() -- Đợi nhân vật xuất hiện
+    end
+    local head = character:WaitForChild("Head", 5)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not head or not humanoid then return end
 
     -- BillboardGui để hiện tên
     local billboard = Instance.new("BillboardGui")
-    billboard.Adornee = player.Character:WaitForChild("Head", 5) -- Wait up to 5s for Head
+    billboard.Adornee = head
     billboard.Size = UDim2.new(0, 200, 0, 50)
     billboard.StudsOffset = Vector3.new(0, 2, 0)
     billboard.AlwaysOnTop = true
 
     local label = Instance.new("TextLabel")
     label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 255, 255) -- White name
+    label.TextColor3 = Color3.fromRGB(255, 255, 255) -- Tên trắng
     label.TextSize = 16
     label.Font = Enum.Font.GothamBold
     label.Text = player.DisplayName
@@ -162,8 +172,8 @@ local function CreateESP(player)
     highlight.OutlineTransparency = 0.2
     highlight.FillColor = Color3.fromRGB(55, 55, 55)
     highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
-    highlight.Adornee = player.Character
-    highlight.Parent = player.Character
+    highlight.Adornee = character
+    highlight.Parent = character
 
     ESPs[player] = {
         Billboard = billboard,
@@ -171,23 +181,19 @@ local function CreateESP(player)
         Highlight = highlight
     }
 
-    billboard.Parent = player.Character
+    billboard.Parent = character
 end
 
--- Xoá ESP khi player rời game hoặc respawn
+-- Xóa ESP khi player rời game hoặc respawn
 local function RemoveESP(player)
     if ESPs[player] then
         if ESPs[player].Billboard then ESPs[player].Billboard:Destroy() end
         if ESPs[player].Highlight then ESPs[player].Highlight:Destroy() end
         ESPs[player] = nil
     end
-    if CharacterConnections[player] then
-        CharacterConnections[player]:Disconnect()
-        CharacterConnections[player] = nil
-    end
 end
 
--- Cập nhật màu highlight theo máu
+-- Cập nhật màu highlight theo máu và kiểm tra nhân vật
 RunService.Heartbeat:Connect(function()
     if not ESPEnabled then
         for _, v in pairs(ESPs) do
@@ -198,21 +204,40 @@ RunService.Heartbeat:Connect(function()
     end
 
     for player, data in pairs(ESPs) do
-        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+        local character = player.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        local head = character and character:FindFirstChild("Head")
+
+        if character and humanoid and head then
             data.Billboard.Enabled = true
             data.Highlight.Enabled = true
+            data.Billboard.Adornee = head
+            data.Highlight.Adornee = character
 
-            if hum.Health < hum.MaxHealth then
-                data.Highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- White outline when damaged
+            if humanoid.Health < humanoid.MaxHealth then
+                data.Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
                 data.Highlight.OutlineTransparency = 0.1
             else
-                data.Highlight.OutlineColor = Color3.fromRGB(0, 0, 0) -- Black outline when full health
+                data.Highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
                 data.Highlight.OutlineTransparency = 0.5
             end
         else
             data.Billboard.Enabled = false
             data.Highlight.Enabled = false
+            -- Thử tạo lại ESP nếu nhân vật không hợp lệ
+            task.spawn(function()
+                CreateESP(player)
+            end)
+        end
+    end
+end)
+
+-- Kiểm tra định kỳ để thêm ESP cho người chơi bị thiếu
+RunService.Stepped:Connect(function()
+    if not ESPEnabled then return end
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and not ESPs[player] and player.Character then
+            CreateESP(player)
         end
     end
 end)
@@ -222,7 +247,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.T then
         ESPEnabled = not ESPEnabled
-        sendNotification("DhuyxDtuyenAimLock", ESPEnabled and "Esp:On" or "Esp:Off", 3)
+        sendNotification("DhuyxDtuyenAimLock", ESPEnabled and "Esp:On" or "Esp:Off")
 
         if ESPEnabled then
             for _, player in pairs(Players:GetPlayers()) do
@@ -241,26 +266,38 @@ end)
 
 -- Xử lý người chơi mới và respawn
 Players.PlayerAdded:Connect(function(player)
-    CharacterConnections[player] = player.CharacterAdded:Connect(function()
-        if ESPEnabled then
-            task.wait(1) -- Wait for character to fully load
-            RemoveESP(player) -- Clean up old ESP if exists
-            CreateESP(player)
-        end
-    end)
-    -- Create ESP for new player if ESP is enabled
+    -- Tạo ESP cho người chơi mới
     if ESPEnabled and player.Character then
         task.wait(1)
         CreateESP(player)
     end
+
+    -- Xử lý respawn
+    CharacterConnections[player] = player.CharacterAdded:Connect(function()
+        if ESPEnabled then
+            task.wait(1)
+            RemoveESP(player)
+            CreateESP(player)
+        end
+    end)
 end)
 
--- Xoá ESP khi player rời
-Players.PlayerRemoving:Connect(RemoveESP)
+-- Xóa ESP khi player rời
+Players.PlayerRemoving:Connect(function(player)
+    RemoveESP(player)
+    if CharacterConnections[player] then
+        CharacterConnections[player]:Disconnect()
+        CharacterConnections[player] = nil
+    end
+end)
 
 -- Khởi tạo ESP cho người chơi hiện có
 for _, player in pairs(Players:GetPlayers()) do
     if player ~= LocalPlayer then
+        if ESPEnabled and player.Character then
+            task.wait(1)
+            CreateESP(player)
+        end
         CharacterConnections[player] = player.CharacterAdded:Connect(function()
             if ESPEnabled then
                 task.wait(1)
@@ -268,10 +305,6 @@ for _, player in pairs(Players:GetPlayers()) do
                 CreateESP(player)
             end
         end)
-        if ESPEnabled and player.Character then
-            task.wait(1)
-            CreateESP(player)
-        end
     end
 end
 
@@ -286,7 +319,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.Z then
         CFrameSpeedEnabled = not CFrameSpeedEnabled
-        sendNotification("DhuyxDtuyenAimLock", CFrameSpeedEnabled and "Speed:On" or "Speed:Off", 3)
+        sendNotification("DhuyxDtuyenAimLock", CFrameSpeedEnabled and "Speed:On" or "Speed:Off")
     end
 end)
 
