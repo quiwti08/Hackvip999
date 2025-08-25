@@ -3,8 +3,131 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
-local ESPEnabled = false
+local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
+if chatWindow then
+    chatWindow.Enabled = true -- Bật lại chat window
+end
+
+local Notifications = {} -- Danh sách để theo dõi các thông báo hiện tại
+
+local function sendNotification(title, text, duration)
+    -- Tạo ScreenGui mới cho thông báo
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "DhuyxNotification_" .. tostring(tick())
+    notifGui.Parent = game:GetService("CoreGui")
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    notifGui.DisplayOrder = 999999 - #Notifications -- Giảm DisplayOrder cho thông báo mới
+    notifGui.IgnoreGuiInset = true
+    notifGui.ResetOnSpawn = false
+
+    -- Tính toán vị trí dựa trên số lượng thông báo hiện tại
+    local offsetY = 20 + (#Notifications * 80) -- Mỗi thông báo cách nhau 80 pixel (70 pixel chiều cao + 10 pixel khoảng cách)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 280, 0, 70)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 0
+    frame.AnchorPoint = Vector2.new(1, 1)
+    frame.Position = UDim2.new(1, -20, 1, -offsetY) -- Đặt vị trí, thông báo mới ở dưới
+    frame.Transparency = 1 -- Ban đầu trong suốt cho hiệu ứng fade-in
+    frame.Parent = notifGui
+
+    -- Bo góc
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    -- Gradient
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+    }
+    gradient.Rotation = 90
+    gradient.Parent = frame
+
+    -- Shadow
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0, -10, 0, -10)
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.6
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.ZIndex = -1
+    shadow.BackgroundTransparency = 1
+    shadow.Parent = frame
+
+    -- Title
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -10, 0, 25)
+    titleLabel.Position = UDim2.new(0, 5, 0, 5)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title or "DhuyxDtuyen"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    titleLabel.Parent = frame
+
+    -- Text
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -10, 1, -35)
+    textLabel.Position = UDim2.new(0, 5, 0, 30)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = text or "Notification"
+    textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    textLabel.Font = Enum.Font.Gotham
+    textLabel.TextSize = 14
+    textLabel.TextWrapped = true
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    textLabel.Parent = frame
+
+    -- Thêm thông báo vào danh sách
+    table.insert(Notifications, notifGui)
+
+    -- Fade in animation
+    local fadeIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
+    fadeIn:Play()
+
+    -- Fade out và xóa
+    task.spawn(function()
+        task.wait(duration or 3)
+        local fadeOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1})
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            -- Xóa thông báo khỏi danh sách và hủy nó
+            for i, gui in ipairs(Notifications) do
+                if gui == notifGui then
+                    table.remove(Notifications, i)
+                    break
+                end
+            end
+            notifGui:Destroy()
+
+            -- Cập nhật lại vị trí của các thông báo còn lại
+            for i, gui in ipairs(Notifications) do
+                local frame = gui:FindFirstChildOfClass("Frame")
+                if frame then
+                    local newOffsetY = 20 + ((i - 1) * 80) -- Cập nhật vị trí
+                    local tween = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -newOffsetY)})
+                    tween:Play()
+                end
+            end
+        end)
+    end)
+end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+local ESPEnabled = true
 local ESPs = {}
+local CharacterConnections = {} -- Store CharacterAdded connections
 
 -- Tạo ESP cho player
 local function CreateESP(player)
@@ -13,14 +136,14 @@ local function CreateESP(player)
 
     -- BillboardGui để hiện tên
     local billboard = Instance.new("BillboardGui")
-    billboard.Adornee = player.Character:WaitForChild("Head")
+    billboard.Adornee = player.Character:WaitForChild("Head", 5) -- Wait up to 5s for Head
     billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 2, 0) -- cao hơn đầu
+    billboard.StudsOffset = Vector3.new(0, 2, 0)
     billboard.AlwaysOnTop = true
 
     local label = Instance.new("TextLabel")
     label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 255, 255) -- màu xám đẹp
+    label.TextColor3 = Color3.fromRGB(255, 255, 255) -- White name
     label.TextSize = 16
     label.Font = Enum.Font.GothamBold
     label.Text = player.DisplayName
@@ -33,11 +156,11 @@ local function CreateESP(player)
 
     -- Highlight xuyên tường
     local highlight = Instance.new("Highlight")
-    highlight.Enabled = true
+    highlight.Enabled = ESPEnabled
     highlight.FillTransparency = 0.6
     highlight.OutlineTransparency = 0.2
-    highlight.FillColor = Color3.fromRGB(55, 55, 55) -- xám
-    highlight.OutlineColor = Color3.fromRGB(0, 0, 0) -- viền mặc định
+    highlight.FillColor = Color3.fromRGB(55, 55, 55)
+    highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
     highlight.Adornee = player.Character
     highlight.Parent = player.Character
 
@@ -47,15 +170,19 @@ local function CreateESP(player)
         Highlight = highlight
     }
 
-    billboard.Parent = player.Character:WaitForChild("Head")
+    billboard.Parent = player.Character
 end
 
--- Xoá ESP khi player rời game
+-- Xoá ESP khi player rời game hoặc respawn
 local function RemoveESP(player)
     if ESPs[player] then
         if ESPs[player].Billboard then ESPs[player].Billboard:Destroy() end
         if ESPs[player].Highlight then ESPs[player].Highlight:Destroy() end
         ESPs[player] = nil
+    end
+    if CharacterConnections[player] then
+        CharacterConnections[player]:Disconnect()
+        CharacterConnections[player] = nil
     end
 end
 
@@ -76,12 +203,15 @@ RunService.Heartbeat:Connect(function()
             data.Highlight.Enabled = true
 
             if hum.Health < hum.MaxHealth then
-                data.Highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- viền trắng khi mất máu
+                data.Highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- White outline when damaged
                 data.Highlight.OutlineTransparency = 0.1
             else
-                data.Highlight.OutlineColor = Color3.fromRGB(0, 0, 0) -- viền đen khi full máu
+                data.Highlight.OutlineColor = Color3.fromRGB(0, 0, 0) -- Black outline when full health
                 data.Highlight.OutlineTransparency = 0.5
             end
+        else
+            data.Billboard.Enabled = false
+            data.Highlight.Enabled = false
         end
     end
 end)
@@ -91,7 +221,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.T then
         ESPEnabled = not ESPEnabled
-        print("ESP:", ESPEnabled and "ON" or "OFF")
+        sendNotification("DhuyxDtuyenAimLock", ESPEnabled and "Esp:On" or "Esp:Off", 3)
 
         if ESPEnabled then
             for _, player in pairs(Players:GetPlayers()) do
@@ -108,18 +238,41 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- Tạo ESP khi có người mới join
+-- Xử lý người chơi mới và respawn
 Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function()
+    CharacterConnections[player] = player.CharacterAdded:Connect(function()
         if ESPEnabled then
-            task.wait(1)
+            task.wait(1) -- Wait for character to fully load
+            RemoveESP(player) -- Clean up old ESP if exists
             CreateESP(player)
         end
     end)
+    -- Create ESP for new player if ESP is enabled
+    if ESPEnabled and player.Character then
+        task.wait(1)
+        CreateESP(player)
+    end
 end)
 
 -- Xoá ESP khi player rời
 Players.PlayerRemoving:Connect(RemoveESP)
+
+-- Khởi tạo ESP cho người chơi hiện có
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        CharacterConnections[player] = player.CharacterAdded:Connect(function()
+            if ESPEnabled then
+                task.wait(1)
+                RemoveESP(player)
+                CreateESP(player)
+            end
+        end)
+        if ESPEnabled and player.Character then
+            task.wait(1)
+            CreateESP(player)
+        end
+    end
+end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -132,7 +285,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.Z then
         CFrameSpeedEnabled = not CFrameSpeedEnabled
-        print("CFrame Speed:", CFrameSpeedEnabled and "ON" or "OFF")
+        sendNotification("DhuyxDtuyenAimLock", CFrameSpeedEnabled and "Speed:On" or "Speed:Off", 3)
     end
 end)
 
