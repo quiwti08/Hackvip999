@@ -561,35 +561,39 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-function SendNotification(title, text, duration)
+local function SendNotification(title, text, duration)
+    -- Xóa các thông báo cũ để tránh chồng chéo
+    for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+        if gui.Name:find("DhuyxNotification_") then
+            gui:Destroy()
+        end
+    end
+
+    -- Tạo ScreenGui mới cho thông báo
     local notifGui = Instance.new("ScreenGui")
-    notifGui.Name = "DhuyxNotification"
+    notifGui.Name = "DhuyxNotification_" .. tostring(tick())
     notifGui.Parent = game:GetService("CoreGui")
     notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    notifGui.DisplayOrder = 10001  -- Cao hơn gui chính
+    notifGui.DisplayOrder = 999999 -- Tăng để đảm bảo hiển thị trên các GUI khác
     notifGui.IgnoreGuiInset = true
+    notifGui.ResetOnSpawn = false
 
+    -- Tạo Frame cho thông báo
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 280, 0, 70)
-    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)  -- Chủ đề GUI
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     frame.BorderSizePixel = 0
     frame.AnchorPoint = Vector2.new(1, 1)
-    frame.Transparency = 1  -- Để fade in
-
-    -- Vị trí khác nhau cho PC và mobile
-    local isMobile = UserInputService.TouchEnabled and not (UserInputService.MouseEnabled or UserInputService.KeyboardEnabled)
-    if isMobile then
-        frame.Position = UDim2.new(1, -10, 1, -120)  -- Góc dưới phải, kéo lên 120 cho mobile
-    else
-        frame.Position = UDim2.new(1, -20, 1, -150)  -- Kéo lên 150 cho PC
-    end
+    frame.Position = UDim2.new(1, -20, 1, -20) -- Đặt vị trí cố định, phù hợp cho cả PC và mobile
+    frame.Transparency = 1 -- Ban đầu trong suốt cho hiệu ứng fade-in
     frame.Parent = notifGui
 
-    -- Làm đẹp: Corner, Gradient, Shadow
+    -- Bo góc
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 8)
     corner.Parent = frame
 
+    -- Gradient
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new{
         ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
@@ -598,6 +602,7 @@ function SendNotification(title, text, duration)
     gradient.Rotation = 90
     gradient.Parent = frame
 
+    -- Shadow
     local shadow = Instance.new("ImageLabel")
     shadow.Size = UDim2.new(1, 20, 1, 20)
     shadow.Position = UDim2.new(0, -10, 0, -10)
@@ -620,6 +625,7 @@ function SendNotification(title, text, duration)
     titleLabel.Font = Enum.Font.GothamBold
     titleLabel.TextSize = 16
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
     titleLabel.Parent = frame
 
     -- Text
@@ -627,21 +633,25 @@ function SendNotification(title, text, duration)
     textLabel.Size = UDim2.new(1, -10, 1, -35)
     textLabel.Position = UDim2.new(0, 5, 0, 30)
     textLabel.BackgroundTransparency = 1
-    textLabel.Text = text or ""
+    textLabel.Text = text or "Notification"
     textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     textLabel.Font = Enum.Font.Gotham
     textLabel.TextSize = 14
     textLabel.TextWrapped = true
     textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextTruncate = Enum.TextTruncate.AtEnd
     textLabel.Parent = frame
 
     -- Fade in animation
-    TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0}):Play()
+    local fadeIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
+    fadeIn:Play()
 
-    -- Tự destroy sau duration
-    task.delay(duration or 3, function()
-        TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1}):Play()
-        task.delay(0.3, function()
+    -- Fade out và xóa
+    task.spawn(function()
+        task.wait(duration or 3)
+        local fadeOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1})
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
             notifGui:Destroy()
         end)
     end)
