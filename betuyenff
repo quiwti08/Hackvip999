@@ -3003,32 +3003,21 @@ if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
         if target then
             local displayName = target.DisplayName
             local username = target.Name
+            local label = tostring(displayName or username) .. " (@" .. tostring(username) .. ")"
 
             if Config.SelectedPlayers[username] then
                 Config.SelectedPlayers[username] = nil
-                game.StarterGui:SetCore("SendNotification", {
-                    Title = "Set Target",
-                    Text = "Bỏ chọn: " .. displayName,
-                    Duration = 2
-                })
+                sendNotification("DhuyxDtuyen", "UnTarget: " .. label, 2)
             else
                 Config.SelectedPlayers[username] = true
-                game.StarterGui:SetCore("SendNotification", {
-                    Title = "Select Target",
-                    Text = "Đã chọn: " .. displayName,
-                    Duration = 2
-                })
+                sendNotification("DhuyxDtuyen", "Target: " .. label, 2)
             end
 
             if UpdateSelectedPlayersUI then
                 UpdateSelectedPlayersUI() -- cập nhật danh sách GUI ngay
             end
         else
-            game.StarterGui:SetCore("SendNotification", {
-                Title = "Set Target",
-                Text = "Không tìm thấy mục tiêu trong FOV",
-                Duration = 2
-            })
+            sendNotification("DhuyxDtuyen", "No target found in FOV", 2)
         end
     end)
 end
@@ -3041,32 +3030,22 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if target then
             local displayName = target.DisplayName
             local username = target.Name
+            local label = tostring(displayName or username) .. " (@" .. tostring(username) .. ")"
 
             if Config.SelectedPlayers[username] then
                 Config.SelectedPlayers[username] = nil
-                game.StarterGui:SetCore("SendNotification", {
-                    Title = "Set Target",
-                    Text = "Bỏ chọn: " .. displayName,
-                    Duration = 2
-                })
+                sendNotification("DhuyxDtuyent", "UnTarget: " .. label, 2)
             else
                 Config.SelectedPlayers[username] = true
-                game.StarterGui:SetCore("SendNotification", {
-                    Title = "Select Target",
-                    Text = "Đã chọn: " .. displayName,
-                    Duration = 2
-                })
+                sendNotification("DhuyxDtuyen", "Target: " .. label, 2)
             end
 
             if UpdateSelectedPlayersUI then
                 UpdateSelectedPlayersUI()
             end
         else
-            game.StarterGui:SetCore("SendNotification", {
-                Title = "Set Target",
-                Text = "Không tìm thấy mục tiêu trong FOV",
-                Duration = 2
-            })
+            sendNotification("DhuyxDtuyen", "No target found in FOV", 2)
         end
     end
 end)
+
