@@ -21,14 +21,13 @@ if chatWindow then
 end
 
 --// GUI Setup
-local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 local gui = Instance.new("ScreenGui")
 gui.Name = "DhuyxMenu"
 gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
+gui.Parent = game:GetService("CoreGui")
+gui.DisplayOrder = 10000
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-gui.DisplayOrder = 999
-gui.Parent = playerGui
+gui.IgnoreGuiInset = true
 
 --// Config
 local Config = { 
@@ -57,7 +56,6 @@ local Config = {
     AutoWallhopEnabled = false,
     SpinbotEnabled = false,
     SpinbotSpeed = 450,
-    Unlock3rdEnabled = false,
     Prediction = nil,
     FakeSpeedEnabled = false,
     FakeSpeedAmount = 300,
@@ -71,7 +69,6 @@ getgenv().HitboxStatus = "OFF"  -- "OFF", "NoVisual", "Visual"
 getgenv().TeamCheck = false
 
 local Keybinds = {}
-local Script = {}
 
 --// Helpers
 local function attachButtonEffects(btn, shrinkPx)
@@ -564,13 +561,89 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-function sendNotification(title, text, duration)
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = title or "DhuyxDtuyen",
-            Text = text or "",
-            Duration = duration or 3
-        })
+function SendNotification(title, text, duration)
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "DhuyxNotification"
+    notifGui.Parent = game:GetService("CoreGui")
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    notifGui.DisplayOrder = 10001  -- Cao hơn gui chính
+    notifGui.IgnoreGuiInset = true
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 280, 0, 70)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)  -- Chủ đề GUI
+    frame.BorderSizePixel = 0
+    frame.AnchorPoint = Vector2.new(1, 1)
+    frame.Transparency = 1  -- Để fade in
+
+    -- Vị trí khác nhau cho PC và mobile
+    local isMobile = UserInputService.TouchEnabled and not (UserInputService.MouseEnabled or UserInputService.KeyboardEnabled)
+    if isMobile then
+        frame.Position = UDim2.new(1, -10, 1, -120)  -- Góc dưới phải, kéo lên 120 cho mobile
+    else
+        frame.Position = UDim2.new(1, -20, 1, -150)  -- Kéo lên 150 cho PC
+    end
+    frame.Parent = notifGui
+
+    -- Làm đẹp: Corner, Gradient, Shadow
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+    }
+    gradient.Rotation = 90
+    gradient.Parent = frame
+
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0, -10, 0, -10)
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.6
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.ZIndex = -1
+    shadow.BackgroundTransparency = 1
+    shadow.Parent = frame
+
+    -- Title
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -10, 0, 25)
+    titleLabel.Position = UDim2.new(0, 5, 0, 5)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title or "DhuyxDtuyen"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = frame
+
+    -- Text
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -10, 1, -35)
+    textLabel.Position = UDim2.new(0, 5, 0, 30)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = text or ""
+    textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    textLabel.Font = Enum.Font.Gotham
+    textLabel.TextSize = 14
+    textLabel.TextWrapped = true
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.Parent = frame
+
+    -- Fade in animation
+    TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0}):Play()
+
+    -- Tự destroy sau duration
+    task.delay(duration or 3, function()
+        TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1}):Play()
+        task.delay(0.3, function()
+            notifGui:Destroy()
+        end)
     end)
 end
 
@@ -582,7 +655,7 @@ local camera = Workspace.CurrentCamera
 local clickTpTool = nil
 local savedWaypoint = nil
 local noclipConnection = nil
-local Keybinds = {} 
+local spawnPoint = nil
 
 -- Biến lưu trạng thái Lighting cũ cho Fullbright
 local oldLighting = {
@@ -656,69 +729,6 @@ aimbotButton = CreateButton(ButtonFrame1, "Aimlock: OFF", function()
     aimbotButton.Text = "Aimlock: " .. (Config.AimbotEnabled and "ON" or "OFF")
     sendNotification("AIMLOCK", Config.AimbotEnabled and "ON" or "OFF")
 end)
-
--- ========== AUTO AIR ==========
-Script.AutoAir = function(Target)
-    if getgenv().Extort and getgenv().Extort['Features'] and getgenv().Extort['Features']['Auto Air'] 
-        and Target and Target.Character then
-
-        local TargetRootPart = Target.Character:FindFirstChild("HumanoidRootPart")
-        if TargetRootPart then
-            -- Nếu bạn đã có Script.CalculateVelocity thì giữ nguyên,
-            -- còn chưa có thì thay bằng TargetRootPart.AssemblyLinearVelocity
-            local TargetVel = Script.CalculateVelocity and Script.CalculateVelocity(Target) or TargetRootPart.AssemblyLinearVelocity
-            if TargetVel.Y > 15 then
-                local Character = LocalPlayer.Character
-                if Character then
-                    local Tool = Character:FindFirstChildOfClass("Tool")
-                    if Tool then
-                        Tool:Activate()
-                    end
-                end
-            end
-        end
-    end
-end
-
--- ========== GET GUN ==========
-Script.GetGun = function(player)
-    if not player.Character then return end
-    local tool = player.Character:FindFirstChildOfClass("Tool")
-    if not tool then return end
-    local info = {}
-    for _, obj in pairs(tool:GetDescendants()) do
-        if obj.Name:lower():find("ammo") and not obj.Name:lower():find("max") 
-            and (obj:IsA("IntValue") or obj:IsA("NumberValue")) then
-            info.ammo = obj
-            info.tool = tool
-            return info
-        end
-    end
-end
-
--- ========== ON TOOL ACTIVATE ==========
-Script.OnToolActivated = function()
-    if Locking and Target and Target.Character then
-        local part = Target.Character:FindFirstChild(getgenv().Extort['Part'])
-        if part then
-            local vel = PlayerData and PlayerData[Target] and PlayerData[Target].Velocity or Vector3.zero
-            local position = part.Position + (vel * (getgenv().Extort['Prediction']['Amount'] or 0))
-            remote:FireServer(mouse_argument, position)
-        end
-    end
-end
-
--- ========== SETUP CONNECTIONS ==========
-Script.SetupConnections = function()
-    LocalPlayer.Character.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") then
-            child.Activated:Connect(Script.OnToolActivated)
-        end
-    end)
-end
-
--- Gọi hàm setup để gắn auto bắn
-Script.SetupConnections()
 
 local function GetPing()
     local stats = game:GetService("Stats"):FindFirstChild("Network")
@@ -842,7 +852,7 @@ local function applyNoSlowdown()
         local moveDirection = hum.MoveDirection
         if moveDirection.Magnitude > 0 then
             -- Di chuyển nhân vật bằng CFrame với tốc độ tương đương WalkSpeed 16
-            local speed = 16 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
+            local speed = 18 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
             hrp.CFrame = hrp.CFrame + moveDirection * speed
         end
     end
@@ -2387,14 +2397,58 @@ rejoinButton = CreateButton(ButtonFrame2Right, "Rejoin", function()
 end)
 
 serverHopButton = CreateButton(ButtonFrame2Right, "Server Hop", function()
-    local api = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-    local response = HttpService:JSONDecode(game:HttpGet(api))
-    local servers = response.data
+    local function getServers(placeId)
+        local servers = {}
+        local cursor = ""
+        repeat
+            local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+            if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+            local success, response = pcall(function()
+                return HttpService:JSONDecode(game:HttpGet(url))
+            end)
+            if success then
+                for _, s in ipairs(response.data or {}) do
+                    if s.id ~= game.JobId and s.playing < s.maxPlayers then  -- Bỏ server hiện tại và server đầy
+                        table.insert(servers, s)
+                    end
+                end
+                cursor = response.nextPageCursor
+            else
+                cursor = nil
+            end
+        until not cursor
+        return servers
+    end
+    
+    local servers = getServers(game.PlaceId)
     if #servers > 0 then
         local randomServer = servers[math.random(1, #servers)]
         TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer.id, LocalPlayer)
     else
-        sendNotification("Server Hop", "No servers found!")
+        SendNotification("DhuyxDtuyen", "No other servers found!")
+    end
+end)
+
+-- Thêm nút Set Spawn Point ở ButtonFrame2Right
+setSpawnButton = CreateButton(ButtonFrame2Right, "Set Spawn Point", function()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        spawnPoint = hrp.CFrame
+        SendNotification("DhuyxDtuyen", "Spawn point set to current position!")
+    else
+        SendNotification("DhuyxDtuyen", "Cannot set spawn point!")
+    end
+end)
+
+-- Logic teleport khi respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if spawnPoint then
+        local hrp = char:WaitForChild("HumanoidRootPart", 5)
+        if hrp then
+            task.wait(0.2)  -- Đợi load đầy đủ
+            hrp.CFrame = spawnPoint
+        end
     end
 end)
 
