@@ -475,7 +475,7 @@ CreateScriptItem("Evade", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/
 CreateScriptItem("Murder Mystery 2", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/mm2")
 CreateScriptItem("Blade Ball", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/Bladeball")
 CreateScriptItem("Doors", "https://raw.githubusercontent.com/DarkDoorsKing/Project/main/Doors.lua")
-CreateScriptItem("Emote", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/emote")
+CreateScriptItem("free all animation", "https://yarhm.mhi.im/scr?channel=afemmax")
 CreateScriptItem("Infinite Yield", "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source")
 CreateScriptItem("Dex", "https://raw.githubusercontent.com/infyiff/backup/main/dex.lua")
 CreateScriptItem("Hypershot", "https://api.luarmor.net/files/v3/loaders/c9f7b2cda8460f26a85bc14a419b3513.lua")
