@@ -326,10 +326,10 @@ Page5.Visible = false
 local function switchPage(page)
     Page1.Visible = (page == Page1)
     Page2.Visible = (page == Page2)
-    Page3.Visible = (page == Page3)
-    Page5.Visible = (page == Page5)
     Page4.Visible = (page == Page4)  -- Thêm cho Universal2
     Page6.Visible = (page == Page6)  -- Thêm cho Murder Mystery
+    Page3.Visible = (page == Page3)
+    Page5.Visible = (page == Page5)
 end
 
 Tab1Btn.MouseButton1Click:Connect(function() switchPage(Page1) end)
