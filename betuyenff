@@ -231,14 +231,14 @@ shadow.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, -10, 0, 35)
 Title.Position = UDim2.new(0, 5, 0, 5)
-Title.Text = "Xinloinguoiyeu"
+Title.Text = "HuyTuyenHub"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 18
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.BackgroundTransparency = 1
 
 -- Ping/FPS/Clock
-local PingClock = Instance.new("TextLabel")
+local PingClock = Instance.new("TextButton")  -- Đổi từ TextLabel sang TextButton
 PingClock.Size = UDim2.new(0, 200, 0, 25)
 PingClock.Position = UDim2.new(0, 5, 0, 35)
 PingClock.BackgroundTransparency = 1
@@ -246,15 +246,37 @@ PingClock.TextColor3 = Color3.fromRGB(200, 200, 200)
 PingClock.Font = Enum.Font.Gotham
 PingClock.TextSize = 12
 PingClock.Parent = MainFrame
+PingClock.AutoButtonColor = false
 
 task.spawn(function()
     local lastDt = 1/60
     RunService.RenderStepped:Connect(function(dt) lastDt = dt end)
     while task.wait(0.5) do
-        local ping =  math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
+        local ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
         local fps = math.clamp(math.floor(1 / (lastDt > 0 and lastDt or 1/240)), 1, 999)
         local timeStr = os.date("%H:%M")
-        PingClock.Text = string.format("Ping: %d ms | FPS: %d | %s", ping, fps, timeStr)
+        local posStr = ""
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local pos = hrp.Position
+            posStr = string.format(" | Pos: %.0f, %.0f, %.0f", pos.X, pos.Y, pos.Z)
+        end
+        PingClock.Text = string.format("Ping: %d ms | FPS: %d | %s%s", ping, fps, timeStr, posStr)
+    end
+end)
+
+-- Sự kiện click để copy tọa độ
+PingClock.MouseButton1Click:Connect(function()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local pos = hrp.Position
+        local posText = string.format("%.0f, %.0f, %.0f", pos.X, pos.Y, pos.Z)
+        setclipboard(posText)
+        sendNotification("Copy Pos", "Đã copy tọa độ: " .. posText)
+    else
+        sendNotification("Copy Pos", "Không tìm thấy vị trí!")
     end
 end)
 
@@ -269,7 +291,7 @@ TabLayout.Padding = UDim.new(0, 5)
 
 local function createTab(name)
     local btn = Instance.new("TextButton", TabHolder)
-    btn.Size = UDim2.new(0, 90, 1, 0) -- Adjusted for 4 tabs
+    btn.Size = UDim2.new(0, 60, 1, 0) -- Adjusted for 4 tabs
     btn.Text = name
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 14
@@ -282,6 +304,8 @@ end
 
 local Tab1Btn = createTab("Da Hood")
 local Tab2Btn = createTab("Universal")
+local Tab4Btn = createTab("Universal2")
+local Tab6Btn = createTab("Murder Mystery")
 local Tab3Btn = createTab("Scripts")
 local Tab5Btn = createTab("Info")
 
@@ -301,6 +325,16 @@ Page2.Size = UDim2.new(1, 0, 1, 0)
 Page2.BackgroundTransparency = 1
 Page2.Visible = false
 
+local Page4 = Instance.new("Frame", Pages) -- Universal2
+Page4.Size = UDim2.new(1, 0, 1, 0)
+Page4.BackgroundTransparency = 1
+Page4.Visible = false
+
+local Page6 = Instance.new("Frame", Pages) -- Murder Mystery
+Page6.Size = UDim2.new(1, 0, 1, 0)
+Page6.BackgroundTransparency = 1
+Page6.Visible = false
+
 local Page3 = Instance.new("Frame", Pages) -- Scripts
 Page3.Size = UDim2.new(1, 0, 1, 0)
 Page3.BackgroundTransparency = 1
@@ -316,10 +350,14 @@ local function switchPage(page)
     Page2.Visible = (page == Page2)
     Page3.Visible = (page == Page3)
     Page5.Visible = (page == Page5)
+    Page4.Visible = (page == Page4)
+    Page6.Visible = (page == Page6)
 end
 
 Tab1Btn.MouseButton1Click:Connect(function() switchPage(Page1) end)
 Tab2Btn.MouseButton1Click:Connect(function() switchPage(Page2) end)
+Tab4Btn.MouseButton1Click:Connect(function() switchPage(Page4) end)
+Tab6Btn.MouseButton1Click:Connect(function() switchPage(Page6) end)
 Tab3Btn.MouseButton1Click:Connect(function() switchPage(Page3) end)
 Tab5Btn.MouseButton1Click:Connect(function() switchPage(Page5) end)
 
@@ -418,6 +456,64 @@ ButtonLayout2Right.SortOrder = Enum.SortOrder.LayoutOrder
 ButtonLayout2Right.Padding = UDim.new(0, 6)
 ButtonLayout2Right:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     ButtonFrame2Right.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout2Right.AbsoluteContentSize.Y)
+end)
+
+--// Page 4 (Universal2)
+local ButtonFrame4Left = Instance.new("ScrollingFrame", Page4)
+ButtonFrame4Left.Size = UDim2.new(0.5, -5, 1, -20)
+ButtonFrame4Left.Position = UDim2.new(0, 5, 0, 10)
+ButtonFrame4Left.BackgroundTransparency = 1
+ButtonFrame4Left.ScrollBarThickness = 4
+ButtonFrame4Left.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local ButtonLayout4Left = Instance.new("UIListLayout", ButtonFrame4Left)
+ButtonLayout4Left.SortOrder = Enum.SortOrder.LayoutOrder
+ButtonLayout4Left.Padding = UDim.new(0, 6)
+ButtonLayout4Left:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ButtonFrame4Left.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout4Left.AbsoluteContentSize.Y)
+end)
+
+local ButtonFrame4Right = Instance.new("ScrollingFrame", Page4)
+ButtonFrame4Right.Size = UDim2.new(0.5, -5, 1, -20)
+ButtonFrame4Right.Position = UDim2.new(0.5, 0, 0, 10)
+ButtonFrame4Right.BackgroundTransparency = 1
+ButtonFrame4Right.ScrollBarThickness = 4
+ButtonFrame4Right.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local ButtonLayout4Right = Instance.new("UIListLayout", ButtonFrame4Right)
+ButtonLayout4Right.SortOrder = Enum.SortOrder.LayoutOrder
+ButtonLayout4Right.Padding = UDim.new(0, 6)
+ButtonLayout4Right:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ButtonFrame4Right.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout4Right.AbsoluteContentSize.Y)
+end)
+
+--// Page 6 (Murder Mystery)
+local ButtonFrame6Left = Instance.new("ScrollingFrame", Page6)
+ButtonFrame6Left.Size = UDim2.new(0.5, -5, 1, -20)
+ButtonFrame6Left.Position = UDim2.new(0, 5, 0, 10)
+ButtonFrame6Left.BackgroundTransparency = 1
+ButtonFrame6Left.ScrollBarThickness = 4
+ButtonFrame6Left.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local ButtonLayout6Left = Instance.new("UIListLayout", ButtonFrame6Left)
+ButtonLayout6Left.SortOrder = Enum.SortOrder.LayoutOrder
+ButtonLayout6Left.Padding = UDim.new(0, 6)
+ButtonLayout6Left:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ButtonFrame6Left.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout6Left.AbsoluteContentSize.Y)
+end)
+
+local ButtonFrame6Right = Instance.new("ScrollingFrame", Page6)
+ButtonFrame6Right.Size = UDim2.new(0.5, -5, 1, -20)
+ButtonFrame6Right.Position = UDim2.new(0.5, 0, 0, 10)
+ButtonFrame6Right.BackgroundTransparency = 1
+ButtonFrame6Right.ScrollBarThickness = 4
+ButtonFrame6Right.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local ButtonLayout6Right = Instance.new("UIListLayout", ButtonFrame6Right)
+ButtonLayout6Right.SortOrder = Enum.SortOrder.LayoutOrder
+ButtonLayout6Right.Padding = UDim.new(0, 6)
+ButtonLayout6Right:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ButtonFrame6Right.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout6Right.AbsoluteContentSize.Y)
 end)
 
 --// Page 3 (Scripts)
