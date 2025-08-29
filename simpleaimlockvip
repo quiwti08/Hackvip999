@@ -222,6 +222,172 @@ getgenv().Settings = {
 }
  
 -- // Locals
+
+local MobileLocking = false
+local LockedTarget = nil
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "AimLock Hub",
+   LoadingTitle = "DhuyxDtuyen",
+   LoadingSubtitle = "UI hỗ trợ Mobile",
+   ConfigurationSaving = { Enabled = false }
+})
+
+local Tab = Window:CreateTab("Main", 4483362458)
+
+-- 🔹 Notify helper
+local function sendNotification(title, content, duration)
+    Rayfield:Notify({
+        Title = title,
+        Content = content,
+        Duration = duration or 2
+    })
+end
+
+-- 🔹 AimLock Toggle
+Tab:CreateToggle({
+   Name = "AimLock",
+   CurrentValue = false,
+   Callback = function(Value)
+       if Value then
+           AimlockTarget = GetNearestTarget()
+           if AimlockTarget then
+               MousePressed = true
+               sendNotification("AimLock", "Đang aim vào "..AimlockTarget.Name, 3)
+           else
+               sendNotification("AimLock", "Không tìm thấy mục tiêu", 3)
+           end
+       else
+           MousePressed = false
+           AimlockTarget = nil
+           sendNotification("AimLock", "Đã thả aim", 3)
+       end
+   end,
+})
+
+-- 🔹 FOV Size
+Tab:CreateSlider({
+   Name = "FOV Size",
+   Range = {50, 500},
+   Increment = 10,
+   Suffix = "px",
+   CurrentValue = getgenv().Settings.Visual.FovRadius,
+   Callback = function(Value)
+       getgenv().Settings.Visual.FovRadius = Value
+       sendNotification("FOV", "Đã chỉnh FOV = "..Value, 2)
+   end,
+})
+
+-- 🔹 FOV Color
+Tab:CreateColorPicker({
+   Name = "FOV Color",
+   Color = getgenv().Settings.Visual.FovColor,
+   Callback = function(Value)
+       getgenv().Settings.Visual.FovColor = Value
+       sendNotification("FOV", "Đã đổi màu FOV", 2)
+   end
+})
+
+-- 🔹 Resolver Toggles
+Tab:CreateToggle({
+   Name = "Underground Resolver",
+   CurrentValue = getgenv().Settings.Resolver.UnderGround,
+   Callback = function(Value)
+       getgenv().Settings.Resolver.UnderGround = Value
+       sendNotification("Resolver", "Underground "..(Value and "ON" or "OFF"), 2)
+   end,
+})
+
+Tab:CreateToggle({
+   Name = "Desync Resolver",
+   CurrentValue = getgenv().Settings.Resolver.DetectDesync,
+   Callback = function(Value)
+       getgenv().Settings.Resolver.DetectDesync = Value
+       sendNotification("Resolver", "Desync "..(Value and "ON" or "OFF"), 2)
+   end,
+})
+
+-- 🔹 CFrameSpeed
+Tab:CreateToggle({
+   Name = "CFrame Speed",
+   CurrentValue = false,
+   Callback = function(Value)
+       CFrameSpeedEnabled = Value
+       sendNotification("CFrameSpeed", Value and "Đã bật" or "Đã tắt", 2)
+   end,
+})
+
+-- 🔹 WalkSpeed Button (ImageButton ngoài GUI)
+Tab:CreateButton({
+   Name = "Load WalkSpeed Button",
+   Callback = function()
+       local sg = Instance.new("ScreenGui", game.CoreGui)
+       sg.Name = "WalkSpeedUI"
+
+       local btn = Instance.new("ImageButton")
+       btn.Parent = sg
+       btn.Size = UDim2.new(0, 60, 0, 60)
+       btn.Position = UDim2.new(0.05, 0, 0.8, 0)
+       btn.Image = "rbxassetid://3926305904"
+       btn.ImageRectOffset = Vector2.new(4, 204)
+       btn.ImageRectSize = Vector2.new(36, 36)
+
+       local enabled = false
+       btn.MouseButton1Click:Connect(function()
+           enabled = not enabled
+           sendNotification("WalkSpeed", enabled and "Đã bật WalkSpeed" or "Đã tắt WalkSpeed", 2)
+           if enabled then
+               task.spawn(function()
+                   while enabled do
+                       local char = LocalPlayer.Character
+                       if char and char:FindFirstChild("HumanoidRootPart") then
+                           char.HumanoidRootPart.Velocity = char.HumanoidRootPart.CFrame.LookVector * 190
+                       end
+                       task.wait()
+                   end
+               end)
+           end
+       end)
+   end,
+})
+
+-- 🔹 Lock Button (ImageButton ngoài GUI)
+Tab:CreateButton({
+   Name = "Load Lock Button",
+   Callback = function()
+       local sg = Instance.new("ScreenGui", game.CoreGui)
+       sg.Name = "LockUI"
+
+       local btn = Instance.new("ImageButton")
+       btn.Parent = sg
+       btn.Size = UDim2.new(0, 60, 0, 60)
+       btn.Position = UDim2.new(0.15, 0, 0.8, 0)
+       btn.Image = "rbxassetid://3926305904"
+       btn.ImageRectOffset = Vector2.new(124, 4)
+       btn.ImageRectSize = Vector2.new(36, 36)
+
+       local locked = false
+       btn.MouseButton1Click:Connect(function()
+           if locked then
+               MousePressed = false
+               AimlockTarget = nil
+               locked = false
+               sendNotification("Lock", "Đã thả aim", 2)
+           else
+               AimlockTarget = GetNearestTarget()
+               if AimlockTarget then
+                   MousePressed = true
+                   locked = true
+                   sendNotification("Lock", "Đang aim vào "..AimlockTarget.Name, 2)
+               else
+                   sendNotification("Lock", "Không tìm thấy mục tiêu", 2)
+               end
+           end
+       end)
+   end,
+})
  
 local Players, Uis, RService, Inset, CurrentCamera = 
 game:GetService("Players"), 
@@ -243,15 +409,20 @@ local OldAimPart = getgenv().Settings.Part.AimPart
 local AimlockTarget, MousePressed, CanNotify = nil, false, false
  
 getgenv().UpdateFOV = function()
-    if (not Circle) then
-        return (Circle)
-    end
+    if (not Circle) then return end
     Circle.Color = Settings.Visual.FovColor
     Circle.Visible = Settings.Visual.Fov
     Circle.Radius = Settings.Visual.FovRadius
     Circle.Thickness = Settings.Visual.FovThickness
-    Circle.Position = Vec2(Mouse.X, Mouse.Y + Inset)
-    return (Circle)
+
+    if UserInputService.TouchEnabled then
+        -- Mobile: luôn ở giữa màn hình
+        local viewport = Camera.ViewportSize
+        Circle.Position = Vector2.new(viewport.X/2, viewport.Y/2)
+    else
+        -- PC: theo chuột
+        Circle.Position = Vector2.new(Mouse.X, Mouse.Y + Inset)
+    end
 end
  
 RService.Heartbeat:Connect(UpdateFOV)
@@ -320,36 +491,38 @@ getgenv().GetObscuringObjects = function(T)
 end
  
 getgenv().GetNearestTarget = function()
-    local AimlockTarget, Closest = nil, 1 / 0
- 
-    for _, v in pairs(game:GetService("Players"):GetPlayers()) do
-        if (v.Character and v ~= Client and v.Character:FindFirstChild("HumanoidRootPart")) then
+    local AimlockTarget, Closest = nil, math.huge
+    local centerVec2
+
+    if UserInputService.TouchEnabled then
+        -- 📱 Mobile → tâm màn hình
+        local vp = Camera.ViewportSize
+        centerVec2 = Vec2(vp.X/2, vp.Y/2)
+    else
+        -- ⌨️ PC → chuột
+        centerVec2 = Vec2(Mouse.X, Mouse.Y)
+    end
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= Client and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
             local Position, OnScreen = Camera:WorldToScreenPoint(v.Character.HumanoidRootPart.Position)
-            local Distance = (Vec2(Position.X, Position.Y) - Vec2(Mouse.X, Mouse.Y)).Magnitude
-            if Settings.Main.CheckForWalls then
-                if
-                    (Circle.Radius > Distance and Distance < Closest and OnScreen and
-                        getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {Client, v.Character}))
-                 then
-                    Closest = Distance
-                    AimlockTarget = v
-                end
-            elseif Settings.Main.UseCircleRadius then
-                if
-                    (Circle.Radius > Distance and Distance < Closest and OnScreen and
-                        getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {Client, v.Character}))
-                 then
+            local Distance = (Vec2(Position.X, Position.Y) - centerVec2).Magnitude
+
+            if Settings.Main.CheckForWalls or Settings.Main.UseCircleRadius then
+                if (Circle.Radius > Distance and Distance < Closest and OnScreen and
+                    getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {Client, v.Character})) then
                     Closest = Distance
                     AimlockTarget = v
                 end
             else
-                if (Circle.Radius > Distance and Distance < Closest and OnScreen) then
+                if Circle.Radius > Distance and Distance < Closest and OnScreen then
                     Closest = Distance
                     AimlockTarget = v
                 end
             end
         end
     end
+
     return AimlockTarget
 end
  
