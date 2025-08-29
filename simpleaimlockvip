@@ -122,15 +122,11 @@ local UserInputService = game:GetService("UserInputService")
 local Vec2 = Vector2.new
 local Mouse = LocalPlayer:GetMouse()
 
--- Aim state
-getgenv().MousePressed = false
-getgenv().AimlockTarget = nil
-
 -- ✅ Rayfield Window
 local Window = Rayfield:CreateWindow({
    Name = "AimLock Hub",
    LoadingTitle = "DhuyxDtuyen",
-   LoadingSubtitle = "UI hỗ trợ Mobile",
+   LoadingSubtitle = "PC only",
    ConfigurationSaving = { Enabled = false }
 })
 
@@ -140,27 +136,6 @@ local Tab = Window:CreateTab("Main", 4483362458)
 local function sendNotification(title, content, duration)
     Rayfield:Notify({ Title = title, Content = content, Duration = duration or 2 })
 end
-
--- 🔹 AimLock Toggle
-Tab:CreateToggle({
-   Name = "AimLock",
-   CurrentValue = false,
-   Callback = function(Value)
-       if Value then
-           AimlockTarget = GetNearestTarget()
-           if AimlockTarget then
-               MousePressed = true
-               sendNotification("AimLock", "Đang aim vào "..AimlockTarget.Name, 3)
-           else
-               sendNotification("AimLock", "Không tìm thấy mục tiêu", 3)
-           end
-       else
-           MousePressed = false
-           AimlockTarget = nil
-           sendNotification("AimLock", "Đã thả aim", 3)
-       end
-   end,
-})
 
 -- 🔹 FOV Slider
 Tab:CreateSlider({
@@ -211,84 +186,6 @@ Tab:CreateToggle({
    Callback = function(Value)
        CFrameSpeedEnabled = Value
        sendNotification("CFrameSpeed", Value and "Đã bật" or "Đã tắt", 2)
-   end,
-})
-
--- 🔹 WalkSpeed Button (ngoài GUI, style Psalms)
-Tab:CreateButton({
-   Name = "Load WalkSpeed Button",
-   Callback = function()
-       local Humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-       local sg = Instance.new("ScreenGui", game.CoreGui)
-       sg.Name = "WalkSpeedUI"
-       sg.ResetOnSpawn = false
-
-       local btn = Instance.new("ImageButton")
-       btn.Parent = sg
-       btn.Size = UDim2.new(0, 90, 0, 90)
-       btn.Position = UDim2.new(0.05, 0, 0.7, 0)
-       btn.BackgroundColor3 = Color3.fromRGB(20,20,20)
-       btn.BackgroundTransparency = 0.5
-       btn.Draggable = true
-       btn.Active = true
-       btn.Image = "rbxassetid://96086736054343" -- icon psalms
-
-       local corner = Instance.new("UICorner", btn)
-       corner.CornerRadius = UDim.new(0.2, 0)
-
-       local enabled = false
-       btn.MouseButton1Click:Connect(function()
-           enabled = not enabled
-           if enabled then
-               Humanoid.WalkSpeed = 30
-               sendNotification("WalkSpeed","Đã bật WalkSpeed",2)
-           else
-               Humanoid.WalkSpeed = 16
-               sendNotification("WalkSpeed","Đã tắt WalkSpeed",2)
-           end
-       end)
-   end,
-})
-
--- 🔹 Lock Button (ngoài GUI, style Psalms)
-Tab:CreateButton({
-   Name = "Load Lock Button",
-   Callback = function()
-       local sg = Instance.new("ScreenGui", game.CoreGui)
-       sg.Name = "LockUI"
-       sg.ResetOnSpawn = false
-
-       local btn = Instance.new("ImageButton")
-       btn.Parent = sg
-       btn.Size = UDim2.new(0, 90, 0, 90)
-       btn.Position = UDim2.new(0.18, 0, 0.7, 0)
-       btn.BackgroundColor3 = Color3.fromRGB(20,20,20)
-       btn.BackgroundTransparency = 0.5
-       btn.Draggable = true
-       btn.Active = true
-       btn.Image = "rbxassetid://3926305904" -- icon psalms
-
-       local corner = Instance.new("UICorner", btn)
-       corner.CornerRadius = UDim.new(0.2, 0)
-
-       local locked = false
-       btn.MouseButton1Click:Connect(function()
-           if locked then
-               MousePressed = false
-               AimlockTarget = nil
-               locked = false
-               sendNotification("Lock","Đã thả aim",2)
-           else
-               AimlockTarget = GetNearestTarget()
-               if AimlockTarget then
-                   MousePressed = true
-                   locked = true
-                   sendNotification("Lock","Đang aim vào "..AimlockTarget.Name,2)
-               else
-                   sendNotification("Lock","Không tìm thấy mục tiêu",2)
-               end
-           end
-       end)
    end,
 })
  
