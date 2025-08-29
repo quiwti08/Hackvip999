@@ -9,118 +9,6 @@ if chatWindow then
     chatWindow.Enabled = true -- Bật lại chat window
 end
 
-local Notifications = {} -- Danh sách để theo dõi các thông báo hiện tại
-
-local function sendNotification(title, text, duration)
-    -- Tạo ScreenGui mới cho thông báo
-    local notifGui = Instance.new("ScreenGui")
-    notifGui.Name = "DhuyxNotification_" .. tostring(tick())
-    notifGui.Parent = game:GetService("CoreGui")
-    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    notifGui.DisplayOrder = 999999 - #Notifications -- Giảm DisplayOrder cho thông báo mới
-    notifGui.IgnoreGuiInset = true
-    notifGui.ResetOnSpawn = false
-
-    -- Tính toán vị trí dựa trên số lượng thông báo hiện tại
-    local offsetY = 20 + (#Notifications * 80) -- Mỗi thông báo cách nhau 80 pixel (70 pixel chiều cao + 10 pixel khoảng cách)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 280, 0, 70)
-    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    frame.BorderSizePixel = 0
-    frame.AnchorPoint = Vector2.new(1, 1)
-    frame.Position = UDim2.new(1, -20, 1, -offsetY) -- Đặt vị trí, thông báo mới ở dưới
-    frame.Transparency = 1 -- Ban đầu trong suốt cho hiệu ứng fade-in
-    frame.Parent = notifGui
-
-    -- Bo góc
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-
-    -- Gradient
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
-    }
-    gradient.Rotation = 90
-    gradient.Parent = frame
-
-    -- Shadow
-    local shadow = Instance.new("ImageLabel")
-    shadow.Size = UDim2.new(1, 20, 1, 20)
-    shadow.Position = UDim2.new(0, -10, 0, -10)
-    shadow.Image = "rbxassetid://1316045217"
-    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-    shadow.ImageTransparency = 0.6
-    shadow.ScaleType = Enum.ScaleType.Slice
-    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-    shadow.ZIndex = -1
-    shadow.BackgroundTransparency = 1
-    shadow.Parent = frame
-
-    -- Title
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -10, 0, 25)
-    titleLabel.Position = UDim2.new(0, 5, 0, 5)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = title or "DhuyxDtuyen"
-    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextSize = 16
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    titleLabel.Parent = frame
-
-    -- Text
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, -10, 1, -35)
-    textLabel.Position = UDim2.new(0, 5, 0, 30)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = text or "Notification"
-    textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    textLabel.Font = Enum.Font.Gotham
-    textLabel.TextSize = 14
-    textLabel.TextWrapped = true
-    textLabel.TextXAlignment = Enum.TextXAlignment.Left
-    textLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    textLabel.Parent = frame
-
-    -- Thêm thông báo vào danh sách
-    table.insert(Notifications, notifGui)
-
-    -- Fade in animation
-    local fadeIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
-    fadeIn:Play()
-
-    -- Fade out và xóa
-    task.spawn(function()
-        task.wait(duration or 3)
-        local fadeOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1})
-        fadeOut:Play()
-        fadeOut.Completed:Connect(function()
-            -- Xóa thông báo khỏi danh sách và hủy nó
-            for i, gui in ipairs(Notifications) do
-                if gui == notifGui then
-                    table.remove(Notifications, i)
-                    break
-                end
-            end
-            notifGui:Destroy()
-
-            -- Cập nhật lại vị trí của các thông báo còn lại
-            for i, gui in ipairs(Notifications) do
-                local frame = gui:FindFirstChildOfClass("Frame")
-                if frame then
-                    local newOffsetY = 20 + ((i - 1) * 80) -- Cập nhật vị trí
-                    local tween = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -newOffsetY)})
-                    tween:Play()
-                end
-            end
-        end)
-    end)
-end
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
@@ -223,11 +111,22 @@ getgenv().Settings = {
  
 -- // Locals
 
-local MobileLocking = false
-local LockedTarget = nil
-
+-- Rayfield UI
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local UserInputService = game:GetService("UserInputService")
 
+-- Shortcut
+local Vec2 = Vector2.new
+local Mouse = LocalPlayer:GetMouse()
+
+-- Aim state
+getgenv().MousePressed = false
+getgenv().AimlockTarget = nil
+
+-- ✅ Rayfield Window
 local Window = Rayfield:CreateWindow({
    Name = "AimLock Hub",
    LoadingTitle = "DhuyxDtuyen",
@@ -237,13 +136,9 @@ local Window = Rayfield:CreateWindow({
 
 local Tab = Window:CreateTab("Main", 4483362458)
 
--- 🔹 Notify helper
+-- Notify helper
 local function sendNotification(title, content, duration)
-    Rayfield:Notify({
-        Title = title,
-        Content = content,
-        Duration = duration or 2
-    })
+    Rayfield:Notify({ Title = title, Content = content, Duration = duration or 2 })
 end
 
 -- 🔹 AimLock Toggle
@@ -267,7 +162,7 @@ Tab:CreateToggle({
    end,
 })
 
--- 🔹 FOV Size
+-- 🔹 FOV Slider
 Tab:CreateSlider({
    Name = "FOV Size",
    Range = {50, 500},
@@ -319,54 +214,62 @@ Tab:CreateToggle({
    end,
 })
 
--- 🔹 WalkSpeed Button (ImageButton ngoài GUI)
+-- 🔹 WalkSpeed Button (ngoài GUI, style Psalms)
 Tab:CreateButton({
    Name = "Load WalkSpeed Button",
    Callback = function()
+       local Humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
        local sg = Instance.new("ScreenGui", game.CoreGui)
        sg.Name = "WalkSpeedUI"
+       sg.ResetOnSpawn = false
 
        local btn = Instance.new("ImageButton")
        btn.Parent = sg
-       btn.Size = UDim2.new(0, 60, 0, 60)
-       btn.Position = UDim2.new(0.05, 0, 0.8, 0)
-       btn.Image = "rbxassetid://3926305904"
-       btn.ImageRectOffset = Vector2.new(4, 204)
-       btn.ImageRectSize = Vector2.new(36, 36)
+       btn.Size = UDim2.new(0, 90, 0, 90)
+       btn.Position = UDim2.new(0.05, 0, 0.7, 0)
+       btn.BackgroundColor3 = Color3.fromRGB(20,20,20)
+       btn.BackgroundTransparency = 0.5
+       btn.Draggable = true
+       btn.Active = true
+       btn.Image = "rbxassetid://96086736054343" -- icon psalms
+
+       local corner = Instance.new("UICorner", btn)
+       corner.CornerRadius = UDim.new(0.2, 0)
 
        local enabled = false
        btn.MouseButton1Click:Connect(function()
            enabled = not enabled
-           sendNotification("WalkSpeed", enabled and "Đã bật WalkSpeed" or "Đã tắt WalkSpeed", 2)
            if enabled then
-               task.spawn(function()
-                   while enabled do
-                       local char = LocalPlayer.Character
-                       if char and char:FindFirstChild("HumanoidRootPart") then
-                           char.HumanoidRootPart.Velocity = char.HumanoidRootPart.CFrame.LookVector * 190
-                       end
-                       task.wait()
-                   end
-               end)
+               Humanoid.WalkSpeed = 30
+               sendNotification("WalkSpeed","Đã bật WalkSpeed",2)
+           else
+               Humanoid.WalkSpeed = 16
+               sendNotification("WalkSpeed","Đã tắt WalkSpeed",2)
            end
        end)
    end,
 })
 
--- 🔹 Lock Button (ImageButton ngoài GUI)
+-- 🔹 Lock Button (ngoài GUI, style Psalms)
 Tab:CreateButton({
    Name = "Load Lock Button",
    Callback = function()
        local sg = Instance.new("ScreenGui", game.CoreGui)
        sg.Name = "LockUI"
+       sg.ResetOnSpawn = false
 
        local btn = Instance.new("ImageButton")
        btn.Parent = sg
-       btn.Size = UDim2.new(0, 60, 0, 60)
-       btn.Position = UDim2.new(0.15, 0, 0.8, 0)
-       btn.Image = "rbxassetid://3926305904"
-       btn.ImageRectOffset = Vector2.new(124, 4)
-       btn.ImageRectSize = Vector2.new(36, 36)
+       btn.Size = UDim2.new(0, 90, 0, 90)
+       btn.Position = UDim2.new(0.18, 0, 0.7, 0)
+       btn.BackgroundColor3 = Color3.fromRGB(20,20,20)
+       btn.BackgroundTransparency = 0.5
+       btn.Draggable = true
+       btn.Active = true
+       btn.Image = "rbxassetid://3926305904" -- icon psalms
+
+       local corner = Instance.new("UICorner", btn)
+       corner.CornerRadius = UDim.new(0.2, 0)
 
        local locked = false
        btn.MouseButton1Click:Connect(function()
@@ -374,15 +277,15 @@ Tab:CreateButton({
                MousePressed = false
                AimlockTarget = nil
                locked = false
-               sendNotification("Lock", "Đã thả aim", 2)
+               sendNotification("Lock","Đã thả aim",2)
            else
                AimlockTarget = GetNearestTarget()
                if AimlockTarget then
                    MousePressed = true
                    locked = true
-                   sendNotification("Lock", "Đang aim vào "..AimlockTarget.Name, 2)
+                   sendNotification("Lock","Đang aim vào "..AimlockTarget.Name,2)
                else
-                   sendNotification("Lock", "Không tìm thấy mục tiêu", 2)
+                   sendNotification("Lock","Không tìm thấy mục tiêu",2)
                end
            end
        end)
@@ -491,7 +394,7 @@ getgenv().GetObscuringObjects = function(T)
 end
  
 getgenv().GetNearestTarget = function()
-    local AimlockTarget, Closest = nil, math.huge
+    local AimlockTarget, Closest = nil, 1/0
     local centerVec2
 
     if UserInputService.TouchEnabled then
@@ -499,30 +402,35 @@ getgenv().GetNearestTarget = function()
         local vp = Camera.ViewportSize
         centerVec2 = Vec2(vp.X/2, vp.Y/2)
     else
-        -- ⌨️ PC → chuột
+        -- 💻 PC → chuột
         centerVec2 = Vec2(Mouse.X, Mouse.Y)
     end
 
     for _, v in pairs(Players:GetPlayers()) do
-        if v ~= Client and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+        if (v.Character and v ~= LocalPlayer and v.Character:FindFirstChild("HumanoidRootPart")) then
             local Position, OnScreen = Camera:WorldToScreenPoint(v.Character.HumanoidRootPart.Position)
             local Distance = (Vec2(Position.X, Position.Y) - centerVec2).Magnitude
 
-            if Settings.Main.CheckForWalls or Settings.Main.UseCircleRadius then
+            if Settings.Main.CheckForWalls then
                 if (Circle.Radius > Distance and Distance < Closest and OnScreen and
-                    getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {Client, v.Character})) then
+                    getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {LocalPlayer, v.Character})) then
+                    Closest = Distance
+                    AimlockTarget = v
+                end
+            elseif Settings.Main.UseCircleRadius then
+                if (Circle.Radius > Distance and Distance < Closest and OnScreen and
+                    getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {LocalPlayer, v.Character})) then
                     Closest = Distance
                     AimlockTarget = v
                 end
             else
-                if Circle.Radius > Distance and Distance < Closest and OnScreen then
+                if (Circle.Radius > Distance and Distance < Closest and OnScreen) then
                     Closest = Distance
                     AimlockTarget = v
                 end
             end
         end
     end
-
     return AimlockTarget
 end
  
