@@ -80,14 +80,8 @@ getgenv().Settings = {
     },
     Resolver = {
         UnderGround = false,
-        UseUnderGroundKeybind = true,
-        UnderGroundKey = Enum.KeyCode.B,
         DetectDesync = true,
         Detection = 75,
- 
-        UseDetectDesyncKeybind = true,
-        DetectDesyncKey = Enum.KeyCode.V,
-        SendNotification = true
     },
     Visual = {
         Fov = true,
@@ -359,80 +353,6 @@ Uis.InputBegan:connect(
          then
             AimlockTarget = nil
             MousePressed = false
-        end
-    end
-)
- 
-Uis.InputBegan:Connect(
-    function(keyinput, stupid)
-        if
-            keyinput.KeyCode == Settings.Resolver.UnderGroundKey and getgenv().Settings.Main.Enable == true and
-                Settings.Resolver.UseUnderGroundKeybind == true
-         then
-            if Settings.Resolver.UnderGround == true then
-                Settings.Resolver.UnderGround = false
-                if getgenv().Settings.Resolver.SendNotification then
-                    game.StarterGui:SetCore(
-                        "SendNotification",
-                        {
-                            Title = "Sanky Box",
-                            Text = "Disabled UnderGround Resolver",
-                            Icon = "rbxassetid://11394475200",
-                            Duration = 1
-                        }
-                    )
-                end
-            else
-                Settings.Resolver.UnderGround = true
-                if getgenv().Settings.Resolver.SendNotification then
-                    game.StarterGui:SetCore(
-                        "SendNotification",
-                        {
-                            Title = "Sanky Box",
-                            Text = "Enabled UnderGround Resolver",
-                            Icon = "rbxassetid://11394475200",
-                            Duration = 1
-                        }
-                    )
-                end
-            end
-        end
-    end
-)
- 
-Uis.InputBegan:Connect(
-    function(keyinput, stupid)
-        if
-            keyinput.KeyCode == Settings.Resolver.DetectDesyncKey and getgenv().Settings.Main.Enable == true and
-                Settings.Resolver.UseDetectDesyncKeybind == true
-         then
-            if Settings.Resolver.DetectDesync == true then
-                Settings.Resolver.DetectDesync = false
-                if getgenv().Settings.Resolver.SendNotification then
-                    game.StarterGui:SetCore(
-                        "SendNotification",
-                        {
-                            Title = "Sanky Box",
-                            Text = "Disabled Desync Resolver",
-                            Icon = "rbxassetid://11394475200",
-                            Duration = 1
-                        }
-                    )
-                end
-            else
-                Settings.Resolver.DetectDesync = true
-                if getgenv().Settings.Resolver.SendNotification then
-                    game.StarterGui:SetCore(
-                        "SendNotification",
-                        {
-                            Title = "Sanky Box",
-                            Text = "Enabled Desync Resolver",
-                            Icon = "rbxassetid://11394475200",
-                            Duration = 1
-                        }
-                    )
-                end
-            end
         end
     end
 )
