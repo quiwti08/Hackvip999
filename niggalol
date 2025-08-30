@@ -487,6 +487,23 @@ game.Players.LocalPlayer.CharacterAdded:Connect(function()
     workspace.CurrentCamera.FieldOfView = CurrentFOV
 end)
 
+-- 🗨️ Show Chat Toggle
+local TextChatService = game:GetService("TextChatService")
+local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
+
+-- Mặc định bật
+local ChatEnabled = true
+if chatWindow then
+    chatWindow.Enabled = ChatEnabled
+end
+
+miscSection:addToggle("Show Chat", ChatEnabled, function(state)
+    ChatEnabled = state
+    if chatWindow then
+        chatWindow.Enabled = state
+    end
+end)
+
 -- Page 4: Movement (Icon: Specified, 16181398286)
 local movementPage = venyx:addPage("Movement", 16181398286)
 local movementSection = movementPage:addSection("Movement Features")
