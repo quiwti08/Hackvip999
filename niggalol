@@ -11,7 +11,6 @@ local themes = {
     TextColor = Color3.fromRGB(255, 255, 255)
 }
 
--- Create the UI with title "nigga.lol" and main icon
 local venyx = library.new("nigga.lol(vhuydeptraivl)", 11351620355)
 
 -- Make background images visible (set transparency to 0)
@@ -147,6 +146,67 @@ combatSection:addToggle("TriggerBot", false, function(value)
     venyx:Notify("TriggerBot", value and "ON" or "OFF")
 end)
 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local selectedPlayer = nil
+
+-- Tạo danh sách player (trừ bản thân)
+local function getPlayerList()
+    local list = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            table.insert(list, plr.Name)
+        end
+    end
+    return list
+end
+
+-- Dropdown chọn player
+combatSection:addDropdown("Select Player", getPlayerList(), function(value)
+    selectedPlayer = Players:FindFirstChild(value)
+end)
+
+-- Biến lưu trạng thái View
+local viewing = false
+local lastSubject = Camera.CameraSubject
+
+-- Nút View: toggle góc nhìn
+combatSection:addButton("View", function()
+    if not selectedPlayer then return end
+    if not selectedPlayer.Character or not selectedPlayer.Character:FindFirstChild("Head") then return end
+
+    if not viewing then
+        -- Bắt đầu view
+        lastSubject = Camera.CameraSubject
+        Camera.CameraSubject = selectedPlayer.Character.Head
+        viewing = true
+        venyx:Notify("View", "Đang view: " .. selectedPlayer.Name)
+    else
+        -- Tắt view, trả về camera gốc
+        Camera.CameraSubject = lastSubject or LocalPlayer.Character:FindFirstChild("Humanoid")
+        viewing = false
+        venyx:Notify("View", "Tắt view")
+    end
+end)
+
+-- Nút Go To: teleport đến player
+combatSection:addButton("Go To", function()
+    if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+        end
+    end
+end)
+
+-- Tự động update danh sách player khi có người join/leave
+Players.PlayerAdded:Connect(function()
+end)
+Players.PlayerRemoving:Connect(function()
+end)
+
 getgenv().HitboxEnabled = false
 getgenv().HitboxTransparency = 0.9
 getgenv().HitboxSize = 15
@@ -276,7 +336,7 @@ game:GetService("RunService").RenderStepped:Connect(function()
     end
 end)
 
-combatSection:addToggle("Aimlock", false, function(value)
+combatSection:addToggle("Aimlock", true, function(value)
     getgenv().Settings.Main.Enable = value
     venyx:Notify("Aimlock", value and "ON" or "OFF")
 end)
@@ -286,8 +346,12 @@ end, function()
     print("Target Lock key changed")
 end)
 combatSection:addToggle("Desync Resolver", false, function(value)
-    getgenv().Settings.Resolver.DetectDesync = value
-    venyx:Notify("Desync Resolver", value and "ON" or "OFF")
+    getgenv().Settings.Resolver.UnderGround = value
+    venyx:Notify("UnderGround Resolver", value and "ON" or "OFF")
+end)
+combatSection:addToggle("DetectDesync Resolver", true, function(value)
+    getgenv().Settings.Resolver.DetectDesync = true
+    venyx:Notify("DetectDesync Resolver", value and "ON" or "OFF")
 end)
 combatSection:addDropdown("Aim Part", {"Head", "HumanoidRootPart", "UpperTorso"}, function(value)
     getgenv().Settings.Part.AimPart = value
@@ -306,137 +370,70 @@ end)
 -- Page 2: Visual (Icon: Eye, 5012541386)
 local visualPage = venyx:addPage("Visual", 5012541386)
 local visualSection = visualPage:addSection("Visual Features")
-local Config = {}
-Config.SelectedPlayers = {}
-local function IsValidTarget(player)
-    if not player 
-        or not player.Character 
-        or not player.Character:FindFirstChild("Humanoid") 
-        or not player.Character:FindFirstChild("HumanoidRootPart") 
-        or player.Character.Humanoid.Health <= 0 then
-        return false
-    end
-    return true
-end
-local function IsPlayerKnockedOrGrabbed(player)
-    local bodyEffects = player.Character and player.Character:FindFirstChild("BodyEffects")
-    if not bodyEffects then
-        return false
-    end
-    local ko = bodyEffects:FindFirstChild("K.O")
-    local grabbed = bodyEffects:FindFirstChild("GRABBING_CONSTRAINT")
-    return (ko and ko.Value) or (grabbed and grabbed.Value)
-end
-local ESPs = {}
-local function CreateESP(player)
-    if ESPs[player] or player == game.Players.LocalPlayer then return end
-    local label = Instance.new("TextLabel")
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 179, 186)
-    label.TextSize = 16
-    label.Font = Enum.Font.GothamBold
-    label.Text = player.DisplayName
-    label.TextStrokeTransparency = 0.5
-    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    label.Size = UDim2.new(0, 200, 0, 20)
-    label.AnchorPoint = Vector2.new(0.5, 0.5)
-    label.Position = UDim2.new(0.5, 0, 0.5, 0)
-    label.Visible = false
-    local safeGui = game.CoreGui:FindFirstChild("SafeESP")
-    if not safeGui then
-        safeGui = Instance.new("ScreenGui")
-        safeGui.Name = "SafeESP"
-        safeGui.Parent = game.CoreGui
-    end
-    label.Parent = safeGui
 
-    local highlight = Instance.new("Highlight")
-    highlight.Enabled = false
-    highlight.FillTransparency = 0.6
-    highlight.OutlineTransparency = 0.2
-    highlight.FillColor = Color3.fromRGB(55, 55, 55)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.Adornee = player.Character
-    highlight.Parent = game.CoreGui.SafeESP
-    ESPs[player] = { label = label, highlight = highlight }
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Config lấy từ UI toggle của bạn
+local Config = {
+    RainbowHitEffectEnabled = true,
+    TracerColor = Color3.fromRGB(255, 0, 0),
+}
+
+local lastHealth = {}
+
+-- Hàm tạo màu rainbow
+local function fadeColor()
+    local t = tick() * 2 -- tốc độ đổi màu
+    return Color3.fromHSV(t % 1, 1, 1)
 end
-local function RemoveESP(player)
-    if ESPs[player] then
-        pcall(function()
-            ESPs[player].label:Destroy()
-            ESPs[player].highlight:Destroy()
-        end)
-        ESPs[player] = nil
-    end
-end
-local function UpdateESP()
-    if not Config.ESPEnabled then
-        for _, v in pairs(ESPs) do
-            v.label.Visible = false
-            v.highlight.Enabled = false
-        end
-        return
-    end
-    for _, player in ipairs(game.Players:GetPlayers()) do
-        if player ~= game.Players.LocalPlayer and IsValidTarget(player) then
-            local character = player.Character
-            local head = character:FindFirstChild("Head")
-            if head then
-                CreateESP(player)
-                local headPos = head.Position
-                local screenPos, onScreen = game.Workspace.CurrentCamera:WorldToViewportPoint(headPos)
-                local esp = ESPs[player]
-                if esp then
-                    local isSelected = selectedPlayers[player.Name]
-                    local isKnockedOrGrabbed = IsPlayerKnockedOrGrabbed(player)
-                    if isKnockedOrGrabbed then
-                        esp.label.TextColor3 = Color3.fromRGB(255, 255, 0)
-                        esp.highlight.FillColor = Color3.fromRGB(255, 255, 0)
-                        esp.highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
-                    else
-                        esp.label.TextColor3 = isSelected and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(255, 255, 255)
-                        esp.highlight.FillColor = isSelected and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(255, 255, 255)
-                        esp.highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+
+RunService.Heartbeat:Connect(function()
+    if not Config.RainbowHitEffectEnabled then return end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= Players.LocalPlayer then
+            local char = plr.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local current = hum.Health
+                local last = lastHealth[plr.Name] or current
+
+                if current < last then
+                    -- tạo highlight cầu vồng
+                    local highlight = char:FindFirstChild("HitEffectHighlight")
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "HitEffectHighlight"
+                        highlight.Adornee = char
+                        highlight.FillTransparency = 1
+                        highlight.OutlineTransparency = 0
+                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        highlight.Parent = char
                     end
-                    if onScreen then
-                        esp.label.Visible = true
-                        esp.label.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y - 20)
-                        esp.highlight.Enabled = true
-                    else
-                        esp.label.Visible = false
-                        esp.highlight.Enabled = false
-                    end
+
+                    -- chạy rainbow trong 1 giây
+                    task.spawn(function()
+                        local start = tick()
+                        while tick() - start < 1 and highlight.Parent do
+                            highlight.OutlineColor = fadeColor()
+                            task.wait(0.05)
+                        end
+                        if highlight then highlight:Destroy() end
+                    end)
                 end
-            else
-                RemoveESP(player)
+
+                lastHealth[plr.Name] = current
             end
-        else
-            RemoveESP(player)
         end
     end
-end
-game:GetService("RunService").RenderStepped:Connect(UpdateESP)
-Config.ESPEnabled = false
-visualSection:addToggle("ESP Name", false, function(value)
-    Config.ESPEnabled = value
-    venyx:Notify("ESP Name", value and "ON" or "OFF")
 end)
-visualSection:addToggle("ESP K.O", false, function(value)
-    Config.ESPEnabled = value
-    venyx:Notify("ESP K.O", value and "ON" or "OFF")
-end)
-visualSection:addToggle("Highlight", false, function(value)
-    Config.ESPEnabled = value
-    venyx:Notify("Highlight", value and "ON" or "OFF")
-end)
-visualSection:addToggle("Outline", false, function(value)
-    Config.ESPEnabled = value
-    venyx:Notify("Outline", value and "ON" or "OFF")
-end)
-Config.RainbowHitEffectEnabled = true
-visualSection:addToggle("Hit Effect", false, function(value)
-    Config.RainbowHitEffectEnabled = value
-    venyx:Notify("Hit Effect", value and "ON" or "OFF")
+
+-- Rainbow Hit Effect
+visualSection:addToggle("Rainbow Hit Effect", false, function(value)
+    Config.RainbowHitEffectEnabled = val
 end)
 local tracerEnabled = false
 local tracerColor = Color3.fromRGB(255, 0, 0)
@@ -470,21 +467,6 @@ visualSection:addToggle("Tracer", false, function(value)
     tracerEnabled = value
     venyx:Notify("Tracer", value and "ON" or "OFF")
 end)
-visualSection:addColorPicker("Outline Color", Color3.fromRGB(255, 255, 255), function(color)
-    for _, esp in pairs(ESPs) do
-        esp.highlight.OutlineColor = color
-    end
-end)
-visualSection:addColorPicker("Name Color", Color3.fromRGB(255, 255, 255), function(color)
-    for _, esp in pairs(ESPs) do
-        esp.label.TextColor3 = color
-    end
-end)
-visualSection:addColorPicker("Highlight Color", Color3.fromRGB(255, 255, 255), function(color)
-    for _, esp in pairs(ESPs) do
-        esp.highlight.FillColor = color
-    end
-end)
 visualSection:addColorPicker("Tracer Color", Color3.fromRGB(255, 0, 0), function(color)
     tracerColor = color
 end)
@@ -492,8 +474,17 @@ end)
 -- Page 3: Misc (Icon: Gear, 5012543246)
 local miscPage = venyx:addPage("Misc", 5012543246)
 local miscSection = miscPage:addSection("Miscellaneous")
+local CurrentFOV = 70
+
 miscSection:addSlider("FOV", 70, 70, 120, function(value)
-    fovRadius = value
+    CurrentFOV = value
+    workspace.CurrentCamera.FieldOfView = value
+end)
+
+-- khi nhân vật respawn → giữ FOV cũ
+game.Players.LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5) -- chờ camera load
+    workspace.CurrentCamera.FieldOfView = CurrentFOV
 end)
 
 -- Page 4: Movement (Icon: Specified, 16181398286)
@@ -546,42 +537,54 @@ movementSection:addKeybind("Fly Key", Enum.KeyCode.F, function()
     Config.FlyEnabled = not Config.FlyEnabled
     venyx:Notify("Fly", Config.FlyEnabled and "ON" or "OFF")
 end, function()
-    print("Fly key changed")
 end)
 movementSection:addSlider("Fly Speed", 35, 1, 100, function(value)
     Config.FlySpeed = value
 end)
-Config.NoSlowdownEnabled = false
+Config.NoSlowdownEnabled = true
+-- Logic No Slowdown: Dùng CFrame để di chuyển thay vì WalkSpeed
 local function applyNoSlowdown()
     if not Config.NoSlowdownEnabled then return end
-    local char = game.Players.LocalPlayer.Character
+
+    local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not (hrp and hum) then return end
+
+    -- Kiểm tra trạng thái giảm tốc (reload, punch, v.v.)
     local bodyEffects = char:FindFirstChild("BodyEffects")
     local isSlowed = false
     if bodyEffects then
         local reload = bodyEffects:FindFirstChild("Reload")
         local movement = bodyEffects:FindFirstChild("Movement")
+        -- Kiểm tra trạng thái reload hoặc movement bị giới hạn
         isSlowed = (reload and reload.Value) or (movement and movement.Value < 1)
     end
+
+    -- Nếu đang bị giảm tốc hoặc tốc độ nhỏ hơn bình thường
     if isSlowed or hum.WalkSpeed < 16 then
         local moveDirection = hum.MoveDirection
         if moveDirection.Magnitude > 0 then
-            local speed = 20 / 60
+            -- Di chuyển nhân vật bằng CFrame với tốc độ tương đương WalkSpeed 16
+            local speed = 20 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
             hrp.CFrame = hrp.CFrame + moveDirection * speed
         end
     end
 end
+
+-- Chạy logic No Slowdown mỗi frame
 local noSlowConnection
-noSlowConnection = game:GetService("RunService").Heartbeat:Connect(applyNoSlowdown)
-game.Players.LocalPlayer.CharacterAdded:Connect(function(newChar)
+if noSlowConnection then noSlowConnection:Disconnect() end
+noSlowConnection = RunService.Heartbeat:Connect(applyNoSlowdown)
+
+-- Đảm bảo No Slowdown hoạt động sau khi respawn
+LocalPlayer.CharacterAdded:Connect(function(newChar)
     if Config.NoSlowdownEnabled then
-        task.wait(0.5)
+        task.wait(0.5) -- Đợi nhân vật load đầy đủ
         applyNoSlowdown()
     end
 end)
-movementSection:addToggle("No Slowdown", false, function(value)
+movementSection:addToggle("No Slowdown", true, function(value)
     Config.NoSlowdownEnabled = value
     venyx:Notify("No Slowdown", value and "ON" or "OFF")
 end)
@@ -647,7 +650,7 @@ end
 
 getgenv().Settings = {
     Main = {
-        Enable = false,
+        Enable = true,
  
         HoldKey = false,
         ToggleKey = true,
@@ -884,80 +887,7 @@ Uis.InputBegan:connect(
         end
     end
 )
- 
-Uis.InputBegan:Connect(
-    function(keyinput, stupid)
-        if
-            keyinput.KeyCode == Settings.Resolver.UnderGroundKey and getgenv().Settings.Main.Enable == true and
-                Settings.Resolver.UseUnderGroundKeybind == true
-         then
-            if Settings.Resolver.UnderGround == true then
-                Settings.Resolver.UnderGround = false
-                if getgenv().Settings.Resolver.SendNotification then
-                    game.StarterGui:SetCore(
-                        "SendNotification",
-                        {
-                            Title = "Sanky Box",
-                            Text = "Disabled UnderGround Resolver",
-                            Icon = "rbxassetid://11394475200",
-                            Duration = 1
-                        }
-                    )
-                end
-            else
-                Settings.Resolver.UnderGround = true
-                if getgenv().Settings.Resolver.SendNotification then
-                    game.StarterGui:SetCore(
-                        "SendNotification",
-                        {
-                            Title = "Sanky Box",
-                            Text = "Enabled UnderGround Resolver",
-                            Icon = "rbxassetid://11394475200",
-                            Duration = 1
-                        }
-                    )
-                end
-            end
-        end
-    end
-)
- 
-Uis.InputBegan:Connect(
-    function(keyinput, stupid)
-        if
-            keyinput.KeyCode == Settings.Resolver.DetectDesyncKey and getgenv().Settings.Main.Enable == true and
-                Settings.Resolver.UseDetectDesyncKeybind == true
-         then
-            if Settings.Resolver.DetectDesync == true then
-                Settings.Resolver.DetectDesync = false
-                if getgenv().Settings.Resolver.SendNotification then
-                    game.StarterGui:SetCore(
-                        "SendNotification",
-                        {
-                            Title = "Sanky Box",
-                            Text = "Disabled Desync Resolver",
-                            Icon = "rbxassetid://11394475200",
-                            Duration = 1
-                        }
-                    )
-                end
-            else
-                Settings.Resolver.DetectDesync = true
-                if getgenv().Settings.Resolver.SendNotification then
-                    game.StarterGui:SetCore(
-                        "SendNotification",
-                        {
-                            Title = "Sanky Box",
-                            Text = "Enabled Desync Resolver",
-                            Icon = "rbxassetid://11394475200",
-                            Duration = 1
-                        }
-                    )
-                end
-            end
-        end
-    end
-)
+
  
 Uis.InputBegan:Connect(
     function(keyinput, stupid)
