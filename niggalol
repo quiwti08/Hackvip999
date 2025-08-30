@@ -431,6 +431,173 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- === ESP Config ===
+_G.FriendColor = Color3.fromRGB(0, 0, 255)
+_G.EnemyColor = Color3.fromRGB(255, 0, 0)
+_G.UseTeamColor = true
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local ESPEnabled = false
+local SkeletonEnabled = false
+local NameEnabled = false
+local ESPColor = Color3.fromRGB(255, 0, 0)
+local SkeletonColor = Color3.fromRGB(255, 255, 255)
+local NameColor = Color3.fromRGB(50, 50, 50)
+
+-- Highlight ESP
+local function espHighlight(target, color)
+    if target.Character then
+        if not target.Character:FindFirstChild("GetReal") then
+            local highlight = Instance.new("Highlight")
+            highlight.RobloxLocked = true
+            highlight.Name = "GetReal"
+            highlight.Adornee = target.Character
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.FillColor = color
+            highlight.FillTransparency = 0.5
+            highlight.OutlineColor = color
+            highlight.Parent = target.Character
+        else
+            target.Character.GetReal.FillColor = color
+            target.Character.GetReal.OutlineColor = color
+        end
+    end
+end
+
+-- Name ESP
+local function espName(target, color)
+    if target.Character and target.Character:FindFirstChild("Head") then
+        if not target.Character:FindFirstChild("ESPName") then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESPName"
+            billboard.Adornee = target.Character.Head
+            billboard.Size = UDim2.new(0, 200, 0, 50)
+            billboard.StudsOffset = Vector3.new(0, 2, 0)
+            billboard.AlwaysOnTop = true
+
+            local text = Instance.new("TextLabel", billboard)
+            text.Size = UDim2.new(1, 0, 1, 0)
+            text.BackgroundTransparency = 1
+            text.Text = target.Name
+            text.Font = Enum.Font.SourceSansBold
+            text.TextScaled = true
+            text.TextColor3 = color
+            text.TextStrokeTransparency = 0.4
+
+            billboard.Parent = target.Character.Head
+        else
+            local billboard = target.Character.ESPName
+            billboard.Tag.TextColor3 = color
+            billboard.Tag.Text = target.Name
+        end
+    end
+end
+
+-- Skeleton ESP (Drawing)
+local skeletonLines = {}
+local function drawSkeleton(plr, color)
+    if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+
+    local parts = {
+        Head = plr.Character:FindFirstChild("Head"),
+        Torso = plr.Character:FindFirstChild("UpperTorso") or plr.Character:FindFirstChild("Torso"),
+        LeftArm = plr.Character:FindFirstChild("LeftUpperArm") or plr.Character:FindFirstChild("Left Arm"),
+        RightArm = plr.Character:FindFirstChild("RightUpperArm") or plr.Character:FindFirstChild("Right Arm"),
+        LeftLeg = plr.Character:FindFirstChild("LeftUpperLeg") or plr.Character:FindFirstChild("Left Leg"),
+        RightLeg = plr.Character:FindFirstChild("RightUpperLeg") or plr.Character:FindFirstChild("Right Leg")
+    }
+
+    local cam = workspace.CurrentCamera
+    local function wts(part)
+        local vec, vis = cam:WorldToViewportPoint(part.Position)
+        return Vector2.new(vec.X, vec.Y), vis
+    end
+
+    local function drawLine(a, b, tag)
+        if not a or not b then return end
+        local posA, visA = wts(a)
+        local posB, visB = wts(b)
+        if not visA or not visB then return end
+
+        local line = skeletonLines[tag]
+        if not line then
+            line = Drawing.new("Line")
+            line.Thickness = 2
+            skeletonLines[tag] = line
+        end
+        line.From = posA
+        line.To = posB
+        line.Color = color
+        line.Visible = true
+    end
+
+    drawLine(parts.Head, parts.Torso, plr.Name .. "_neck")
+    drawLine(parts.Torso, parts.LeftArm, plr.Name .. "_larm")
+    drawLine(parts.Torso, parts.RightArm, plr.Name .. "_rarm")
+    drawLine(parts.Torso, parts.LeftLeg, plr.Name .. "_lleg")
+    drawLine(parts.Torso, parts.RightLeg, plr.Name .. "_rleg")
+end
+
+-- Update loop
+RunService.RenderStepped:Connect(function()
+    for _, line in pairs(skeletonLines) do
+        line.Visible = false
+    end
+
+    for _, v in ipairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer then
+            local color = ESPColor
+            if _G.UseTeamColor then
+                color = v.TeamColor.Color
+            elseif v.Team == LocalPlayer.Team then
+                color = _G.FriendColor
+            else
+                color = _G.EnemyColor
+            end
+
+            if ESPEnabled then
+                espHighlight(v, color)
+            end
+            if NameEnabled then
+                espName(v, NameColor)
+            end
+            if SkeletonEnabled then
+                drawSkeleton(v, SkeletonColor)
+            end
+        end
+    end
+end)
+
+-- === UI Buttons ===
+visualSection:addToggle("ESP Highlight", false, function(value)
+    ESPEnabled = value
+    venyx:Notify("ESP Highlight", value and "ON" or "OFF")
+end)
+visualSection:addColorPicker("ESP Color", ESPColor, function(color)
+    ESPColor = color
+end)
+
+visualSection:addToggle("ESP Name", false, function(value)
+    NameEnabled = value
+    venyx:Notify("ESP Name", value and "ON" or "OFF")
+end)
+visualSection:addColorPicker("Name Color", NameColor, function(color)
+    NameColor = color
+end)
+
+visualSection:addToggle("Skeleton ESP", false, function(value)
+    SkeletonEnabled = value
+    venyx:Notify("Skeleton ESP", value and "ON" or "OFF")
+end)
+visualSection:addColorPicker("Skeleton Color", SkeletonColor, function(color)
+    SkeletonColor = color
+end)
+
 -- Rainbow Hit Effect
 visualSection:addToggle("Rainbow Hit Effect", false, function(value)
     Config.RainbowHitEffectEnabled = val
@@ -485,6 +652,32 @@ end)
 game.Players.LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.5) -- chờ camera load
     workspace.CurrentCamera.FieldOfView = CurrentFOV
+end)
+
+-- Time Control
+local Lighting = game:GetService("Lighting")
+local timeEnabled = false
+local currentTime = Lighting.ClockTime
+
+-- Toggle bật/tắt chỉnh giờ
+miscSection:addToggle("Custom Time", false, function(value)
+    timeEnabled = value
+    if value then
+        venyx:Notify("Custom Time", "ON")
+        Lighting.ClockTime = currentTime
+    else
+        venyx:Notify("Custom Time", "OFF")
+        -- Khi tắt trả lại đồng hồ thật (optional, bạn có thể bỏ)
+        Lighting.ClockTime = os.date("*t").hour + (os.date("*t").min / 60)
+    end
+end)
+
+-- Slider chỉnh thời gian (0h - 24h)
+miscSection:addSlider("Set Time", 12, 0, 24, function(value)
+    currentTime = value
+    if timeEnabled then
+        Lighting.ClockTime = value
+    end
 end)
 
 -- 🗨️ Show Chat Toggle
