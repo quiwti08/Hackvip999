@@ -57,8 +57,6 @@ local Config = {
     SpinbotEnabled = false,
     SpinbotSpeed = 450,
     Prediction = nil,
-    FakeSpeedEnabled = false,
-    FakeSpeedAmount = 300,
     OnlyTargetHitbox = false,
     RainbowHitEffectEnabled = true,
 }
@@ -899,37 +897,6 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
     end
 end)
 
--- Nút FakeSpeed (chạy 1 lần khi bấm)
-fakeSpeedButton = CreateButton(ButtonFrame1, "FakeSpeed", function()
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.Velocity = hrp.CFrame.LookVector * (Config.FakeSpeedAmount or 190)
-        sendNotification("FakeSpeed", "Đã kích hoạt speed " .. tostring(Config.FakeSpeedAmount or 190))
-    end
-end)
-
--- Ô nhập Speed cho FakeSpeed (mặc định 190)
-local fakeSpeedBox = Instance.new("TextBox")
-fakeSpeedBox.Size = UDim2.new(1, -10, 0, 25)
-fakeSpeedBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-fakeSpeedBox.BackgroundTransparency = 0.2
-fakeSpeedBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-fakeSpeedBox.TextSize = 14
-fakeSpeedBox.Font = Enum.Font.Gotham
-fakeSpeedBox.PlaceholderText = "Nhập Speed"
-fakeSpeedBox.Text = "300" -- mặc định
-fakeSpeedBox.ClearTextOnFocus = false
-fakeSpeedBox.Parent = ButtonFrame1
-Instance.new("UICorner", fakeSpeedBox).CornerRadius = UDim.new(0, 6)
-
-fakeSpeedBox:GetPropertyChangedSignal("Text"):Connect(function()
-    local num = tonumber(fakeSpeedBox.Text)
-    if num then
-        Config.FakeSpeedAmount = num
-    end
-end)
-
 speedButton = CreateButton(ButtonFrame1, "Speed: OFF", function()
     Config.SpeedEnabled = not Config.SpeedEnabled
     speedButton.Text = "Speed: " .. (Config.SpeedEnabled and "ON" or "OFF")
@@ -940,72 +907,6 @@ flyButton = CreateButton(ButtonFrame1, "Fly: OFF", function()
     Config.FlyEnabled = not Config.FlyEnabled
     flyButton.Text = "Fly: " .. (Config.FlyEnabled and "ON" or "OFF")
     sendNotification("FLY", Config.FlyEnabled and "ON" or "OFF")
-end)
-
--- ========== RAPIDFIRE ==========
-local utility = {}
-getgenv().config = { enable = false, delay = 0.01 }
-getgenv().is_firing = false
-
-utility.get_gun = function()
-    local char = LocalPlayer.Character
-    if not char then return end
-    for _, tool in next, char:GetChildren() do
-        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
-            return tool
-        end
-    end
-end
-
-utility.rapid = function(tool)
-    tool:Activate()
-end
-
--- Nút RapidFire toggle trong GUI
-rapidButton = CreateButton(ButtonFrame1, "RapidFire: OFF", function()
-    config.enable = not config.enable
-    rapidButton.Text = "RapidFire: " .. (config.enable and "ON" or "OFF")
-    sendNotification("RapidFire", config.enable and "ON" or "OFF")
-end)
-
-local UIS = game:GetService("UserInputService")
-
--- PC: giữ chuột trái
-UIS.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        local gun = utility.get_gun()
-        if config.enable and gun and not is_firing then
-            is_firing = true
-            while is_firing do
-                utility.rapid(gun)
-                task.wait(config.delay)
-            end
-        end
-    end
-end)
-
-UIS.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        is_firing = false
-    end
-end)
-
-macroLegitButton = CreateButton(ButtonFrame1, "Macro Legit: " .. (Config.MacroLegitEnabled and "ON" or "OFF"), function()
-    Config.MacroLegitEnabled = not Config.MacroLegitEnabled
-    macroLegitButton.Text = "Macro Legit: " .. (Config.MacroLegitEnabled and "ON" or "OFF")
-    sendNotification("Macro Legit", Config.MacroLegitEnabled and "Enabled" or "Disabled")
-
-    if Config.MacroLegitEnabled then
-        task.spawn(function()
-            repeat
-                game:GetService("RunService").Heartbeat:Wait()
-                game:GetService("VirtualInputManager"):SendMouseWheelEvent(0.1, 0.1, true, game)
-                game:GetService("RunService").Heartbeat:Wait()
-                game:GetService("VirtualInputManager"):SendMouseWheelEvent(0.1, 0.1, false, game)
-                game:GetService("RunService").Heartbeat:Wait()
-            until not Config.MacroLegitEnabled
-        end)
-    end
 end)
 
 -- Danh sách mode AntiLock
@@ -1081,26 +982,6 @@ triggerBotButton = CreateButton(ButtonFrame1, "TriggerBot: " .. (tbEnabled and "
     tbEnabled = not tbEnabled
     triggerBotButton.Text = "TriggerBot: " .. (tbEnabled and "ON" or "OFF")
     sendNotification("TRIGGERBOT", tbEnabled and "ON" or "OFF")
-end)
-
--- Resolver Button (Page 2, Left Side)
-local resolverEnabled = false
-
-resolverButton = CreateButton(ButtonFrame1, "Resolver: OFF", function()
-    resolverEnabled = not resolverEnabled
-    resolverButton.Text = "Resolver: " .. (resolverEnabled and "ON" or "OFF")
-    sendNotification("Resolver", resolverEnabled and "Enabled" or "Disabled")
-end)
-
-RunService.Heartbeat:Connect(function()
-    if resolverEnabled then
-        for _,plr in ipairs(Players:GetPlayers()) do
-            if plr ~= Players.LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                -- Reset velocity để aim không bị lệch
-                plr.Character.HumanoidRootPart.Velocity = Vector3.new(0, plr.Character.HumanoidRootPart.Velocity.Y, 0)
-            end
-        end
-    end
 end)
 
 local function isAlive(plr)
