@@ -146,12 +146,6 @@ combatSection:addToggle("TriggerBot", false, function(value)
     tbEnabled = value
     venyx:Notify("TriggerBot", value and "ON" or "OFF")
 end)
-combatSection:addKeybind("TriggerBot Key", Enum.KeyCode.T, function()
-    tbEnabled = not tbEnabled
-    venyx:Notify("TriggerBot", tbEnabled and "ON" or "OFF")
-end, function()
-    print("TriggerBot key changed")
-end)
 
 getgenv().HitboxEnabled = false
 getgenv().HitboxTransparency = 0.9
