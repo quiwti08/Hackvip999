@@ -363,7 +363,7 @@ end)
 combatSection:addSlider("FOV Radius", 360, 0, 1000, function(value)
     getgenv().Settings.Visual.FovRadius = value
 end)
-combatSection:addColorPicker("FOV Color", Color3.fromRGB(255, 185, 0), function(color)
+combatSection:addColorPicker("FOV Color", Color3.fromRGB(255, 179, 186), function(color)
     getgenv().Settings.Visual.FovColor = color
 end)
 
@@ -384,52 +384,107 @@ local Config = {
 
 local lastHealth = {}
 
--- Hàm tạo màu rainbow
-local function fadeColor()
-    local t = tick() * 2 -- tốc độ đổi màu
-    return Color3.fromHSV(t % 1, 1, 1)
+local TweenService = game:GetService("TweenService")
+
+local function getRainbowColor()
+    local timeVal = tick() * 2
+    local r = math.floor((math.sin(timeVal) * 0.5 + 0.5) * 255)
+    local g = math.floor((math.sin(timeVal + math.pi / 2) * 0.5 + 0.5) * 255)
+    local b = math.floor((math.sin(timeVal + math.pi) * 0.5 + 0.5) * 255)
+    return Color3.fromRGB(r, g, b)
 end
 
-RunService.Heartbeat:Connect(function()
-    if not Config.RainbowHitEffectEnabled then return end
+local function createHitEffect(targetCharacter)
+    local hrp = targetCharacter:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    
+    local effect = Instance.new("Part")
+    effect.Shape = Enum.PartType.Ball
+    effect.Anchored = true
+    effect.CanCollide = false
+    effect.Material = Enum.Material.Neon
+    effect.Color = getRainbowColor()
+    effect.Size = Vector3.new(4, 4, 4)
+    effect.Transparency = 0
+    effect.Parent = hrp
+    effect.Position = hrp.Position
+    
+    local outline = Instance.new("Part")
+    outline.Shape = Enum.PartType.Ball
+    outline.Anchored = true
+    outline.CanCollide = false
+    outline.Material = Enum.Material.Neon
+    outline.Color = getRainbowColor()
+    outline.Size = effect.Size * 1.2
+    outline.Transparency = 0.3
+    outline.Parent = effect
+    outline.Position = effect.Position
+    
+    return effect
+end
 
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= Players.LocalPlayer then
-            local char = plr.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                local current = hum.Health
-                local last = lastHealth[plr.Name] or current
+local hitEffect = nil
 
-                if current < last then
-                    -- tạo highlight cầu vồng
-                    local highlight = char:FindFirstChild("HitEffectHighlight")
-                    if not highlight then
-                        highlight = Instance.new("Highlight")
-                        highlight.Name = "HitEffectHighlight"
-                        highlight.Adornee = char
-                        highlight.FillTransparency = 1
-                        highlight.OutlineTransparency = 0
-                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                        highlight.Parent = char
-                    end
-
-                    -- chạy rainbow trong 1 giây
-                    task.spawn(function()
-                        local start = tick()
-                        while tick() - start < 1 and highlight.Parent do
-                            highlight.OutlineColor = fadeColor()
-                            task.wait(0.05)
-                        end
-                        if highlight then highlight:Destroy() end
-                    end)
-                end
-
-                lastHealth[plr.Name] = current
-            end
-        end
+local function playHitEffect(targetCharacter)
+    if hitEffect and hitEffect.Parent then
+        hitEffect:Destroy()
     end
-end)
+    
+    hitEffect = createHitEffect(targetCharacter)
+    if not hitEffect then return end
+    
+    local tweenInfo = TweenInfo.new(
+        0.5, -- Duration
+        Enum.EasingStyle.Quad, -- Smooth easing
+        Enum.EasingDirection.Out -- Starts fast, ends slow
+    )
+    
+    local growTween = TweenService:Create(hitEffect, tweenInfo, {
+        Size = Vector3.new(8, 8, 8),
+        Transparency = 1
+    })
+    
+    local outlineTween = TweenService:Create(hitEffect:FindFirstChild("Part"), tweenInfo, {
+        Size = Vector3.new(10, 10, 10),
+        Transparency = 1
+    })
+    
+    local colorTween = TweenService:Create(hitEffect, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {
+        Color = getRainbowColor():Lerp(Color3.new(1, 1, 1), 0.5)
+    })
+    
+    growTween:Play()
+    outlineTween:Play()
+    colorTween:Play()
+    
+    growTween.Completed:Connect(function()
+        if hitEffect and hitEffect.Parent then
+            hitEffect:Destroy()
+        end
+        hitEffect = nil
+    end)
+end
+
+-- Kết nối HealthChanged cho từng player để giảm lag
+local function setupHitEffect(plr)
+    if plr == LocalPlayer then return end
+    plr.CharacterAdded:Connect(function(char)
+        local hum = char:WaitForChild("Humanoid")
+        local lastHealth = hum.Health
+        hum.HealthChanged:Connect(function(current)
+            if Config.RainbowHitEffectEnabled and current < lastHealth then
+                playHitEffect(char)
+            end
+            lastHealth = current
+        end)
+    end)
+end
+
+-- Setup cho tất cả player hiện tại
+for _, plr in ipairs(Players:GetPlayers()) do
+    setupHitEffect(plr)
+end
+Players.PlayerAdded:Connect(setupHitEffect)
 
 -- === ESP Config ===
 _G.FriendColor = Color3.fromRGB(0, 0, 255)
@@ -467,37 +522,43 @@ local function espHighlight(target, color)
     end
 end
 
--- Name ESP
+-- Name ESP (với outline trắng và scale theo distance)
 local function espName(target, color)
     if target.Character and target.Character:FindFirstChild("Head") then
-        if not target.Character:FindFirstChild("ESPName") then
-            local billboard = Instance.new("BillboardGui")
+        local head = target.Character.Head
+        local billboard = head:FindFirstChild("ESPName")
+        if not billboard then
+            billboard = Instance.new("BillboardGui")
             billboard.Name = "ESPName"
-            billboard.Adornee = target.Character.Head
-            billboard.Size = UDim2.new(0, 200, 0, 50)
+            billboard.Adornee = head
+            billboard.Size = UDim2.new(4, 0, 0.5, 0)  -- Scale: fixed studs size, bé khi xa (adjust 4 và 0.5 nếu cần lớn hơn)
             billboard.StudsOffset = Vector3.new(0, 2, 0)
-            billboard.AlwaysOnTop = true
+            billboard.AlwaysOnTop = true  -- Giữ nhưng nếu lag nặng, set false
 
-            local text = Instance.new("TextLabel", billboard)
+            local text = Instance.new("TextLabel")
+            text.Name = "NameLabel"
+            text.Parent = billboard
             text.Size = UDim2.new(1, 0, 1, 0)
             text.BackgroundTransparency = 1
             text.Text = target.Name
             text.Font = Enum.Font.SourceSansBold
-            text.TextScaled = true
+            text.TextSize = 14  -- Fixed size thay vì Scaled, để đẹp hơn
             text.TextColor3 = color
-            text.TextStrokeTransparency = 0.4
+            text.TextStrokeColor3 = Color3.new(1, 1, 1)  -- Outline trắng
+            text.TextStrokeTransparency = 0  -- Độ đậm outline (0 = full)
 
-            billboard.Parent = target.Character.Head
+            billboard.Parent = head
         else
-            local billboard = target.Character.ESPName
-            billboard.Tag.TextColor3 = color
-            billboard.Tag.Text = target.Name
+            local text = billboard:FindFirstChild("NameLabel")
+            if text then
+                text.TextColor3 = color
+                text.Text = target.Name
+            end
         end
     end
 end
 
--- Skeleton ESP (Drawing)
-local skeletonLines = {}
+local skeletonLines = {}  -- Đã có, giữ
 local function drawSkeleton(plr, color)
     if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return end
     local hum = plr.Character:FindFirstChildOfClass("Humanoid")
@@ -518,22 +579,23 @@ local function drawSkeleton(plr, color)
         return Vector2.new(vec.X, vec.Y), vis
     end
 
+    -- Chỉ update nếu on-screen (giảm lag)
+    local rootPos, onScreen = wts(plr.Character.HumanoidRootPart)
+    if not onScreen then return end
+
     local function drawLine(a, b, tag)
         if not a or not b then return end
         local posA, visA = wts(a)
         local posB, visB = wts(b)
         if not visA or not visB then return end
 
-        local line = skeletonLines[tag]
-        if not line then
-            line = Drawing.new("Line")
-            line.Thickness = 2
-            skeletonLines[tag] = line
-        end
+        local line = skeletonLines[tag] or Drawing.new("Line")
+        line.Thickness = 2
         line.From = posA
         line.To = posB
         line.Color = color
         line.Visible = true
+        skeletonLines[tag] = line  -- Reuse
     end
 
     drawLine(parts.Head, parts.Torso, plr.Name .. "_neck")
@@ -577,6 +639,13 @@ end)
 visualSection:addToggle("ESP Highlight", false, function(value)
     ESPEnabled = value
     venyx:Notify("ESP Highlight", value and "ON" or "OFF")
+    if not value then
+        for _, v in ipairs(Players:GetPlayers()) do
+            if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("GetReal") then
+                v.Character.GetReal:Destroy()
+            end
+        end
+    end
 end)
 visualSection:addColorPicker("ESP Color", ESPColor, function(color)
     ESPColor = color
@@ -585,6 +654,13 @@ end)
 visualSection:addToggle("ESP Name", false, function(value)
     NameEnabled = value
     venyx:Notify("ESP Name", value and "ON" or "OFF")
+    if not value then
+        for _, v in ipairs(Players:GetPlayers()) do
+            if v ~= LocalPlayer and v.Character and v.Character.Head:FindFirstChild("ESPName") then
+                v.Character.Head.ESPName:Destroy()
+            end
+        end
+    end
 end)
 visualSection:addColorPicker("Name Color", NameColor, function(color)
     NameColor = color
@@ -593,6 +669,10 @@ end)
 visualSection:addToggle("Skeleton ESP", false, function(value)
     SkeletonEnabled = value
     venyx:Notify("Skeleton ESP", value and "ON" or "OFF")
+    if not value then
+        for _, line in pairs(skeletonLines) do line:Remove() end
+        skeletonLines = {}
+    end
 end)
 visualSection:addColorPicker("Skeleton Color", SkeletonColor, function(color)
     SkeletonColor = color
@@ -696,6 +776,156 @@ miscSection:addToggle("Show Chat", ChatEnabled, function(state)
         chatWindow.Enabled = state
     end
 end)
+
+-- Thêm vào đầu script (sau local Players = ...)
+local HitEffectModule = {
+    Locals = {
+        HitEffect = {
+            Type = {}
+        }
+    }
+}
+
+local Attachment = Instance.new("Attachment")
+HitEffectModule.Locals.HitEffect.Type["Skibidi RedRizz"] = Attachment
+
+local MainColor = Color3.fromRGB(255, 255, 253)
+
+local HealingWave1 = Instance.new("ParticleEmitter")
+HealingWave1.Name = "Healing Wave 1"
+HealingWave1.Lifetime = NumberRange.new(1.5, 1.5)
+HealingWave1.SpreadAngle = Vector2.new(10, -10)
+HealingWave1.LockedToPart = true
+HealingWave1.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.1702454, 0.7, 0.014881), NumberSequenceKeypoint.new(0.2254601, 0.03125, 0.03125), NumberSequenceKeypoint.new(0.2852761, 0), NumberSequenceKeypoint.new(0.702454, 0), NumberSequenceKeypoint.new(0.8374233, 0.9125, 0.0601461), NumberSequenceKeypoint.new(1, 1)})
+HealingWave1.LightEmission = 0.4
+HealingWave1.Color = ColorSequence.new(Color3.fromRGB(234, 8, 255))
+HealingWave1.VelocitySpread = 10
+HealingWave1.Speed = NumberRange.new(3, 6)
+HealingWave1.Brightness = 10
+HealingWave1.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 3.0624998, 1.8805969), NumberSequenceKeypoint.new(0.6420546, 1.9999999, 1.7619393), NumberSequenceKeypoint.new(1, 0.7499999, 0.7499999)})
+HealingWave1.Rate = 20
+HealingWave1.Texture = "rbxassetid://8047533775"
+HealingWave1.RotSpeed = NumberRange.new(200, 400)
+HealingWave1.Rotation = NumberRange.new(-180, 180)
+HealingWave1.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+HealingWave1.Parent = Attachment
+
+local HealingWave2 = Instance.new("ParticleEmitter")
+HealingWave2.Name = "Healing Wave 2"
+HealingWave2.Lifetime = NumberRange.new(1.5, 1.5)
+HealingWave2.SpreadAngle = Vector2.new(10, -10)
+HealingWave2.LockedToPart = true
+HealingWave2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2254601, 0.03125, 0.03125), NumberSequenceKeypoint.new(0.6288344, 0.25625, 0.0593491), NumberSequenceKeypoint.new(0.8374233, 0.9125, 0.0601461), NumberSequenceKeypoint.new(1, 1)})
+HealingWave2.LightEmission = 1
+HealingWave2.Color = ColorSequence.new(Color3.fromRGB(238, 3, 255))
+HealingWave2.VelocitySpread = 10
+HealingWave2.Speed = NumberRange.new(3, 5)
+HealingWave2.Brightness = 10
+HealingWave2.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 3.125), NumberSequenceKeypoint.new(0.4165329, 1.3749999, 1.3749999), NumberSequenceKeypoint.new(1, 0.9375, 0.9375)})
+HealingWave2.Rate = 20
+HealingWave2.Texture = "rbxassetid://8047796070"
+HealingWave2.RotSpeed = NumberRange.new(100, 300)
+HealingWave2.Rotation = NumberRange.new(-180, 180)
+HealingWave2.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+HealingWave2.Parent = Attachment
+
+local Sparks = Instance.new("ParticleEmitter")
+Sparks.Name = "Sparks"
+Sparks.Lifetime = NumberRange.new(0.5, 2)
+Sparks.SpreadAngle = Vector2.new(180, -180)
+Sparks.LightEmission = 1
+Sparks.Color = ColorSequence.new(Color3.fromRGB(255, 21, 255))
+Sparks.Drag = 3
+Sparks.VelocitySpread = 180
+Sparks.Speed = NumberRange.new(5, 15)
+Sparks.Brightness = 10
+Sparks.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.14687, 0.4374999, 0.1875001), NumberSequenceKeypoint.new(1, 0)})
+Sparks.Acceleration = Vector3.new(0, 3, 0)
+Sparks.ZOffset = -1
+Sparks.Rate = 40
+Sparks.Texture = "rbxassetid://8611887361"
+Sparks.RotSpeed = NumberRange.new(-30, 30)
+Sparks.Orientation = Enum.ParticleOrientation.VelocityParallel
+Sparks.Parent = Attachment
+
+local StarSparks = Instance.new("ParticleEmitter")
+StarSparks.Name = "Star Sparks"
+StarSparks.Lifetime = NumberRange.new(1.5, 1.5)
+StarSparks.SpreadAngle = Vector2.new(180, -180)
+StarSparks.LightEmission = 1
+StarSparks.Color = ColorSequence.new(Color3.fromRGB(226, 60, 255))
+StarSparks.Drag = 3
+StarSparks.VelocitySpread = 180
+StarSparks.Speed = NumberRange.new(5, 10)
+StarSparks.Brightness = 10
+StarSparks.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.1492777, 0.6874996, 0.6874996), NumberSequenceKeypoint.new(1, 0)})
+StarSparks.Acceleration = Vector3.new(0, 3, 0)
+StarSparks.ZOffset = 2
+StarSparks.Texture = "rbxassetid://8611887703"
+StarSparks.RotSpeed = NumberRange.new(-30, 30)
+StarSparks.Rotation = NumberRange.new(-30, 30)
+StarSparks.Parent = Attachment
+
+-- Function spawn aura (gắn vào LowerTorso và enable/disable)
+local function setupAuraHeal(char)
+    local lowerTorso = char:WaitForChild("LowerTorso")
+    Attachment.Parent = lowerTorso
+end
+
+local AuraHealEnabled = false
+local lastHealth = 0
+
+-- Toggle Aura Heal (thêm vào miscSection:addSection("Miscellaneous") sau các nút khác)
+miscSection:addToggle("Aura Heal", false, function(value)
+    AuraHealEnabled = value
+    venyx:Notify("Aura Heal", value and "ON" or "OFF")
+    if not value then
+        -- Disable khi off
+        StarSparks.Enabled = false
+        Sparks.Enabled = false
+        HealingWave1.Enabled = false
+        HealingWave2.Enabled = false
+        if Attachment.Parent then Attachment.Parent = nil end
+    end
+end)
+
+miscSection:addColorPicker("Aura Color", Color3.fromRGB(234, 8, 255), function(color)
+    HealingWave1.Color = ColorSequence.new(color)
+    HealingWave2.Color = ColorSequence.new(color)
+    Sparks.Color = ColorSequence.new(color)
+    StarSparks.Color = ColorSequence.new(color)
+end)
+
+-- Theo dõi health và respawn (thêm sau miscPage định nghĩa)
+local LocalPlayer = Players.LocalPlayer
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if AuraHealEnabled then
+        setupAuraHeal(char)
+        local hum = char:WaitForChild("Humanoid")
+        lastHealth = hum.Health
+        hum.HealthChanged:Connect(function(currentHealth)
+            if AuraHealEnabled then
+                if currentHealth > lastHealth then  -- Máu tăng (hồi máu)
+                    StarSparks.Enabled = true
+                    Sparks.Enabled = true
+                    HealingWave1.Enabled = true
+                    HealingWave2.Enabled = true
+                else
+                    StarSparks.Enabled = false
+                    Sparks.Enabled = false
+                    HealingWave1.Enabled = false
+                    HealingWave2.Enabled = false
+                end
+                lastHealth = currentHealth
+            end
+        end)
+    end
+end)
+
+-- Khởi tạo ban đầu nếu char đã tồn tại
+if LocalPlayer.Character and AuraHealEnabled then
+    setupAuraHeal(LocalPlayer.Character)
+end
 
 -- Page 4: Movement (Icon: Specified, 16181398286)
 local movementPage = venyx:addPage("Movement", 16181398286)
