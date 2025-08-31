@@ -790,22 +790,19 @@ local function applySky(name)
     sky.Parent = Lighting
 end
 
--- UI ở trang 3
-local skyPage = window:addPage("Sky Settings", 3)
-
-skyPage:addDropdown("Select Sky", {"galaxy","pinksky","rainsky","minecraftsky","summersky"}, function(choice)
+miscSection:addDropdown("Select Sky", {"galaxy","pinksky","rainsky","minecraftsky","summersky"}, function(choice)
     selectedSky = choice
 end)
 
-skyPage:addButton("Apply Sky", function()
+miscSection:addButton("Apply Sky", function()
     applySky(selectedSky)
 end)
 
-skyPage:addSlider("Fog End", 500, 5000, Lighting.FogEnd, function(val)
+miscSection:addSlider("Fog End", 500, 5000, Lighting.FogEnd, function(val)
     Lighting.FogEnd = val
 end)
 
-skyPage:addColorPicker("Fog Color", Lighting.FogColor, function(color)
+miscSection:addColorPicker("Fog Color", Lighting.FogColor, function(color)
     Lighting.FogColor = color
 end)
 
