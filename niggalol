@@ -83,6 +83,7 @@ UIS.InputEnded:Connect(function(i)
         is_firing = false
     end
 end)
+
 local tbEnabled = false
 local fovRadius = 20
 local hitParts = {
@@ -1908,6 +1909,111 @@ movementSection:addToggle("No Slowdown", true, function(value)
     venyx:Notify("No Slowdown", value and "ON" or "OFF")
 end)
 
+-- External Loaded Shoot Button
+local loadedShootButton = Instance.new("TextButton")
+loadedShootButton.Size = UDim2.new(0, 45, 0, 45)
+loadedShootButton.Position = UDim2.new(0, 15, 0, 310) -- Below assumed Walkspeed button
+loadedShootButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+loadedShootButton.Text = "LS"
+loadedShootButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+loadedShootButton.TextSize = 16
+loadedShootButton.Font = Enum.Font.GothamBold
+loadedShootButton.Visible = false -- Initially hidden
+loadedShootButton.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+Instance.new("UICorner", loadedShootButton).CornerRadius = UDim.new(0, 10)
+local function attachButtonEffects(btn, shrinkPx)
+    local orig = btn.Size
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 75, 75)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55, 55, 55)}):Play()
+    end)
+    btn.MouseButton1Click:Connect(function()
+        local s = shrinkPx or 3
+        local toSmall = UDim2.new(orig.X.Scale, math.max(0, orig.X.Offset - s), orig.Y.Scale, math.max(0, orig.Y.Offset - s))
+        local t1 = TweenService:Create(btn, TweenInfo.new(0.08), {Size = toSmall})
+        local t2 = TweenService:Create(btn, TweenInfo.new(0.08), {Size = orig})
+        t1:Play(); t1.Completed:Wait(); t2:Play()
+        task.spawn(shootMurderer)
+    end)
+end
+attachButtonEffects(loadedShootButton, 5)
+
+-- Murder Mystery Page
+local mm2Page = venyx:addPage("Murder Mystery", 5012541386)
+local mm2Section = mm2Page:addSection("Murder Mystery Features")
+
+-- Loaded Shoot Toggle Button (Inside GUI)
+mm2Section:addButton("Toggle Loaded Shoot", function()
+    loadedShootVisible = not loadedShootVisible
+    loadedShootButton.Visible = loadedShootVisible
+    venyx:Notify("Loaded Shoot", loadedShootVisible and "Visible" or "Hidden")
+end)
+
+-- Shoot Button with Keybind (Matching other keybinds like Target Lock)
+mm2Section:addButton("Shoot", function()
+    task.spawn(shootMurderer)
+end)
+mm2Section:addKeybind("Shoot Keybind", Enum.KeyCode.Q, function()
+    task.spawn(shootMurderer)
+end, function()
+    venyx:Notify("Shoot Keybind", "Keybind changed!")
+end)
+
+-- ESP MM2 Toggle
+mm2Section:addToggle("ESP MM2", false, function(value)
+    espActive = value
+    if espActive then
+        reloadESP()
+        venyx:Notify("ESP MM2", "ON")
+    else
+        espcontainer:ClearAllGroups()
+        venyx:Notify("ESP MM2", "OFF")
+    end
+end)
+
+-- AutoFarm Toggle
+mm2Section:addToggle("AutoFarm", false, function(value)
+    autoFarm = value
+    if autoFarm then
+        task.spawn(autoFarmCoins)
+        venyx:Notify("AutoFarm", "ON")
+    else
+        venyx:Notify("AutoFarm", "OFF")
+    end
+end)
+
+-- Fling Murderer Button
+mm2Section:addButton("Fling Murderer", function()
+    local target = findMurderer()
+    if target then
+        miniFling(target)
+    else
+        venyx:Notify("Fling Murderer", "No murderer found!")
+    end
+end)
+
+-- Fling Sheriff Button
+mm2Section:addButton("Fling Sheriff", function()
+    local target = findSheriff()
+    if target then
+        miniFling(target)
+    else
+        venyx:Notify("Fling Sheriff", "No sheriff found!")
+    end
+end)
+
+-- AutoGun Button
+mm2Section:addButton("AutoGun", function()
+    task.spawn(autoGun)
+end)
+
+-- Kill All Button
+mm2Section:addButton("Kill All", function()
+    task.spawn(killAll)
+end)
+
 -- Page 5: Settings (Icon: Settings Cog, 5012544103)
 local settingsPage = venyx:addPage("Settings", 5012544103)
 local settingsSection = settingsPage:addSection("UI Settings")
@@ -1993,8 +2099,8 @@ getgenv().Settings = {
     },
     Check = {
         CheckIfKo = true, -- This Is For Da Hood
-        DisableOnTargetDeath = false,
-        DisableOnPlayerDeath = false
+        DisableOnTargetDeath = true,
+        DisableOnPlayerDeath = true
     },
     Horizontal = {
         PredictMovement = true,
@@ -2651,5 +2757,465 @@ PingLabel:GetPropertyChangedSignal("Text"):Connect(
     end
 )
 
--- Select first page on load
-venyx:SelectPage(venyx.pages[1], true)
+-- Configuration
+local ESP_ENABLED = false
+local SHOOT_OFFSET = 2.8
+local OFFSET_TO_PING_MULT = 1
+local UPDATE_INTERVAL = 0.5
+local RANDOM_DELAY = 0.1
+local MAX_COIN_DISTANCE = 100
+local ANTI_CHEAT_DELAY = 0.05
+
+-- Variables
+local playerData = {}
+local espActive = ESP_ENABLED
+local lastUpdate = tick()
+local autoFarm = false
+local lastShot = tick()
+local isScriptRunning = false
+local loadedShootVisible = false -- Track visibility of external Loaded Shoot button
+
+-- ESP Container
+local espcontainer = {
+    objects = {},
+    Add = function(self, object, config)
+        if not espActive then return end
+        pcall(function()
+            if self.objects[object] then
+                self.objects[object].highlight:Destroy()
+                self.objects[object] = nil
+            end
+            local highlight = Instance.new("Highlight")
+            highlight.Parent = object
+            highlight.FillColor = config.AccentColor
+            highlight.OutlineColor = config.AccentColor
+            highlight.FillTransparency = 0.5
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            self.objects[object] = { highlight = highlight }
+            if config.ShowLabel then
+                local billboard = Instance.new("BillboardGui")
+                billboard.Parent = object
+                billboard.Size = UDim2.new(0, 100, 0, 30)
+                billboard.StudsOffset = Vector3.new(0, 3, 0)
+                billboard.AlwaysOnTop = true
+                local textLabel = Instance.new("TextLabel")
+                textLabel.Parent = billboard
+                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                textLabel.BackgroundTransparency = 1
+                textLabel.Text = config.LabelText
+                textLabel.TextColor3 = config.AccentColor
+                textLabel.TextScaled = true
+            end
+        end)
+    end,
+    RemoveGroup = function(self, groupName)
+        for object, data in pairs(self.objects) do
+            if data.group == groupName then
+                pcall(function()
+                    data.highlight:Destroy()
+                    if data.billboard then data.billboard:Destroy() end
+                end)
+                self.objects[object] = nil
+            end
+        end
+    end,
+    ClearAllGroups = function(self)
+        for object, data in pairs(self.objects) do
+            pcall(function()
+                data.highlight:Destroy()
+                if data.billboard then data.billboard:Destroy() end
+            end)
+        end
+        self.objects = {}
+    end
+}
+
+-- Game checks
+local function isMurderMystery2()
+    return ReplicatedStorage:FindFirstChild("Remotes") 
+        and ReplicatedStorage.Remotes:FindFirstChild("Gameplay")
+end
+
+local function getMap()
+    for _, o in ipairs(Workspace:GetChildren()) do
+        if o:GetAttribute("MapID") and o:FindFirstChild("CoinContainer") and o:FindFirstChild("Spawns") then
+            return o
+        end
+    end
+    return nil
+end
+
+-- Role detection
+local function findMurderer()
+    if playerData then
+        for player, data in pairs(playerData) do
+            if data.Role == "Murderer" then
+                local plr = Players:FindFirstChild(player)
+                if plr and plr.Character then
+                    return plr
+                end
+            end
+        end
+    end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localplayer and plr.Character then
+            if plr.Backpack:FindFirstChild("Knife") or (plr.Character and plr.Character:FindFirstChild("Knife")) then
+                return plr
+            end
+        end
+    end
+    return nil
+end
+
+local function findSheriff()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character and (plr.Backpack:FindFirstChild("Gun") or (plr.Character and plr.Character:FindFirstChild("Gun"))) then
+            return plr
+        end
+    end
+    if playerData then
+        for player, data in pairs(playerData) do
+            if data.Role == "Sheriff" then
+                local plr = Players:FindFirstChild(player)
+                if plr and plr.Character then
+                    return plr
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function findSheriffThatsNotMe()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localplayer and plr.Character and (plr.Backpack:FindFirstChild("Gun") or (plr.Character and plr.Character:FindFirstChild("Gun"))) then
+            return plr
+        end
+    end
+    if playerData then
+        for player, data in pairs(playerData) do
+            if data.Role == "Sheriff" and Players:FindFirstChild(player) ~= localplayer then
+                local plr = Players:FindFirstChild(player)
+                if plr and plr.Character then
+                    return plr
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- ESP functions
+local function reloadESP()
+    if not espActive then return end
+    espcontainer:RemoveGroup("players")
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character and player ~= localplayer then
+            task.spawn(function()
+                if player == findMurderer() then
+                    espcontainer:Add(player.Character, {
+                        AccentColor = Color3.new(1, 0, 0.0156863),
+                        ArrowShow = true,
+                        ArrowMinDistance = 999999,
+                        ArrowSize = UDim2.new(0, 40, 0, 40),
+                        LabelText = "Murderer",
+                        ShowLabel = true,
+                        GroupName = "players"
+                    })
+                elseif player == findSheriff() then
+                    espcontainer:Add(player.Character, {
+                        AccentColor = Color3.new(0, 0.6, 1),
+                        ArrowShow = false,
+                        ShowLabel = false,
+                        GroupName = "players"
+                    })
+                else
+                    espcontainer:Add(player.Character, {
+                        AccentColor = Color3.new(0, 1, 0.0313725),
+                        ArrowShow = false,
+                        ShowLabel = false,
+                        GroupName = "players"
+                    })
+                end
+            end)
+        end
+    end
+end
+
+-- Predicted position
+local function getPredictedPosition(player, shootOffset)
+    local success, result = pcall(function()
+        if not player.Character then
+            return Vector3.new(0, 0, 0)
+        end
+        local playerHRP = player.Character:FindFirstChild("UpperTorso")
+        local playerHum = player.Character:FindFirstChild("Humanoid")
+        if not playerHRP or not playerHum then
+            return Vector3.new(0, 0, 0)
+        end
+        local playerPosition = playerHRP.Position
+        local velocity = playerHRP.AssemblyLinearVelocity
+        local playerMoveDirection = playerHum.MoveDirection
+        local predictedPosition = playerPosition + (velocity * Vector3.new(0, 0.5, 0)) * (shootOffset / 15) + playerMoveDirection * shootOffset
+        predictedPosition = predictedPosition * (((localplayer:GetNetworkPing() * 1000) * ((OFFSET_TO_PING_MULT - 1) * 0.01)) + 1)
+        return predictedPosition
+    end)
+    if not success then
+        return Vector3.new(0, 0, 0)
+    end
+    return result
+end
+
+-- Shoot Murderer
+local function shootMurderer()
+    if tick() - lastShot < 0.5 then return end 
+    lastShot = tick()
+    if findSheriff() ~= localplayer then
+        venyx:Notify("Shoot", "You are not the Sheriff!")
+        return
+    end
+    local murderer = findMurderer() or findSheriffThatsNotMe()
+    if not murderer then
+        venyx:Notify("Shoot", "No target found!")
+        return
+    end
+    if not localplayer.Character:FindFirstChild("Gun") then
+        local hum = localplayer.Character:FindFirstChild("Humanoid")
+        if localplayer.Backpack:FindFirstChild("Gun") then
+            hum:EquipTool(localplayer.Backpack:FindFirstChild("Gun"))
+            task.wait(math.random(0.05, 0.1) + ANTI_CHEAT_DELAY)
+        else
+            venyx:Notify("Shoot", "No gun found!")
+            return
+        end
+    end
+    local murdererHRP = murderer.Character:FindFirstChild("HumanoidRootPart")
+    if not murdererHRP then
+        venyx:Notify("Shoot", "Target has no HumanoidRootPart!")
+        return
+    end
+    local predictedPosition = getPredictedPosition(murderer, SHOOT_OFFSET)
+    if predictedPosition == Vector3.new(0, 0, 0) then 
+        venyx:Notify("Shoot", "Invalid predicted position!")
+        return 
+    end
+    local args = {
+        [1] = 1,
+        [2] = predictedPosition,
+        [3] = "AH2"
+    }
+    pcall(function()
+        localplayer.Character.Gun.KnifeLocal.CreateBeam.RemoteFunction:InvokeServer(unpack(args))
+    end)
+    task.wait(math.random(0, ANTI_CHEAT_DELAY))
+    venyx:Notify("Shoot", "Shot fired at target!")
+end
+
+-- AutoFarm Coins
+local function autoFarmCoins()
+    local k = TweenService
+    local g = Players.LocalPlayer
+    local r = g.Character or g.CharacterAdded:Wait()
+    local A = r:WaitForChild("HumanoidRootPart", 5)
+    local a = r:WaitForChild("Humanoid", 5)
+    if not A or not a then
+        venyx:Notify("AutoFarm", "No valid character found!")
+        return
+    end
+    local function findMap()
+        for _, E in ipairs(Workspace:GetChildren()) do
+            if E:GetAttribute("MapID") and E:FindFirstChild("CoinContainer") then
+                return E
+            end
+        end
+        task.wait(0.5)
+        return nil
+    end
+    local function findCoin()
+        local C = findMap()
+        if not C or not C:FindFirstChild("CoinContainer") then return nil end
+        local D, i = nil, math.huge
+        for _, l in ipairs(C.CoinContainer:GetChildren()) do
+            local q = l:FindFirstChild("CoinVisual")
+            if q and not q:GetAttribute("Collected") and l.Parent then
+                local dist = (A.Position - l.Position).Magnitude
+                if dist < i and dist < MAX_COIN_DISTANCE then
+                    D = l
+                    i = dist
+                end
+            end
+        end
+        return D
+    end
+    local function moveToCoin(B)
+        if not B or not B.Parent then return end
+        a:ChangeState(11)
+        local t = (A.Position - B.Position).Magnitude
+        if t > MAX_COIN_DISTANCE then return end
+        local offset = Vector3.new(math.random(-5, 5)/10, 0, math.random(-5, 5)/10)
+        local f = k:Create(A, TweenInfo.new(t / 25, Enum.EasingStyle.Linear), {CFrame = B.CFrame * CFrame.Angles(0, math.rad(math.random(-10, 10)), 0) + offset})
+        f:Play()
+        f.Completed:Wait()
+    end
+    while autoFarm do
+        local z = findCoin()
+        if z then
+            moveToCoin(z)
+            local h = z:FindFirstChild("CoinVisual")
+            while h and not h:GetAttribute("Collected") and h.Parent and autoFarm do
+                local x = findCoin()
+                if x and x ~= z then
+                    break
+                end
+                task.wait(0.1 + math.random(0, ANTI_CHEAT_DELAY))
+            end
+        end
+        task.wait(math.random(0.1, 0.3))
+    end
+end
+
+-- Check Line of Sight
+local function checkLineOfSight(startPos, endPos)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {localplayer.Character, Workspace:FindFirstChild("CoinContainer")}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.IgnoreWater = true
+    local raycastResult = Workspace:Raycast(startPos, (endPos - startPos).Unit * (endPos - startPos).Magnitude, raycastParams)
+    return not raycastResult or raycastResult.Instance:IsDescendantOf(findMurderer().Character)
+end
+
+-- Mini Fling
+local function miniFling(playerToFling)
+    local Character = localplayer.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+    local TCharacter = playerToFling.Character
+    local THumanoid = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = THumanoid and THumanoid.RootPart
+    local THead = TCharacter and TCharacter:FindFirstChild("Head")
+    local Accessory = TCharacter and TCharacter:FindFirstChildOfClass("Accessory")
+    local Handle = Accessory and Accessory:FindFirstChild("Handle")
+    if not Character or not Humanoid or not RootPart or not TCharacter then
+        venyx:Notify("Fling", "Invalid character or target!")
+        return
+    end
+    if not TRootPart and not THead and not Handle then
+        venyx:Notify("Fling", "No valid parts to fling!")
+        return
+    end
+    if THumanoid and THumanoid.Sit then
+        venyx:Notify("Fling", "Target is sitting, cannot fling!")
+        return
+    end
+    if RootPart.Velocity.Magnitude < 50 then
+        getgenv().OldPos = RootPart.CFrame
+    end
+    if THead then
+        workspace.CurrentCamera.CameraSubject = THead
+    elseif Handle then
+        workspace.CurrentCamera.CameraSubject = Handle
+    end
+    venyx:Notify("Fling", "Fling executed on " .. playerToFling.Name)
+end
+
+-- Kill All
+local lastKillAll = tick()
+local function killAll()
+    if findMurderer() ~= localplayer then
+        venyx:Notify("Kill All", "You are not the Murderer!")
+        return
+    end
+    if not localplayer.Character:FindFirstChild("Knife") then
+        local hum = localplayer.Character:FindFirstChild("Humanoid")
+        if localplayer.Backpack:FindFirstChild("Knife") then
+            hum:EquipTool(localplayer.Backpack:FindFirstChild("Knife"))
+            task.wait(0.1)
+        else
+            venyx:Notify("Kill All", "No knife found!")
+            return
+        end
+    end
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player ~= localplayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local targetPart = player.Character:FindFirstChild("HumanoidRootPart")
+            targetPart.Anchored = true
+            targetPart.CFrame = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame + localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 1
+            task.wait(0.05)
+        end
+    end
+    local args = { [1] = "Slash" }
+    localplayer.Character.Knife.Stab:FireServer(unpack(args))
+    task.wait(0.1)
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player ~= localplayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character:FindFirstChild("HumanoidRootPart").Anchored = false
+        end
+    end
+    venyx:Notify("Kill All", "Auto Kill All executed.")
+end
+
+-- Auto-Shoot and Auto-Kill in AutoFarm
+RunService.Heartbeat:Connect(function()
+    if not autoFarm or not isScriptRunning then return end
+    if findSheriff() == localplayer then
+        local murderer = findMurderer()
+        if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") and localplayer.Character and localplayer.Character:FindFirstChild("HumanoidRootPart") then
+            local startPos = localplayer.Character.HumanoidRootPart.Position
+            local endPos = murderer.Character.HumanoidRootPart.Position
+            if checkLineOfSight(startPos, endPos) then
+                task.spawn(shootMurderer)
+            end
+        end
+    end
+    if findMurderer() == localplayer and tick() - lastKillAll >= 1 then
+        lastKillAll = tick()
+        task.spawn(killAll)
+    end
+end)
+
+-- AutoGun
+local function autoGun()
+    local map = getMap()
+    if not map or not map:FindFirstChild("GunDrop") then
+        venyx:Notify("AutoGun", "No dropped gun to teleport to!")
+        return
+    end
+    local hrp = localplayer.Character and localplayer.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local previousPosition = hrp.CFrame
+        hrp.CFrame = map:FindFirstChild("GunDrop"):GetPivot() + Vector3.new(0, 2, 0)
+        localplayer.Backpack.ChildAdded:Wait()
+        hrp.CFrame = previousPosition
+        venyx:Notify("AutoGun", "Gun picked up!")
+    else
+        venyx:Notify("AutoGun", "No valid character to teleport!")
+    end
+end
+
+-- Initialize
+local function initialize()
+    local success = pcall(function()
+        localplayer:WaitForChild("PlayerGui", 10)
+        ReplicatedStorage:WaitForChild("Remotes", 10):WaitForChild("Gameplay", 10):WaitForChild("PlayerDataChanged", 10)
+    end)
+    if not success or not isMurderMystery2() then
+        venyx:Notify("Initialization", "Failed to initialize or not in Murder Mystery 2!")
+        return
+    end
+    isScriptRunning = true
+    pcall(function()
+        local gameplay = ReplicatedStorage.Remotes.Gameplay.PlayerDataChanged
+        gameplay.OnClientEvent:Connect(function(data)
+            playerData = data
+            if espActive then
+                reloadESP()
+            end
+        end)
+    end)
+    if espActive then
+        reloadESP()
+    end
+end
+
+pcall(initialize)
