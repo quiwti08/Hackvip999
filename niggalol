@@ -378,8 +378,130 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Config lấy từ UI toggle của bạn
 local Config = {
+    RainbowHitEffectEnabled = true,
     TracerColor = Color3.fromRGB(255, 0, 0),
 }
+
+local lastHealth = {}
+
+local TweenService = game:GetService("TweenService")
+
+local function getRainbowColor()
+    local timeVal = tick() * 2
+    local r = math.floor((math.sin(timeVal) * 0.5 + 0.5) * 255)
+    local g = math.floor((math.sin(timeVal + math.pi / 2) * 0.5 + 0.5) * 255)
+    local b = math.floor((math.sin(timeVal + math.pi) * 0.5 + 0.5) * 255)
+    return Color3.fromRGB(r, g, b)
+end
+
+local function createHitEffect(targetCharacter)
+    local hrp = targetCharacter:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    
+    local effect = Instance.new("Part")
+    effect.Shape = Enum.PartType.Ball
+    effect.Anchored = true
+    effect.CanCollide = false
+    effect.Material = Enum.Material.Neon
+    effect.Color = getRainbowColor()
+    effect.Size = Vector3.new(4, 4, 4)
+    effect.Transparency = 0
+    effect.Parent = hrp
+    effect.Position = hrp.Position
+    
+    local outline = Instance.new("Part")
+    outline.Shape = Enum.PartType.Ball
+    outline.Anchored = true
+    outline.CanCollide = false
+    outline.Material = Enum.Material.Neon
+    outline.Color = getRainbowColor()
+    outline.Size = effect.Size * 1.2
+    outline.Transparency = 0.3
+    outline.Parent = effect
+    outline.Position = effect.Position
+    
+    return effect
+end
+
+local hitEffect = nil
+
+local function playHitEffect(targetCharacter)
+    if hitEffect and hitEffect.Parent then
+        hitEffect:Destroy()
+    end
+    
+    hitEffect = createHitEffect(targetCharacter)
+    if not hitEffect then return end
+    
+    local tweenInfo = TweenInfo.new(
+        0.5, -- Duration
+        Enum.EasingStyle.Quad, -- Smooth easing
+        Enum.EasingDirection.Out -- Starts fast, ends slow
+    )
+    
+    local growTween = TweenService:Create(hitEffect, tweenInfo, {
+        Size = Vector3.new(8, 8, 8),
+        Transparency = 1
+    })
+    
+    local outlineTween = TweenService:Create(hitEffect:FindFirstChild("Part"), tweenInfo, {
+        Size = Vector3.new(10, 10, 10),
+        Transparency = 1
+    })
+    
+    local colorTween = TweenService:Create(hitEffect, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {
+        Color = getRainbowColor():Lerp(Color3.new(1, 1, 1), 0.5)
+    })
+    
+    growTween:Play()
+    outlineTween:Play()
+    colorTween:Play()
+    
+    growTween.Completed:Connect(function()
+        if hitEffect and hitEffect.Parent then
+            hitEffect:Destroy()
+        end
+        hitEffect = nil
+    end)
+end
+
+-- Kết nối HealthChanged cho từng player để giảm lag
+-- Fix for setupHitEffect: Apply immediately if character exists, and connect for new characters
+local function setupHitEffect(plr)
+    if plr == LocalPlayer then return end
+    local function connectHealthChanged(char)
+        if not char then return end
+        local hum = char:WaitForChild("Humanoid", 5)
+        if not hum then return end
+        local lastHealth = hum.Health
+        hum.HealthChanged:Connect(function(current)
+            if Config.RainbowHitEffectEnabled and current < lastHealth then
+                playHitEffect(char)
+            end
+            lastHealth = current
+        end)
+    end
+
+    -- Apply immediately if character exists
+    if plr.Character then
+        connectHealthChanged(plr.Character)
+    end
+
+    -- Connect for new characters
+    plr.CharacterAdded:Connect(connectHealthChanged)
+end
+
+-- Áp dụng cho tất cả người chơi
+for _,plr in ipairs(Players:GetPlayers()) do
+    if plr ~= Players.LocalPlayer then
+        setupHitEffect(plr)
+        plr.CharacterAdded:Connect(function(char)
+            char:WaitForChild("Humanoid")
+            setupHitEffect(plr)
+        end)
+    end
+end
+Players.PlayerAdded:Connect(setupHitEffect)
 
 -- === ESP Config ===
 _G.FriendColor = Color3.fromRGB(0, 0, 255)
@@ -630,6 +752,11 @@ visualSection:addColorPicker("Skeleton Color", SkeletonColor, function(color)
     SkeletonColor = color
 end)
 
+-- Rainbow Hit Effect
+visualSection:addToggle("Rainbow Hit Effect", false, function(value)
+    Config.RainbowHitEffectEnabled = value
+end)
+
 local tracerEnabled = false
 local tracerColor = Color3.fromRGB(255, 179, 186)
 local tracerLines = {}
@@ -712,8 +839,6 @@ miscSection:addSlider("Set Time", 12, 0, 24, function(value)
     end
 end)
 
-local Lighting = game:GetService("Lighting")
-
 -- Lưu config sky
 local skyConfigs = {
     galaxy = {
@@ -723,8 +848,6 @@ local skyConfigs = {
         SkyboxLf = "rbxassetid://15938367420",
         SkyboxRt = "rbxassetid://15938366249",
         SkyboxUp = "rbxassetid://15938364248",
-        MoonTextureId = "rbxassetid://sky/moon.jpg",
-        SunTextureId = "rbxassetid://sky/sun.jpg",
         StarCount = 3000,
         SunAngularSize = 21,
     },
@@ -735,8 +858,6 @@ local skyConfigs = {
         SkyboxLf = "rbxassetid://271042536",
         SkyboxRt = "rbxassetid://271042467",
         SkyboxUp = "rbxassetid://271077958",
-        MoonTextureId = "rbxassetid://sky/moon.jpg",
-        SunTextureId = "rbxassetid://sky/sun.jpg",
         StarCount = 1334,
         SunAngularSize = 21,
     },
@@ -757,8 +878,6 @@ local skyConfigs = {
         SkyboxLf = "rbxassetid://873516708",
         SkyboxRt = "rbxassetid://873516751",
         SkyboxUp = "rbxassetid://873516729",
-        MoonTextureId = "rbxassetid://sky/moon.jpg",
-        SunTextureId = "rbxassetid://sky/sun.jpg",
         StarCount = 3000,
         SunAngularSize = 11,
     },
@@ -769,34 +888,10 @@ local skyConfigs = {
         SkyboxLf = "rbxassetid://16648566370",
         SkyboxRt = "rbxassetid://16648577071",
         SkyboxUp = "rbxassetid://16648598180",
-        MoonTextureId = "rbxassetid://sky/moon.jpg",
         StarCount = 3000,
         SunAngularSize = 21,
     }
 }
-
-local selectedSky = "galaxy"
-
--- Hàm áp dụng sky
-local function applySky(name)
-    if Lighting:FindFirstChildOfClass("Sky") then
-        Lighting:FindFirstChildOfClass("Sky"):Destroy()
-    end
-    local sky = Instance.new("Sky")
-    sky.Name = name
-    for k,v in pairs(skyConfigs[name]) do
-        sky[k] = v
-    end
-    sky.Parent = Lighting
-end
-
-miscSection:addDropdown("Select Sky", {"galaxy","pinksky","rainsky","minecraftsky","summersky"}, function(choice)
-    selectedSky = choice
-end)
-
-miscSection:addButton("Apply Sky", function()
-    applySky(selectedSky)
-end)
 
 miscSection:addSlider("Fog End", 500, 5000, Lighting.FogEnd, function(val)
     Lighting.FogEnd = val
@@ -836,7 +931,7 @@ local HitEffectModule = {
 local Attachment = Instance.new("Attachment")
 HitEffectModule.Locals.HitEffect.Type["Skibidi RedRizz"] = Attachment
 
-local MainColor = Color3.fromRGB(255, 179, 186)
+local MainColor = Color3.fromRGB(234, 8, 255)
 
 local HealingWave1 = Instance.new("ParticleEmitter")
 HealingWave1.Name = "Healing Wave 1"
@@ -941,7 +1036,7 @@ miscSection:addToggle("Aura Heal", false, function(value)
     end
 end)
 
-miscSection:addColorPicker("Aura Color", Color3.fromRGB((255, 179, 186)), function(color)
+miscSection:addColorPicker("Aura Color", Color3.fromRGB(234, 8, 255), function(color)
     HealingWave1.Color = ColorSequence.new(color)
     HealingWave2.Color = ColorSequence.new(color)
     Sparks.Color = ColorSequence.new(color)
@@ -1169,21 +1264,17 @@ miscSection:addColorPicker("Aura Color", Color3.fromRGB(255,255,0), function(col
     end
 end)
 
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-
+-- Jump Happier Animation Logic
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 local currentTrack = nil
-local jumpHappierEnabled = false
-local jumpHappierKey = Enum.KeyCode.C -- mặc định C
+local jumpHappierKey = Enum.KeyCode.C
 local jumpHappierAnim = "http://www.roblox.com/asset/?id=15609995579"
 
--- Dừng animation
+-- Hàm dừng animation
 local function stopAnimation()
     if currentTrack then
         currentTrack:Stop()
@@ -1191,11 +1282,9 @@ local function stopAnimation()
     end
 end
 
--- Phát animation
 local function playAnimation(animId)
     local char = LocalPlayer.Character
     if not char then return end
-
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
 
@@ -1205,32 +1294,38 @@ local function playAnimation(animId)
     -- Ngừng track cũ
     stopAnimation()
 
-    -- Luôn tạo animator mới nếu chưa có (fix sau khi chết)
+    -- Animator
     local animator = hum:FindFirstChildOfClass("Animator")
     if not animator then
         animator = Instance.new("Animator")
         animator.Parent = hum
     end
 
+    -- Luôn tạo Animation mới
     local anim = Instance.new("Animation")
     anim.AnimationId = animId
     local track = animator:LoadAnimation(anim)
+    track.Looped = false -- cho phép chạy lại khi bấm lần sau
     track:Play()
     currentTrack = track
+
+    -- Reset khi kết thúc
+    task.spawn(function()
+        track.Stopped:Wait()
+        if currentTrack == track then
+            currentTrack = nil
+        end
+    end)
 end
 
--- Khi respawn reset lại
+
+-- Reset currentTrack khi nhân vật respawn và reconnect logic nếu cần
 LocalPlayer.CharacterAdded:Connect(function(char)
     currentTrack = nil
-    -- auto tạo Animator cho humanoid mới
-    task.wait(0.5)
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum and not hum:FindFirstChildOfClass("Animator") then
-        Instance.new("Animator", hum)
-    end
+    char:WaitForChild("Humanoid")  -- Ensure humanoid loads
 end)
 
--- Dừng nếu di chuyển
+-- Dừng animation khi bắt đầu di chuyển
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     if char and currentTrack then
@@ -1241,25 +1336,17 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Nhấn phím để chơi animation
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if jumpHappierEnabled and input.KeyCode == jumpHappierKey then
-        playAnimation(jumpHappierAnim)
-    end
+-- UI trong Misc Section
+miscSection:addKeybind("Jump Happier Key", jumpHappierKey, function()
+    playAnimation(jumpHappierAnim)
 end)
 
--- Toggle UI
-miscSection:addToggle("Jump Happier", false, function(state)
-    jumpHappierEnabled = state
-    if not state then
-        stopAnimation()
+-- Respawn
+game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    if auraEnabled then
+        task.wait(1)
+        attachAura(char)
     end
-end)
-
--- Keybind UI
-miscSection:addKeybind("Jump Happier Key", jumpHappierKey, function(newKey)
-    jumpHappierKey = newKey
 end)
 
 local Players = game:GetService("Players")
@@ -1403,7 +1490,6 @@ movementSection:addKeybind("Speed Key", Enum.KeyCode.Z, function()
     Config.SpeedEnabled = not Config.SpeedEnabled
     venyx:Notify("Speed CFrame", Config.SpeedEnabled and "ON" or "OFF")
 end, function()
-    print("Speed key changed")
 end)
 movementSection:addSlider("Speed CFrame Value", 20, 1, 100, function(value)
     Config.SpeedAmount = value
@@ -1459,7 +1545,7 @@ local function applyNoSlowdown()
         local moveDirection = hum.MoveDirection
         if moveDirection.Magnitude > 0 then
             -- Di chuyển nhân vật bằng CFrame với tốc độ tương đương WalkSpeed 16
-            local speed = 17 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
+            local speed = 20 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
             hrp.CFrame = hrp.CFrame + moveDirection * speed
         end
     end
