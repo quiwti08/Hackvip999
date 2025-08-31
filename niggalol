@@ -1058,21 +1058,22 @@ local TeleportLocations = {
     ["School"] = CFrame.new(-594, 21, 173)
 }
 
--- Add to miscSection (Page 3: Misc)
+local SelectedTeleport = nil
+
 miscSection:addDropdown("Teleport Location", {
     "Bank", "Inside Bank", "Vault", "Mid Appartment Building", "Revolver", "LMG",
     "Swimming Pool", "Broken Fire Station", "DownHill", "Military Base", "Uphill",
     "Breaking Bad", "Church", "Police Station", "School"
 }, function(Value)
-    _G.SelectedTeleport = Value
+    SelectedTeleport = Value
 end)
 
 miscSection:addButton("Teleport", function()
-    if _G.SelectedTeleport and TeleportLocations[_G.SelectedTeleport] then
+    if SelectedTeleport and TeleportLocations[SelectedTeleport] then
         local char = game.Players.LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = TeleportLocations[_G.SelectedTeleport]
-            venyx:Notify("Teleport", "Teleported to " .. _G.SelectedTeleport)
+            char.HumanoidRootPart.CFrame = TeleportLocations[SelectedTeleport]
+            venyx:Notify("Teleport", "Teleported to " .. SelectedTeleport)
         else
             venyx:Notify("Teleport", "Character not found!")
         end
