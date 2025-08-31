@@ -1701,6 +1701,117 @@ local movementPage = venyx:addPage("Movement", 16181398286)
 local movementSection = movementPage:addSection("Movement Features")
 Config.SpeedEnabled = false
 Config.SpeedAmount = 20
+
+-- ⚡ Biến lưu trạng thái WalkSpeed
+local walkSpeedEnabled = false
+local walkSpeedValue = 140
+local defaultWalkSpeed = 16
+
+-- 🏃 Hàm toggle WalkSpeed (giữ nguyên logic "xxx" như script gốc)
+local function toggleWalkSpeed(state)
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("xxx")
+    if not hum then return end
+
+    if state then
+        if hum.Health > 0 then
+            hum.Name = "xxx"
+            hum.WalkSpeed = walkSpeedValue
+        end
+    else
+        if hum.Health > 0 then
+            hum.Name = "Humanoid"
+            hum.WalkSpeed = defaultWalkSpeed
+        end
+    end
+end
+
+-- ✅ Nút toggle trong Movement tab
+movementSection:addToggle("WalkSpeed", false, function(value)
+    walkSpeedEnabled = value
+    toggleWalkSpeed(value)
+    venyx:Notify("WalkSpeed", value and "ON ("..walkSpeedValue..")" or "OFF")
+end)
+
+movementSection:addSlider("WalkSpeed Value", 140, 16, 300, function(value)
+    walkSpeedValue = value
+    if walkSpeedEnabled then
+        toggleWalkSpeed(true)
+    end
+end)
+
+-- 🔄 Giữ WalkSpeed khi respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    if walkSpeedEnabled then
+        toggleWalkSpeed(true)
+    end
+end)
+
+movementSection:addButton("Load WalkSpeed", function()
+    if game.CoreGui:FindFirstChild("WalkSpeedQuickToggle") then
+        game.CoreGui.WalkSpeedQuickToggle:Destroy()
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "WalkSpeedQuickToggle"
+    gui.ResetOnSpawn = false
+    gui.Parent = game.CoreGui
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 140, 0, 45)
+    btn.Position = UDim2.new(0, 30, 0.7, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.Text = "WalkSpeed: OFF"
+    btn.Parent = gui
+
+    -- 🎨 UICorner (bo tròn)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = btn
+
+    -- 🎨 UIStroke (viền)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 179, 186)
+    stroke.Thickness = 2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = btn
+
+    -- ⚡ Kéo thả được
+    btn.Active = true
+    btn.Draggable = true
+
+    -- 🏃 Logic WalkSpeed
+    local enabled = false
+    local speed = 140
+    local defaultSpeed = 16
+    local player = game.Players.LocalPlayer
+
+    btn.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        local char = player.Character
+        local hum = char and (char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("xxx"))
+        if hum then
+            if enabled then
+                hum.Name = "xxx"
+                hum.WalkSpeed = speed
+                btn.Text = "WalkSpeed: "..speed
+                stroke.Color = Color3.fromRGB(0, 255, 0) -- viền xanh khi bật
+            else
+                hum.Name = "Humanoid"
+                hum.WalkSpeed = defaultSpeed
+                btn.Text = "WalkSpeed: OFF"
+                stroke.Color = Color3.fromRGB(255, 0, 0) -- viền đỏ khi tắt
+            end
+        end
+    end)
+end)
+
 local function UpdateSpeed()
     if Config.SpeedEnabled and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local root = game.Players.LocalPlayer.Character.HumanoidRootPart
@@ -1774,7 +1885,7 @@ local function applyNoSlowdown()
         local moveDirection = hum.MoveDirection
         if moveDirection.Magnitude > 0 then
             -- Di chuyển nhân vật bằng CFrame với tốc độ tương đương WalkSpeed 16
-            local speed = 20 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
+            local speed = 17 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
             hrp.CFrame = hrp.CFrame + moveDirection * speed
         end
     end
