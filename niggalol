@@ -901,6 +901,186 @@ miscSection:addColorPicker("Fog Color", Lighting.FogColor, function(color)
     Lighting.FogColor = color
 end)
 
+-- Shop Locations
+local ShopLocations = {
+    ["[AK47]"] = {location = Vector3.new(-587.529, 5.395, -753.718), clickDetector = "[AK47] - $2459"},
+    ["[AK47 Ammo]"] = {location = Vector3.new(-584.029, 5.393, -755.418), clickDetector = "90 [AK47 Ammo] - $87"},
+    
+    ["[AUG]"] = {location = Vector3.new(-273.048, 49.363, -213.312), clickDetector = "[AUG] - $2131"},
+    ["[AUG Ammo]"] = {location = Vector3.new(-278.033, 49.365, -213.394), clickDetector = "90 [AUG Ammo] - $87"},
+    
+    ["[AR]"] = {location = Vector3.new(-591.824, 5.46, -744.732), clickDetector = "[AR] - $1200"},
+    ["[AR Ammo]"] = {location = Vector3.new(-592.224, 5.456, -751.532), clickDetector = "60 [AR Ammo] - $95"},
+    
+    ["[Double-Barrel SG]"] = {location = Vector3.new(19.881, 28.976, -837.246), clickDetector = "[Double-Barrel SG] - $1475"},
+    ["[Double-Barrel SG Ammo]"] = {location = Vector3.new(19.925, 28.976, -831.337), clickDetector = "18 [Double-Barrel SG Ammo] - $55"},
+    
+    ["[Drum-Shotgun]"] = {location = Vector3.new(-1193.09, 25.48, -518.45), clickDetector = "[Drum-Shotgun] - $1202"},
+    ["[Drum-Shotgun Ammo]"] = {location = Vector3.new(-1193.52, 25.48, -530.23), clickDetector = "18 [Drum-Shotgun Ammo] - $71"},
+    
+    ["[DrumGun]"] = {location = Vector3.new(-1177.78, 25.58, -530.26), clickDetector = "[DrumGun] - $3278"},
+    ["[DrumGun Ammo]"] = {location = Vector3.new(-1186.83, 25.58, -529.87), clickDetector = "100 [DrumGun Ammo] - $219"},
+    
+    ["[Fire Armor]"] = {location = Vector3.new(-1176.59, 28.605, -478.91), clickDetector = "[Fire Armor] - $2623"},
+    ["[Armor]"] = {location = Vector3.new(-257.108, 18.9, -83.164), clickDetector = "[High-Medium Armor] - $3278"},
+    
+    ["[Glock]"] = {location = Vector3.new(498.978, 45.109, -629.531), clickDetector = "[Glock] - $546"},
+    ["[Glock Ammo]"] = {location = Vector3.new(501.278, 45.108, -626.031), clickDetector = "25 [Glock Ammo] - $66"},
+    
+    ["[LMG]"] = {location = Vector3.new(-620.882, 20.3, -305.339), clickDetector = "[LMG] - $4098"},
+    ["[LMG Ammo]"] = {location = Vector3.new(-616.182, 20.3, -305.339), clickDetector = "200 [LMG Ammo] - $328"},
+    
+    ["[P90]"] = {location = Vector3.new(463.777, 45.132, -619.13), clickDetector = "[P90] - $1093"},
+    ["[P90 Ammo]"] = {location = Vector3.new(462.977, 45.133, -624.531), clickDetector = "120 [P90 Ammo] - $66"},
+    
+    ["[RPG]"] = {location = Vector3.new(113.625, -29.649, -267.469), clickDetector = "[RPG] - $21855"},
+    ["[RPG Ammo]"] = {location = Vector3.new(118.665, -29.65, -267.47), clickDetector = "5 [RPG Ammo] - $1093"},
+    
+    ["[Revolver]"] = {location = Vector3.new(-642.21, 18.85, -119.635), clickDetector = "[Revolver] - $1421"},
+    ["[Revolver Ammo]"] = {location = Vector3.new(-635.77, 18.856, -119.345), clickDetector = "12 [Revolver Ammo] - $82"},
+    
+    ["[Rifle]"] = {location = Vector3.new(-259.658, 49.363, -213.512), clickDetector = "[Rifle] - $1694"},
+    ["[Rifle Ammo]"] = {location = Vector3.new(-255.258, 49.363, -213.482), clickDetector = "5 [Rifle Ammo] - $273"},
+    
+    ["[Silencer]"] = {location = Vector3.new(-579.524, 5.454, -753.032), clickDetector = "[Silencer] - $601"},
+    ["[Silencer Ammo]"] = {location = Vector3.new(-575.024, 5.452, -754.732), clickDetector = "25 [Silencer Ammo] - $55"},
+    
+    ["[SilencerAR]"] = {location = Vector3.new(490.477, 45.116, -633.831), clickDetector = "[SilencerAR] - $1366"},
+    ["[SilencerAR Ammo]"] = {location = Vector3.new(497.277, 45.111, -634.231), clickDetector = "120 [SilencerAR Ammo] - $82"},
+    
+    ["[Shotgun]"] = {location = Vector3.new(-578.624, 5.472, -725.132), clickDetector = "[Shotgun] - $1366"},
+    ["[Shotgun Ammo]"] = {location = Vector3.new(-578.424, 5.457, -747.132), clickDetector = "20 [Shotgun Ammo] - $66"},
+    
+    ["[SMG]"] = {location = Vector3.new(-577.123, 5.477, -718.031), clickDetector = "[SMG] - $820"},
+    ["[SMG Ammo]"] = {location = Vector3.new(-582.523, 5.478, -717.231), clickDetector = "80 [SMG Ammo] - $66"},
+    
+    ["[TacticalShotgun]"] = {location = Vector3.new(470.878, 45.127, -620.631), clickDetector = "[TacticalShotgun] - $1912"},
+    ["[TacticalShotgun Ammo]"] = {location = Vector3.new(492.878, 45.113, -620.431), clickDetector = "20 [TacticalShotgun Ammo] - $66"},
+    
+    ["[Taser]"] = {location = Vector3.new(-270.892, 18.9, -102.716), clickDetector = "[Taser] - $1093"},
+    ["[Grenade]"] = {location = Vector3.new(108.825, -29.65, -267.509), clickDetector = "[Grenade] - $765"},
+    
+    ["[Chicken]"] = {location = Vector3.new(300.773, 49.883, -627.567), clickDetector = "[Chicken] - $8"}
+}
+
+-- Function to auto-buy a selected item
+local function AutoBuyOnce(itemName)
+    local shopData = ShopLocations[itemName]
+    if not shopData then
+        warn("Item not found in ShopLocations: " .. tostring(itemName))
+        return
+    end
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+    local originalPos = char.HumanoidRootPart.CFrame
+    char.HumanoidRootPart.CFrame = CFrame.new(shopData.location)
+
+    task.wait(0.35)
+
+    -- Find and trigger ClickDetector
+    local clicked = false
+    for _, part in pairs(workspace:GetDescendants()) do
+        if part:IsA("ClickDetector") and part.Parent.Name == shopData.clickDetector then
+            fireclickdetector(part)
+            clicked = true
+            break
+        end
+    end
+
+    if not clicked then
+        warn("ClickDetector not found for: " .. tostring(itemName))
+    end
+
+    task.wait(0.5)
+    char.HumanoidRootPart.CFrame = originalPos
+end
+
+-- UI setup
+miscSection:addDropdown("Select Item", {
+    '[AK47]', '[AK47 Ammo]',
+    '[AUG]', '[AUG Ammo]',
+    '[AR]', '[AR Ammo]',
+    '[Chicken]',
+    '[Double-Barrel SG]', '[Double-Barrel SG Ammo]',
+    '[Drum-Shotgun]', '[Drum-Shotgun Ammo]',
+    '[DrumGun]', '[DrumGun Ammo]',
+    '[Glock]', '[Glock Ammo]',
+    '[LMG]', '[LMG Ammo]',
+    '[P90]', '[P90 Ammo]',
+    '[Revolver]', '[Revolver Ammo]',
+    '[RPG]', '[RPG Ammo]',
+    '[Rifle]', '[Rifle Ammo]',
+    '[Shotgun]', '[Shotgun Ammo]',
+    '[Silencer]', '[Silencer Ammo]',
+    '[SilencerAR]', '[SilencerAR Ammo]',
+    '[TacticalShotgun]', '[TacticalShotgun Ammo]',
+    '[Taser]',
+    '[Armor]', '[Fire Armor]',
+    '[Grenade]'
+}, function(Value)
+    _G.SelectedItem = Value
+end)
+
+miscSection:addSlider("Buy Times", 1, 1, 10, function(value)
+    _G.BuyTimes = value
+end)
+
+miscSection:addButton("Buy", function()
+    if _G.SelectedItem then
+        for i = 1, _G.BuyTimes do
+            AutoBuyOnce(_G.SelectedItem)
+            task.wait(0.5)
+        end
+    else
+        warn("No item selected!")
+    end
+end)
+
+-- Teleport Locations
+local TeleportLocations = {
+    ["Bank"] = CFrame.new(-442, 39, -284),
+    ["Inside Bank"] = CFrame.new(-443, 23, -284),
+    ["Vault"] = CFrame.new(-658, -30, -285),
+    ["Mid Appartment Building"] = CFrame.new(-323, 80, -299),
+    ["Revolver"] = CFrame.new(-634, 21, -132),
+    ["LMG"] = CFrame.new(-626, 23, -295),
+    ["Swimming Pool"] = CFrame.new(-847, 21, -279),
+    ["Broken Fire Station"] = CFrame.new(-1182, 28, -521),
+    ["DownHill"] = CFrame.new(-559, 8, -735),
+    ["Military Base"] = CFrame.new(-40, 65, -926),
+    ["Uphill"] = CFrame.new(481, 48, -602),
+    ["Breaking Bad"] = CFrame.new(598, 28, -214),
+    ["Church"] = CFrame.new(205, 21, -124),
+    ["Police Station"] = CFrame.new(-264, 21, -93),
+    ["School"] = CFrame.new(-594, 21, 173)
+}
+
+-- Add to miscSection (Page 3: Misc)
+miscSection:addDropdown("Teleport Location", {
+    "Bank", "Inside Bank", "Vault", "Mid Appartment Building", "Revolver", "LMG",
+    "Swimming Pool", "Broken Fire Station", "DownHill", "Military Base", "Uphill",
+    "Breaking Bad", "Church", "Police Station", "School"
+}, function(Value)
+    _G.SelectedTeleport = Value
+end)
+
+miscSection:addButton("Teleport", function()
+    if _G.SelectedTeleport and TeleportLocations[_G.SelectedTeleport] then
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = TeleportLocations[_G.SelectedTeleport]
+            venyx:Notify("Teleport", "Teleported to " .. _G.SelectedTeleport)
+        else
+            venyx:Notify("Teleport", "Character not found!")
+        end
+    else
+        venyx:Notify("Teleport", "No location selected!")
+    end
+end)
+
 -- 🗨️ Show Chat Toggle
 local TextChatService = game:GetService("TextChatService")
 local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
