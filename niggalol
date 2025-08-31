@@ -1,7 +1,6 @@
 -- Load the Venyx UI library
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
 
--- Custom themes (you can adjust these)
 local themes = {
     Background = Color3.fromRGB(24, 24, 24),
     Glow = Color3.fromRGB(255, 179, 186),
@@ -12,6 +11,17 @@ local themes = {
 }
 
 local venyx = library.new("nigga.lol(vhuydeptraivl)", 11351620355)
+
+-- Hàm apply theme an toàn (tương thích vài fork khác nhau)
+local function applyThemeNow()
+    for k, c in pairs(themes) do
+        pcall(function() venyx:setTheme(k, c) end)
+        pcall(function() library:setTheme(k, c) end)
+    end
+end
+
+-- 1) Apply ngay sau khi tạo venyx
+applyThemeNow()
 
 -- Make background images visible (set transparency to 0)
 venyx.container.Main.ImageTransparency = 0  -- Main background visible
@@ -27,18 +37,13 @@ titleLabel.TextXAlignment = Enum.TextXAlignment.Left  -- Keep text left-aligned
 local icon = venyx.container.Main.TopBar:FindFirstChild("Icon") or Instance.new("ImageLabel")
 icon.Name = "Icon"
 icon.BackgroundTransparency = 1
-icon.Position = UDim2.new(0.85, -24, 0.5, -8)  -- Right of title
+icon.Position = UDim2.new(0.85, -24, 0.5, -8)
 icon.Size = UDim2.new(0, 16, 0, 16)
-icon.Image = "rbxassetid://11351620355"  -- Specified title icon
-icon.ImageTransparency = 0  -- Ensure icon is visible
+icon.Image = "rbxassetid://11351620355"  
+icon.ImageTransparency = 0 
 icon.ZIndex = 5  -- Above other elements
 icon.Parent = venyx.container.Main.TopBar
 
--- Pages (4 pages: Combat, Visual, Misc, Movement, Settings)
--- All pages have built-in scrolling (Venyx supports CanvasSize auto-adjust)
--- Selected icons for thematic relevance
-
--- Page 1: Combat (Icon: Sword, 5012540623)
 local combatPage = venyx:addPage("Combat", 5012540623)
 local combatSection = combatPage:addSection("Combat Features")
 local utility = {}
@@ -220,40 +225,7 @@ end)
 combatSection:addSlider("Hitbox Size", 15, 5, 50, function(value)
     getgenv().HitboxSize = value
 end)
-local function isAlive(plr)
-    if not plr or not plr.Character then return false end
-    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then
-        return false
-    end
-    local be = plr.Character:FindFirstChild("BodyEffects")
-    if be then
-        local ko = be:FindFirstChild("K.O")
-        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
-        if (ko and ko.Value) or (grabbed and grabbed.Value) then
-            return false
-        end
-    end
-    return true
-end
-local hitEffects = {}
-game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
-    local hum = char:WaitForChild("Humanoid")
-    hum.HealthChanged:Connect(function(health)
-        if health < hum.MaxHealth then
-            local highlight = Instance.new("Highlight")
-            highlight.Adornee = char
-            highlight.FillTransparency = 1
-            highlight.OutlineTransparency = 0
-            highlight.OutlineColor = Color3.fromHSV(tick() % 1, 1, 1)
-            highlight.Parent = game.CoreGui
-            table.insert(hitEffects, highlight)
-            task.delay(1, function()
-                highlight:Destroy()
-            end)
-        end
-    end)
-end)
+
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local function click()
     if UIS.TouchEnabled then
@@ -340,6 +312,7 @@ combatSection:addToggle("Aimlock", true, function(value)
     getgenv().Settings.Main.Enable = value
     venyx:Notify("Aimlock", value and "ON" or "OFF")
 end)
+
 combatSection:addKeybind("Target Lock", Enum.KeyCode.Q, function()
     -- the input began for Q
 end, function()
@@ -356,8 +329,9 @@ end)
 combatSection:addDropdown("Aim Part", {"Head", "HumanoidRootPart", "UpperTorso"}, function(value)
     getgenv().Settings.Part.AimPart = value
 end)
-combatSection:addToggle("FOV Circle", false, function(value)
+combatSection:addToggle("Use FOV Circle", false, function(value)
     getgenv().Settings.Visual.Fov = value
+    getgenv().Settings.Visual.UseCircleRadius = value -- đồng bộ với FOV Circle
     venyx:Notify("FOV Circle", value and "ON" or "OFF")
 end)
 combatSection:addSlider("FOV Radius", 200, 0, 1000, function(value)
@@ -849,7 +823,6 @@ local skyConfigs = {
         SkyboxRt = "rbxassetid://15938366249",
         SkyboxUp = "rbxassetid://15938364248",
         StarCount = 3000,
-        SunAngularSize = 21,
     },
     pinksky = {
         SkyboxBk = "rbxassetid://271072456",
@@ -859,7 +832,6 @@ local skyConfigs = {
         SkyboxRt = "rbxassetid://271042467",
         SkyboxUp = "rbxassetid://271077958",
         StarCount = 1334,
-        SunAngularSize = 21,
     },
     rainsky = {
         SkyboxBk = "rbxassetid://4495864450",
@@ -869,7 +841,6 @@ local skyConfigs = {
         SkyboxRt = "rbxassetid://4495864786",
         SkyboxUp = "rbxassetid://449586476",
         StarCount = 3000,
-        SunAngularSize = 1,
     },
     minecraftsky = {
         SkyboxBk = "rbxassetid://873516687",
@@ -879,7 +850,6 @@ local skyConfigs = {
         SkyboxRt = "rbxassetid://873516751",
         SkyboxUp = "rbxassetid://873516729",
         StarCount = 3000,
-        SunAngularSize = 11,
     },
     summersky = {
         SkyboxBk = "rbxassetid://16648590964",
@@ -889,10 +859,56 @@ local skyConfigs = {
         SkyboxRt = "rbxassetid://16648577071",
         SkyboxUp = "rbxassetid://16648598180",
         StarCount = 3000,
-        SunAngularSize = 21,
     }
 }
 
+-- 🛠️ Dropdown chọn Sky
+local selectedSky = nil
+local skyList = {}
+for name, _ in pairs(skyConfigs) do
+    table.insert(skyList, name)
+end
+
+miscSection:addDropdown("Select Sky", skyList, function(value)
+    selectedSky = value
+end)
+
+-- ☁️ Nút Apply Sky
+miscSection:addButton("Apply Sky", function()
+    if not selectedSky or not skyConfigs[selectedSky] then
+        venyx:Notify("Sky", "⚠️ Chưa chọn sky!")
+        return
+    end
+
+    local Lighting = game:GetService("Lighting")
+
+    -- Xoá mọi Sky cũ
+    for _, obj in ipairs(Lighting:GetChildren()) do
+        if obj:IsA("Sky") then
+            obj:Destroy()
+        end
+    end
+
+    -- Tạo Sky mới
+    local sky = Instance.new("Sky")
+    local config = skyConfigs[selectedSky]
+
+    sky.SkyboxBk = config.SkyboxBk
+    sky.SkyboxDn = config.SkyboxDn
+    sky.SkyboxFt = config.SkyboxFt
+    sky.SkyboxLf = config.SkyboxLf
+    sky.SkyboxRt = config.SkyboxRt
+    sky.SkyboxUp = config.SkyboxUp
+
+    sky.Parent = Lighting
+
+    -- Nếu config có StarCount thì set
+    if config.StarCount then
+        pcall(function() sky.StarCount = config.StarCount end)
+    end
+
+    venyx:Notify("Sky Applied", "☁️ Đã đổi sang sky: " .. selectedSky)
+end)
 miscSection:addSlider("Fog End", 500, 5000, Lighting.FogEnd, function(val)
     Lighting.FogEnd = val
 end)
@@ -1648,6 +1664,38 @@ miscSection:addToggle("Korblox", true, function(state)
     end
 end)
 
+miscSection:addButton("Rejoin", function()
+    local ts = game:GetService("TeleportService")
+    local p = game:GetService("Players").LocalPlayer
+    ts:Teleport(game.PlaceId, p)
+end)
+
+miscSection:addButton("Server Hop", function()
+    local HttpService = game:GetService("HttpService")
+    local TeleportService = game:GetService("TeleportService")
+    local Player = game:GetService("Players").LocalPlayer
+
+    local servers = {}
+    local req = game:HttpGet(
+        ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100")
+        :format(game.PlaceId)
+    )
+    local data = HttpService:JSONDecode(req)
+
+    for _, v in pairs(data.data) do
+        if v.playing < v.maxPlayers then
+            table.insert(servers, v.id)
+        end
+    end
+
+    if #servers > 0 then
+        local randomServer = servers[math.random(1, #servers)]
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer, Player)
+    else
+        warn("❌ Không tìm thấy server trống để hop!")
+    end
+end)
+
 -- Page 4: Movement (Icon: Specified, 16181398286)
 local movementPage = venyx:addPage("Movement", 16181398286)
 local movementSection = movementPage:addSection("Movement Features")
@@ -1824,8 +1872,8 @@ getgenv().Settings = {
  
         AutoPingSets = true,
  
-        UseCircleRadius = true,
-        DisableOutSideCircle = true,
+        UseCircleRadius = false,
+        DisableOutSideCircle = false,
  
         UseShake = true,
         ShakePower = 1,
@@ -1834,8 +1882,8 @@ getgenv().Settings = {
     },
     Check = {
         CheckIfKo = true, -- This Is For Da Hood
-        DisableOnTargetDeath = true,
-        DisableOnPlayerDeath = true
+        DisableOnTargetDeath = false,
+        DisableOnPlayerDeath = false
     },
     Horizontal = {
         PredictMovement = true,
@@ -1865,7 +1913,7 @@ getgenv().Settings = {
         SendNotification = true
     },
     Visual = {
-        Fov = true,
+        Fov = false,
         FovTransparency = 1,
         FovThickness = 1,
         FovColor = Color3.fromRGB(255, 179, 186),
@@ -2157,210 +2205,190 @@ task.spawn(
         end
     end
 )
+
+local function isAlive(plr)
+    if not plr or not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then
+        return false
+    end
+    local be = plr.Character:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
+        if (ko and ko.Value) or (grabbed and grabbed.Value) then
+            return false
+        end
+    end
+    return true
+end
  
-RService.Heartbeat:Connect(
-    function()
-        if getgenv().Settings.Main.Enable == true and MousePressed == true then
-            if getgenv().Settings.Main.UseShake == true and AimlockTarget and AimlockTarget.Character then
-                pcall(
-                    function()
-                        local TargetVelv1 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                        TargetVelv1.Velocity =
-                            Vec3(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
-                            Vec3(
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
-                            ) *
-                                0.1
-                        TargetVelv1.AssemblyLinearVelocity =
-                            Vec3(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
-                            Vec3(
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
-                            ) *
-                                0.1
-                    end
-                )
+RService.Heartbeat:Connect(function()
+    if getgenv().Settings.Main.Enable == true and MousePressed == true then
+        if getgenv().Settings.Main.UseShake == true and AimlockTarget and AimlockTarget.Character then
+            pcall(function()
+                local TargetVelv1 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
+                TargetVelv1.Velocity = Vec3(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
+                    Vec3(
+                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
+                    ) * 0.1
+                TargetVelv1.AssemblyLinearVelocity = Vec3(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
+                    Vec3(
+                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
+                    ) * 0.1
+            end)
+        end
+        if getgenv().Settings.Resolver.UnderGround == true and AimlockTarget and AimlockTarget.Character then
+            pcall(function()
+                local TargetVelv2 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
+                TargetVelv2.Velocity = Vec3(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
+                TargetVelv2.AssemblyLinearVelocity = Vec3(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
+            end)
+        end
+        if getgenv().Settings.Resolver.DetectDesync == true and AimlockTarget and AimlockTarget.Character and
+            AimlockTarget.Character:WaitForChild("HumanoidRootPart").Velocity.magnitude >
+            getgenv().Settings.Resolver.Detection then
+            pcall(function()
+                local TargetVel = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
+                TargetVel.Velocity = Vec3(0, 0, 0)
+                TargetVel.AssemblyLinearVelocity = Vec3(0, 0, 0)
+            end)
+        end
+        if getgenv().Settings.Main.ThirdPerson == true and getgenv().Settings.Main.FirstPerson == true then
+            if (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude > 1 or
+                (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude <= 1 then
+                CanNotify = true
+            else
+                CanNotify = false
             end
-            if getgenv().Settings.Resolver.UnderGround == true and AimlockTarget and AimlockTarget.Character then
-                pcall(
-                    function()
-                        local TargetVelv2 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                        TargetVelv2.Velocity = Vec3(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
-                        TargetVelv2.AssemblyLinearVelocity = Vec3(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
-                    end
-                )
+        elseif getgenv().Settings.Main.ThirdPerson == true and getgenv().Settings.Main.FirstPerson == false then
+            if (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude > 1 then
+                CanNotify = true
+            else
+                CanNotify = false
             end
-            if
-                getgenv().Settings.Resolver.DetectDesync == true and AimlockTarget and AimlockTarget.Character and
-                    AimlockTarget.Character:WaitForChild("HumanoidRootPart").Velocity.magnitude >
-                        getgenv().Settings.Resolver.Detection
-             then
-                pcall(
-                    function()
-                        local TargetVel = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                        TargetVel.Velocity = Vec3(0, 0, 0)
-                        TargetVel.AssemblyLinearVelocity = Vec3(0, 0, 0)
-                    end
-                )
+        elseif getgenv().Settings.Main.ThirdPerson == false and getgenv().Settings.Main.FirstPerson == true then
+            if (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude <= 1 then
+                CanNotify = true
+            else
+                CanNotify = false
             end
-            if getgenv().Settings.Main.ThirdPerson == true and getgenv().Settings.Main.FirstPerson == true then
-                if
-                    (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude > 1 or
-                        (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude <= 1
-                 then
-                    CanNotify = true
-                else
-                    CanNotify = false
-                end
-            elseif getgenv().Settings.Main.ThirdPerson == true and getgenv().Settings.Main.FirstPerson == false then
-                if (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude > 1 then
-                    CanNotify = true
-                else
-                    CanNotify = false
-                end
-            elseif getgenv().Settings.Main.ThirdPerson == false and getgenv().Settings.Main.FirstPerson == true then
-                if (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude <= 1 then
-                    CanNotify = true
-                else
-                    CanNotify = false
-                end
+        end
+        if getgenv().Settings.Main.AutoPingSets == true and getgenv().Settings.Horizontal.PredictionVelocity then
+            local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
+            local split = string.split(pingvalue, "(")
+            local ping = tonumber(split[1])
+            if ping > 190 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.206547
+            elseif ping > 180 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.19284
+            elseif ping > 170 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.1923111
+            elseif ping > 160 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.1823111
+            elseif ping > 150 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.171
+            elseif ping > 140 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.165773
+            elseif ping > 130 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.1223333
+            elseif ping > 120 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.143765
+            elseif ping > 110 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.1455
+            elseif ping > 100 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.130340
+            elseif ping > 90 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.136
+            elseif ping > 80 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.1347
+            elseif ping > 70 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.119
+            elseif ping > 60 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.12731
+            elseif ping > 50 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.127668
+            elseif ping > 40 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.125
+            elseif ping > 30 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.11
+            elseif ping > 20 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.12588
+            elseif ping > 10 then
+                getgenv().Settings.Horizontal.PredictionVelocity = 0.9
             end
-            if getgenv().Settings.Main.AutoPingSets == true and getgenv().Settings.Horizontal.PredictionVelocity then
-                local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
-                local split = string.split(pingvalue, "(")
-                local ping = tonumber(split[1])
-                if ping > 190 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.206547
-                elseif ping > 180 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.19284
-                elseif ping > 170 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1923111
-                elseif ping > 160 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1823111
-                elseif ping > 150 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.171
-                elseif ping > 140 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.165773
-                elseif ping > 130 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1223333
-                elseif ping > 120 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.143765
-                elseif ping > 110 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1455
-                elseif ping > 100 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.130340
-                elseif ping > 90 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.136
-                elseif ping > 80 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1347
-                elseif ping > 70 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.119
-                elseif ping > 60 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.12731
-                elseif ping > 50 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.127668
-                elseif ping > 40 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.125
-                elseif ping > 30 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.11
-                elseif ping > 20 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.12588
-                elseif ping > 10 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.9
-                end
-            end
-            if getgenv().Settings.Check.CheckIfKo == true and AimlockTarget and AimlockTarget.Character then
-                local KOd = AimlockTarget.Character:WaitForChild("BodyEffects")["K.O"].Value
-                local Grabbed = AimlockTarget.Character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
-                if AimlockTarget.Character.Humanoid.health < 1 or KOd or Grabbed then
-                    if MousePressed == true then
-                        AimlockTarget = nil
-                        MousePressed = false
-                    end
-                end
-            end
-            if
-                getgenv().Settings.Check.DisableOnTargetDeath == true and AimlockTarget and
-                    AimlockTarget.Character:FindFirstChild("Humanoid")
-             then
-                if AimlockTarget.Character.Humanoid.health < 1 then
-                    if MousePressed == true then
-                        AimlockTarget = nil
-                        MousePressed = false
-                    end
-                end
-            end
-            if
-                getgenv().Settings.Check.DisableOnPlayerDeath == true and Client.Character and
-                    Client.Character:FindFirstChild("Humanoid") and
-                    Client.Character.Humanoid.health < 1
-             then
+        end
+        if getgenv().Settings.Check.DisableOnTargetDeath == true and AimlockTarget and
+            AimlockTarget.Character:FindFirstChild("Humanoid") then
+            if AimlockTarget.Character.Humanoid.health < 1 then
                 if MousePressed == true then
                     AimlockTarget = nil
                     MousePressed = false
                 end
             end
-            if getgenv().Settings.Part.CheckIfJumped == true and getgenv().Settings.Part.GetClosestPart == false then
-                if AimlockTarget and AimlockTarget.Character then
-                    if AimlockTarget.Character.Humanoid.FloorMaterial == Enum.Material.Air then
-                        getgenv().Settings.Part.AimPart = getgenv().Settings.Part.CheckIfJumpedAimPart
-                    else
-                        getgenv().Settings.Part.AimPart = OldAimPart
-                    end
+        end
+        if getgenv().Settings.Check.DisableOnPlayerDeath == true and Client.Character and
+            Client.Character:FindFirstChild("Humanoid") and Client.Character.Humanoid.health < 1 then
+            if MousePressed == true then
+                AimlockTarget = nil
+                MousePressed = false
+            end
+        end
+        if getgenv().Settings.Part.CheckIfJumped == true and getgenv().Settings.Part.GetClosestPart == false then
+            if AimlockTarget and AimlockTarget.Character then
+                if AimlockTarget.Character.Humanoid.FloorMaterial == Enum.Material.Air then
+                    getgenv().Settings.Part.AimPart = getgenv().Settings.Part.CheckIfJumpedAimPart
+                else
+                    getgenv().Settings.Part.AimPart = OldAimPart
                 end
             end
-            if
-                AimlockTarget and AimlockTarget.Character and
-                    AimlockTarget.Character:FindFirstChild(getgenv().Settings.Part.AimPart)
-             then
+        end
+        -- Add isAlive check to skip aiming if target is K.O. or grabbed
+        if AimlockTarget and AimlockTarget.Character and
+            AimlockTarget.Character:FindFirstChild(getgenv().Settings.Part.AimPart) then
+            if isAlive(AimlockTarget) then -- Only aim if target is alive
                 if getgenv().Settings.Main.FirstPerson == true then
                     if CanNotify == true then
                         if getgenv().Settings.Horizontal.PredictMovement == true then
                             if getgenv().Settings.Smooth.Smoothness == true then
-                                local Main =
-                                    CF(
+                                local Main = CF(
                                     Camera.CFrame.p,
                                     AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
                                         AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
-                                            getgenv().Settings.Horizontal.PredictionVelocity
+                                        getgenv().Settings.Horizontal.PredictionVelocity
                                 )
- 
-                                Camera.CFrame =
-                                    Camera.CFrame:Lerp(
+                                Camera.CFrame = Camera.CFrame:Lerp(
                                     Main,
                                     getgenv().Settings.Smooth.SmoothnessAmount,
                                     Enum.EasingStyle.Elastic,
                                     Enum.EasingDirection.InOut
                                 )
                             else
-                                Camera.CFrame =
-                                    CF(
+                                Camera.CFrame = CF(
                                     Camera.CFrame.p,
                                     AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
                                         AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
-                                            getgenv().Settings.Horizontal.PredictionVelocity + Vector3
+                                        getgenv().Settings.Horizontal.PredictionVelocity + Vector3
                                 )
                             end
                         elseif getgenv().Settings.Horizontal.PredictMovement == false then
                             if getgenv().Settings.Smooth.Smoothness == true then
-                                local Main =
-                                    CF(
+                                local Main = CF(
                                     Camera.CFrame.p,
                                     AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
                                 )
-                                Camera.CFrame =
-                                    Camera.CFrame:Lerp(
+                                Camera.CFrame = Camera.CFrame:Lerp(
                                     Main,
                                     getgenv().Settings.Smooth.SmoothnessAmount,
                                     getgenv().Settings.Smooth.SmoothMethod,
                                     getgenv().Settings.Smooth.SmoothMethodV2
                                 )
                             else
-                                Camera.CFrame =
-                                    CF(
+                                Camera.CFrame = CF(
                                     Camera.CFrame.p,
                                     AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
                                 )
@@ -2369,9 +2397,10 @@ RService.Heartbeat:Connect(
                     end
                 end
             end
+            -- If target is not alive (K.O. or grabbed), skip aiming but keep AimlockTarget and MousePressed
         end
     end
-)
+end)
  
 -- IK THIS IS SHITTY BRUH
  
