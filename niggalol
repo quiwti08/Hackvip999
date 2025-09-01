@@ -209,8 +209,11 @@ end)
 
 -- Tự động update danh sách player khi có người join/leave
 Players.PlayerAdded:Connect(function()
+    combatSection:updateDropdown(combatSection:getModule("Select Player"), nil, getPlayerList())
 end)
+
 Players.PlayerRemoving:Connect(function()
+    combatSection:updateDropdown(combatSection:getModule("Select Player"), nil, getPlayerList())
 end)
 
 getgenv().HitboxEnabled = false
@@ -2291,7 +2294,7 @@ end)
 mm2Section:addButton("Shoot", function()
     task.spawn(shootMurderer)
 end)
-mm2Section:addKeybind("Shoot Keybind", Enum.KeyCode.Unknown, function()
+mm2Section:addKeybind("Shoot Keybind", Enum.KeyCode.J, function()
     task.spawn(shootMurderer)
 end, function()
     venyx:Notify("Shoot Keybind", "Keybind changed!")
