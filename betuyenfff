@@ -632,6 +632,73 @@ shootQuickButton.MouseButton1Click:Connect(function()
     task.spawn(shootMurderer)
 end)
 
+-- Tạo GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "autogun"
+gui.ResetOnSpawn = false
+gui.Parent = game.CoreGui
+
+-- Tạo nút Shoot
+local autogunbutton = Instance.new("TextButton")
+autogunbutton.Size = UDim2.new(0, 140, 0, 45)
+autogunbutton.Position = UDim2.new(0, 30, 0.8, 0)
+autogunbutton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+autogunbutton.TextColor3 = Color3.fromRGB(255, 255, 255)
+autogunbutton.Font = Enum.Font.GothamBold
+autogunbutton.TextSize = 16
+autogunbutton.Text = "Autogun"
+autogunbutton.Parent = gui
+
+-- UICorner (bo góc)
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = autogunbutton
+
+-- UIStroke (viền)
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 179, 186)
+stroke.Thickness = 2
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = autogunbutton
+
+-- Kéo thả
+autogunbutton.Active = true
+autogunbutton.Draggable = true
+
+-- Hiệu ứng hover
+autogunbutton.MouseEnter:Connect(function()
+    TweenService:Create(autogunbutton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 75, 75)}):Play()
+end)
+autogunbutton.MouseLeave:Connect(function()
+    TweenService:Create(autogunbutton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
+end)
+
+autogunbutton.MouseButton1Click:Connect(function()
+    local origSize = autogunbutton.Size
+    local shrinkPx = 3
+    local toSmall = UDim2.new(origSize.X.Scale, math.max(0, origSize.X.Offset - shrinkPx), origSize.Y.Scale, math.max(0, origSize.Y.Offset - shrinkPx))
+    local t1 = TweenService:Create(autogunbutton, TweenInfo.new(0.08), {Size = toSmall})
+    local t2 = TweenService:Create(autogunbutton, TweenInfo.new(0.08), {Size = origSize})
+    t1:Play(); t1.Completed:Wait(); t2:Play()
+    
+    -- Gọi hàm bắn
+    local map = getMap()
+    if not map or not map:FindFirstChild("GunDrop") then
+        fu.notification("No dropped gun to be teleported to.")
+        return
+    end
+    local hrp = localplayer.Character and localplayer.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local previousPosition = hrp.CFrame
+        hrp.CFrame = map:FindFirstChild("GunDrop"):GetPivot() + Vector3.new(0, 2, 0)
+        localplayer.Backpack.ChildAdded:Wait()
+        hrp.CFrame = previousPosition
+        fu.notification("Gun picked up.")
+    else
+        fu.notification("No valid character to teleport.")
+    end
+end)
+
 --// GUI Setup
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 local gui = Instance.new("ScreenGui")
