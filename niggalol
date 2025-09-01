@@ -1752,7 +1752,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- ⌨️ Keybind để bật/tắt WalkSpeed (không có phím mặc định)
-movementSection:addKeybind("WalkSpeed Key", Enum.KeyCode.Unknown, function()
+movementSection:addKeybind("WalkSpeed Key", Enum.KeyCode.H, function()
     walkSpeedEnabled = not walkSpeedEnabled
     toggleWalkSpeed(walkSpeedEnabled)
     venyx:Notify("WalkSpeed", walkSpeedEnabled and "ON ("..walkSpeedValue..")" or "OFF")
