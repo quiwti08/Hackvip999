@@ -570,6 +570,68 @@ local RunService = game:GetService("RunService")
 local LocalizationService = game:GetService("LocalizationService")
 local LocalPlayer = Players.LocalPlayer
 
+-- // Services
+local TweenService = game:GetService("TweenService")
+
+-- Xóa nếu có GUI cũ
+if game.CoreGui:FindFirstChild("ShootQuickToggle") then
+    game.CoreGui:FindFirstChild("ShootQuickToggle"):Destroy()
+end
+
+-- Tạo GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "ShootQuickToggle"
+gui.ResetOnSpawn = false
+gui.Parent = game.CoreGui
+
+-- Tạo nút Shoot
+local shootQuickButton = Instance.new("TextButton")
+shootQuickButton.Size = UDim2.new(0, 140, 0, 45)
+shootQuickButton.Position = UDim2.new(0, 30, 0.8, 0)
+shootQuickButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+shootQuickButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+shootQuickButton.Font = Enum.Font.GothamBold
+shootQuickButton.TextSize = 16
+shootQuickButton.Text = "Shoot"
+shootQuickButton.Parent = gui
+
+-- UICorner (bo góc)
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = shootQuickButton
+
+-- UIStroke (viền)
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 179, 186)
+stroke.Thickness = 2
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = shootQuickButton
+
+-- Kéo thả
+shootQuickButton.Active = true
+shootQuickButton.Draggable = true
+
+-- Hiệu ứng hover
+shootQuickButton.MouseEnter:Connect(function()
+    TweenService:Create(shootQuickButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 75, 75)}):Play()
+end)
+shootQuickButton.MouseLeave:Connect(function()
+    TweenService:Create(shootQuickButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
+end)
+
+-- Hiệu ứng click + gọi function shootMurderer
+shootQuickButton.MouseButton1Click:Connect(function()
+    local origSize = shootQuickButton.Size
+    local shrinkPx = 3
+    local toSmall = UDim2.new(origSize.X.Scale, math.max(0, origSize.X.Offset - shrinkPx), origSize.Y.Scale, math.max(0, origSize.Y.Offset - shrinkPx))
+    local t1 = TweenService:Create(shootQuickButton, TweenInfo.new(0.08), {Size = toSmall})
+    local t2 = TweenService:Create(shootQuickButton, TweenInfo.new(0.08), {Size = origSize})
+    t1:Play(); t1.Completed:Wait(); t2:Play()
+    
+    -- Gọi hàm bắn
+    task.spawn(shootMurderer)
+end)
+
 --// GUI Setup
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 local gui = Instance.new("ScreenGui")
