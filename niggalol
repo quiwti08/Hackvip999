@@ -2508,49 +2508,10 @@ end, function()
     print("Toggle key changed")
 end)
 
--- Watermark (as a toggle with notification)
-settingsSection:addToggle("Watermark", false, function(value)
-    if value then
-        venyx:Notify("Watermark", "nigga.lol - Enabled")
-    else
-        venyx:Notify("Watermark", "Disabled")
-    end
-end)
-
 -- Theme editing (color pickers for each theme)
 for themeName, defaultColor in pairs(themes) do
     themeSection:addColorPicker(themeName, defaultColor, function(color)
         venyx:setTheme(themeName, color)
-    end)
-end
-
--- Config system with dropdown to select saved configs
-local savedConfigs = {"default", "config1", "config2"}  -- Example saved configs
-local selectedConfig = "default"
-
-configSection:addDropdown("Select Config", savedConfigs, function(value)
-    selectedConfig = value
-    venyx:Notify("Config", "Selected: " .. value)
-end)
-
-configSection:addButton("Load Selected Config", function()
-    venyx:Notify("Config", "Loaded: " .. selectedConfig)
-end)
-
-configSection:addTextbox("New Config Name", "new_config", function(value)
-    table.insert(savedConfigs, value)
-    configSection:updateDropdown(configSection:getModule("Select Config"), nil, savedConfigs)
-    venyx:Notify("Config", "Saved new: " .. value)
-end)
-
-configSection:addButton("Save Current Config", function()
-    venyx:Notify("Config", "Saved current settings")
-end)
-
--- Mobile toggle button
-if game:GetService("UserInputService").TouchEnabled then
-    settingsSection:addButton("Toggle GUI (Mobile)", function()
-        venyx:toggle()
     end)
 end
 
