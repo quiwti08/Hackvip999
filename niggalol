@@ -772,352 +772,240 @@ visualSection:addColorPicker("Tracer Color", tracerColor, function(color)
     tracerColor = color
 end)
 
--- Page 3: Misc (Icon: Gear, 5012543246)
-local miscPage = venyx:addPage("Misc", 5012543246)
-local miscSection = miscPage:addSection("Miscellaneous")
-local CurrentFOV = 70
+local angelWingsEnabled = false
+local angelInstances = {}
+local hrp = nil
+local wingColor = Color3.new(1, 1, 1) -- Default color as per XML
 
-miscSection:addSlider("FOV", 70, 70, 120, function(value)
-    CurrentFOV = value
-    workspace.CurrentCamera.FieldOfView = value
-end)
+local function destroyWings()
+    for _, inst in pairs(angelInstances) do
+        if inst then
+            pcall(function() inst:Destroy() end)
+        end
+    end
+    angelInstances = {}
+end
 
--- khi nhân vật respawn → giữ FOV cũ
-game.Players.LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.5) -- chờ camera load
-    workspace.CurrentCamera.FieldOfView = CurrentFOV
-end)
+local function createWings()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    destroyWings()
+    
+    -- Attachment1 at (0, 4.25, 0)
+    local att1 = Instance.new("Attachment")
+    att1.Name = "AngelAttachment1"
+    att1.CFrame = CFrame.new(0, 4.25, 0)
+    att1.Parent = hrp
+    table.insert(angelInstances, att1)
+    
+    -- ParticleEmitter1 in att1
+    local pe1 = Instance.new("ParticleEmitter")
+    pe1.Name = "AngelParticle1"
+    pe1.Acceleration = Vector3.new(0, -6, 0)
+    pe1.Brightness = 1
+    pe1.Color = ColorSequence.new(wingColor)
+    pe1.Drag = 0
+    pe1.EmissionDirection = Enum.NormalId.Bottom
+    pe1.Enabled = true
+    pe1.Lifetime = NumberRange.new(1, 2)
+    pe1.LightEmission = 1
+    pe1.LightInfluence = 1
+    pe1.LockedToPart = true
+    pe1.Orientation = Enum.ParticleOrientation.FacingCamera
+    pe1.Rate = 50
+    pe1.RotSpeed = NumberRange.new(-100, 100)
+    pe1.Rotation = NumberRange.new(-360, 360)
+    pe1.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5, 0.3), NumberSequenceKeypoint.new(1, 0.5, 0.3)})
+    pe1.Speed = NumberRange.new(2.5, 2.5)
+    pe1.SpreadAngle = Vector2.new(0, 360)
+    pe1.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    pe1.Texture = "http://www.roblox.com/asset/?id=7511321694"
+    pe1.TimeScale = 1
+    pe1.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.1, 0),
+        NumberSequenceKeypoint.new(0.3, 0),
+        NumberSequenceKeypoint.new(0.8, 0),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    pe1.VelocityInheritance = 0
+    pe1.WindAffectsDrag = false
+    pe1.ZOffset = 0
+    pe1.Parent = att1
+    table.insert(angelInstances, pe1)
+    
+    -- ParticleEmitter2 in att1
+    local pe2 = Instance.new("ParticleEmitter")
+    pe2.Name = "AngelParticle2"
+    pe2.Acceleration = Vector3.new(0, -6, 0)
+    pe2.Brightness = 1
+    pe2.Color = ColorSequence.new(wingColor)
+    pe2.Drag = 0
+    pe2.EmissionDirection = Enum.NormalId.Bottom
+    pe2.Enabled = true
+    pe2.Lifetime = NumberRange.new(1, 2)
+    pe2.LightEmission = 1
+    pe2.LightInfluence = 1
+    pe2.LockedToPart = true
+    pe2.Orientation = Enum.ParticleOrientation.FacingCamera
+    pe2.Rate = 100
+    pe2.RotSpeed = NumberRange.new(-100, 100)
+    pe2.Rotation = NumberRange.new(-360, 360)
+    pe2.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5, 0.3), NumberSequenceKeypoint.new(1, 0.5, 0.3)})
+    pe2.Speed = NumberRange.new(2.5, 2.5)
+    pe2.SpreadAngle = Vector2.new(0, 360)
+    pe2.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    pe2.Texture = "rbxassetid://1084976679"
+    pe2.TimeScale = 1
+    pe2.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.2, 0),
+        NumberSequenceKeypoint.new(0.8, 0),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    pe2.VelocityInheritance = 0
+    pe2.WindAffectsDrag = false
+    pe2.ZOffset = 0
+    pe2.Parent = att1
+    table.insert(angelInstances, pe2)
+    
+    -- Attachment2 at (0, 0.75, 0.5)
+    local att2 = Instance.new("Attachment")
+    att2.Name = "AngelAttachment2"
+    att2.CFrame = CFrame.new(0, 0.75, 0.5)
+    att2.Parent = hrp
+    table.insert(angelInstances, att2)
+    
+    -- Attachment3 at (-5.25, 0, 2) with rotation
+    local att3 = Instance.new("Attachment")
+    att3.Name = "AngelAttachment3"
+    att3.CFrame = CFrame.new(-5.25, 0, 2) * CFrame.fromMatrix(Vector3.new(0,0,0), Vector3.new(0.866025388, 0, 0.5), Vector3.new(0,1,0), Vector3.new(-0.5, 0, 0.866025388))
+    att3.Parent = hrp
+    table.insert(angelInstances, att3)
+    
+    -- Attachment4 at (5.25, 0, 2) with rotation
+    local att4 = Instance.new("Attachment")
+    att4.Name = "AngelAttachment4"
+    att4.CFrame = CFrame.new(5.25, 0, 2) * CFrame.fromMatrix(Vector3.new(0,0,0), Vector3.new(0.866025388, 0, -0.5), Vector3.new(0,1,0), Vector3.new(0.5, 0, 0.866025388))
+    att4.Parent = hrp
+    table.insert(angelInstances, att4)
+    
+    -- Beam1: att2 to att3
+    local beam1 = Instance.new("Beam")
+    beam1.Name = "AngelBeam1"
+    beam1.Attachment0 = att2
+    beam1.Attachment1 = att3
+    beam1.Brightness = 1
+    beam1.Color = ColorSequence.new(wingColor)
+    beam1.CurveSize0 = 2
+    beam1.CurveSize1 = 2
+    beam1.Enabled = true
+    beam1.FaceCamera = false
+    beam1.LightEmission = 1
+    beam1.LightInfluence = 1
+    beam1.Segments = 10
+    beam1.Texture = "rbxassetid://9544400688"
+    beam1.TextureLength = 1
+    beam1.TextureMode = Enum.TextureMode.Stretch
+    beam1.TextureSpeed = 0
+    beam1.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    beam1.Width0 = 4
+    beam1.Width1 = 6
+    beam1.ZOffset = 0
+    beam1.Parent = hrp
+    table.insert(angelInstances, beam1)
+    
+    -- Beam2: att2 to att4
+    local beam2 = Instance.new("Beam")
+    beam2.Name = "AngelBeam2"
+    beam2.Attachment0 = att2
+    beam2.Attachment1 = att4
+    beam2.Brightness = 1
+    beam2.Color = ColorSequence.new(wingColor)
+    beam2.CurveSize0 = -2
+    beam2.CurveSize1 = -2
+    beam2.Enabled = true
+    beam2.FaceCamera = false
+    beam2.LightEmission = 1
+    beam2.LightInfluence = 1
+    beam2.Segments = 10
+    beam2.Texture = "rbxassetid://9544400688"
+    beam2.TextureLength = 1
+    beam2.TextureMode = Enum.TextureMode.Stretch
+    beam2.TextureSpeed = 0
+    beam2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    beam2.Width0 = 4
+    beam2.Width1 = 6
+    beam2.ZOffset = 0
+    beam2.Parent = hrp
+    table.insert(angelInstances, beam2)
+    
+    -- PointLight
+    local pl = Instance.new("PointLight")
+    pl.Name = "AngelPointLight"
+    pl.Brightness = 4
+    pl.Color = wingColor
+    pl.Enabled = true
+    pl.Range = 5
+    pl.Shadows = false
+    pl.Parent = hrp
+    table.insert(angelInstances, pl)
+end
 
--- Time Control
-local Lighting = game:GetService("Lighting")
-local timeEnabled = false
-local currentTime = Lighting.ClockTime
+local function updateWingColor(newColor)
+    wingColor = newColor
+    if angelWingsEnabled then
+        for _, inst in pairs(angelInstances) do
+            if inst:IsA("ParticleEmitter") or inst:IsA("Beam") then
+                inst.Color = ColorSequence.new(wingColor)
+            elseif inst:IsA("PointLight") then
+                inst.Color = wingColor
+            end
+        end
+    end
+end
 
--- Toggle bật/tắt chỉnh giờ
-miscSection:addToggle("Custom Time", false, function(value)
-    timeEnabled = value
+-- New Page: Auralist (Icon: 5012541386, same as Visual page for consistency)
+local auralistPage = venyx:addPage("Auralist", 5012541386)
+local auralistSection = auralistPage:addSection("Aura Features")
+
+-- Angel Wings Toggle
+auralistSection:addToggle("Angel Wings", false, function(value)
+    angelWingsEnabled = value
+    venyx:Notify("Angel Wings", value and "ON" or "OFF")
     if value then
-        venyx:Notify("Custom Time", "ON")
-        Lighting.ClockTime = currentTime
+        createWings()
     else
-        venyx:Notify("Custom Time", "OFF")
-        -- Khi tắt trả lại đồng hồ thật (optional, bạn có thể bỏ)
-        Lighting.ClockTime = os.date("*t").hour + (os.date("*t").min / 60)
+        destroyWings()
     end
 end)
 
--- Slider chỉnh thời gian (0h - 24h)
-miscSection:addSlider("Set Time", 12, 0, 24, function(value)
-    currentTime = value
-    if timeEnabled then
-        Lighting.ClockTime = value
+-- Wing Color Picker
+auralistSection:addColorPicker("Wing Color", Color3.new(1, 1, 1), function(color)
+    updateWingColor(color)
+    venyx:Notify("Wing Color", "Color changed")
+end)
+
+-- Handle character added (respawn)
+game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart", 5)
+    if angelWingsEnabled then
+        createWings()
     end
 end)
 
--- Lưu config sky
-local skyConfigs = {
-    galaxy = {
-        SkyboxBk = "rbxassetid://15938368922",
-        SkyboxDn = "rbxassetid://15938369825",
-        SkyboxFt = "rbxassetid://15938369052",
-        SkyboxLf = "rbxassetid://15938367420",
-        SkyboxRt = "rbxassetid://15938366249",
-        SkyboxUp = "rbxassetid://15938364248",
-        StarCount = 3000,
-    },
-    pinksky = {
-        SkyboxBk = "rbxassetid://271072456",
-        SkyboxDn = "rbxassetid://271072463",
-        SkyboxFt = "rbxassetid://271042510",
-        SkyboxLf = "rbxassetid://271042536",
-        SkyboxRt = "rbxassetid://271042467",
-        SkyboxUp = "rbxassetid://271077958",
-        StarCount = 1334,
-    },
-    rainsky = {
-        SkyboxBk = "rbxassetid://4495864450",
-        SkyboxDn = "rbxassetid://449586487",
-        SkyboxFt = "rbxassetid://449586458",
-        SkyboxLf = "rbxassetid://4495865035",
-        SkyboxRt = "rbxassetid://4495864786",
-        SkyboxUp = "rbxassetid://449586476",
-        StarCount = 3000,
-    },
-    minecraftsky = {
-        SkyboxBk = "rbxassetid://873516687",
-        SkyboxDn = "rbxassetid://873516707",
-        SkyboxFt = "rbxassetid://873521608",
-        SkyboxLf = "rbxassetid://873516708",
-        SkyboxRt = "rbxassetid://873516751",
-        SkyboxUp = "rbxassetid://873516729",
-        StarCount = 3000,
-    },
-    summersky = {
-        SkyboxBk = "rbxassetid://16648590964",
-        SkyboxDn = "rbxassetid://16648617436",
-        SkyboxFt = "rbxassetid://16648595424",
-        SkyboxLf = "rbxassetid://16648566370",
-        SkyboxRt = "rbxassetid://16648577071",
-        SkyboxUp = "rbxassetid://16648598180",
-        StarCount = 3000,
-    }
-}
-
--- 🛠️ Dropdown chọn Sky
-local selectedSky = nil
-local skyList = {}
-for name, _ in pairs(skyConfigs) do
-    table.insert(skyList, name)
+-- Initial check if character exists
+local initialChar = game.Players.LocalPlayer.Character
+if initialChar then
+    initialChar:WaitForChild("HumanoidRootPart", 5)
+    if angelWingsEnabled then
+        createWings()
+    end
 end
 
-miscSection:addDropdown("Select Sky", skyList, function(value)
-    selectedSky = value
-end)
-
--- ☁️ Nút Apply Sky
-miscSection:addButton("Apply Sky", function()
-    if not selectedSky or not skyConfigs[selectedSky] then
-        venyx:Notify("Sky", "⚠️ Chưa chọn sky!")
-        return
-    end
-
-    local Lighting = game:GetService("Lighting")
-
-    -- Xoá mọi Sky cũ
-    for _, obj in ipairs(Lighting:GetChildren()) do
-        if obj:IsA("Sky") then
-            obj:Destroy()
-        end
-    end
-
-    -- Tạo Sky mới
-    local sky = Instance.new("Sky")
-    local config = skyConfigs[selectedSky]
-
-    sky.SkyboxBk = config.SkyboxBk
-    sky.SkyboxDn = config.SkyboxDn
-    sky.SkyboxFt = config.SkyboxFt
-    sky.SkyboxLf = config.SkyboxLf
-    sky.SkyboxRt = config.SkyboxRt
-    sky.SkyboxUp = config.SkyboxUp
-
-    sky.Parent = Lighting
-
-    -- Nếu config có StarCount thì set
-    if config.StarCount then
-        pcall(function() sky.StarCount = config.StarCount end)
-    end
-
-    venyx:Notify("Sky Applied", "☁️ Đã đổi sang sky: " .. selectedSky)
-end)
-miscSection:addSlider("Fog End", 500, 5000, Lighting.FogEnd, function(val)
-    Lighting.FogEnd = val
-end)
-
-miscSection:addColorPicker("Fog Color", Lighting.FogColor, function(color)
-    Lighting.FogColor = color
-end)
-
--- Shop Locations
-local ShopLocations = {
-    ["[AK47]"] = {location = Vector3.new(-587.529, 5.395, -753.718), clickDetector = "[AK47] - $2459"},
-    ["[AK47 Ammo]"] = {location = Vector3.new(-584.029, 5.393, -755.418), clickDetector = "90 [AK47 Ammo] - $87"},
-    
-    ["[AUG]"] = {location = Vector3.new(-273.048, 49.363, -213.312), clickDetector = "[AUG] - $2131"},
-    ["[AUG Ammo]"] = {location = Vector3.new(-278.033, 49.365, -213.394), clickDetector = "90 [AUG Ammo] - $87"},
-    
-    ["[AR]"] = {location = Vector3.new(-591.824, 5.46, -744.732), clickDetector = "[AR] - $1200"},
-    ["[AR Ammo]"] = {location = Vector3.new(-592.224, 5.456, -751.532), clickDetector = "60 [AR Ammo] - $95"},
-    
-    ["[Double-Barrel SG]"] = {location = Vector3.new(19.881, 28.976, -837.246), clickDetector = "[Double-Barrel SG] - $1475"},
-    ["[Double-Barrel SG Ammo]"] = {location = Vector3.new(19.925, 28.976, -831.337), clickDetector = "18 [Double-Barrel SG Ammo] - $55"},
-    
-    ["[Drum-Shotgun]"] = {location = Vector3.new(-1193.09, 25.48, -518.45), clickDetector = "[Drum-Shotgun] - $1202"},
-    ["[Drum-Shotgun Ammo]"] = {location = Vector3.new(-1193.52, 25.48, -530.23), clickDetector = "18 [Drum-Shotgun Ammo] - $71"},
-    
-    ["[DrumGun]"] = {location = Vector3.new(-1177.78, 25.58, -530.26), clickDetector = "[DrumGun] - $3278"},
-    ["[DrumGun Ammo]"] = {location = Vector3.new(-1186.83, 25.58, -529.87), clickDetector = "100 [DrumGun Ammo] - $219"},
-    
-    ["[Fire Armor]"] = {location = Vector3.new(-1176.59, 28.605, -478.91), clickDetector = "[Fire Armor] - $2623"},
-    ["[Armor]"] = {location = Vector3.new(-257.108, 18.9, -83.164), clickDetector = "[High-Medium Armor] - $3278"},
-    
-    ["[Glock]"] = {location = Vector3.new(498.978, 45.109, -629.531), clickDetector = "[Glock] - $546"},
-    ["[Glock Ammo]"] = {location = Vector3.new(501.278, 45.108, -626.031), clickDetector = "25 [Glock Ammo] - $66"},
-    
-    ["[LMG]"] = {location = Vector3.new(-620.882, 20.3, -305.339), clickDetector = "[LMG] - $4098"},
-    ["[LMG Ammo]"] = {location = Vector3.new(-616.182, 20.3, -305.339), clickDetector = "200 [LMG Ammo] - $328"},
-    
-    ["[P90]"] = {location = Vector3.new(463.777, 45.132, -619.13), clickDetector = "[P90] - $1093"},
-    ["[P90 Ammo]"] = {location = Vector3.new(462.977, 45.133, -624.531), clickDetector = "120 [P90 Ammo] - $66"},
-    
-    ["[RPG]"] = {location = Vector3.new(113.625, -29.649, -267.469), clickDetector = "[RPG] - $21855"},
-    ["[RPG Ammo]"] = {location = Vector3.new(118.665, -29.65, -267.47), clickDetector = "5 [RPG Ammo] - $1093"},
-    
-    ["[Revolver]"] = {location = Vector3.new(-642.21, 18.85, -119.635), clickDetector = "[Revolver] - $1421"},
-    ["[Revolver Ammo]"] = {location = Vector3.new(-635.77, 18.856, -119.345), clickDetector = "12 [Revolver Ammo] - $82"},
-    
-    ["[Rifle]"] = {location = Vector3.new(-259.658, 49.363, -213.512), clickDetector = "[Rifle] - $1694"},
-    ["[Rifle Ammo]"] = {location = Vector3.new(-255.258, 49.363, -213.482), clickDetector = "5 [Rifle Ammo] - $273"},
-    
-    ["[Silencer]"] = {location = Vector3.new(-579.524, 5.454, -753.032), clickDetector = "[Silencer] - $601"},
-    ["[Silencer Ammo]"] = {location = Vector3.new(-575.024, 5.452, -754.732), clickDetector = "25 [Silencer Ammo] - $55"},
-    
-    ["[SilencerAR]"] = {location = Vector3.new(490.477, 45.116, -633.831), clickDetector = "[SilencerAR] - $1366"},
-    ["[SilencerAR Ammo]"] = {location = Vector3.new(497.277, 45.111, -634.231), clickDetector = "120 [SilencerAR Ammo] - $82"},
-    
-    ["[Shotgun]"] = {location = Vector3.new(-578.624, 5.472, -725.132), clickDetector = "[Shotgun] - $1366"},
-    ["[Shotgun Ammo]"] = {location = Vector3.new(-578.424, 5.457, -747.132), clickDetector = "20 [Shotgun Ammo] - $66"},
-    
-    ["[SMG]"] = {location = Vector3.new(-577.123, 5.477, -718.031), clickDetector = "[SMG] - $820"},
-    ["[SMG Ammo]"] = {location = Vector3.new(-582.523, 5.478, -717.231), clickDetector = "80 [SMG Ammo] - $66"},
-    
-    ["[TacticalShotgun]"] = {location = Vector3.new(470.878, 45.127, -620.631), clickDetector = "[TacticalShotgun] - $1912"},
-    ["[TacticalShotgun Ammo]"] = {location = Vector3.new(492.878, 45.113, -620.431), clickDetector = "20 [TacticalShotgun Ammo] - $66"},
-    
-    ["[Taser]"] = {location = Vector3.new(-270.892, 18.9, -102.716), clickDetector = "[Taser] - $1093"},
-    ["[Grenade]"] = {location = Vector3.new(108.825, -29.65, -267.509), clickDetector = "[Grenade] - $765"},
-    
-    ["[Chicken]"] = {location = Vector3.new(300.773, 49.883, -627.567), clickDetector = "[Chicken] - $8"}
-}
-
--- Function to auto-buy a selected item
-local function AutoBuyOnce(itemName)
-    local shopData = ShopLocations[itemName]
-    if not shopData then
-        warn("Item not found in ShopLocations: " .. tostring(itemName))
-        return
-    end
-
-    local player = game.Players.LocalPlayer
-    local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-
-    local originalPos = char.HumanoidRootPart.CFrame
-    char.HumanoidRootPart.CFrame = CFrame.new(shopData.location)
-
-    task.wait(0.35)
-
-    -- Find and trigger ClickDetector
-    local clicked = false
-    for _, part in pairs(workspace:GetDescendants()) do
-        if part:IsA("ClickDetector") and part.Parent.Name == shopData.clickDetector then
-            fireclickdetector(part)
-            clicked = true
-            break
-        end
-    end
-
-    if not clicked then
-        warn("ClickDetector not found for: " .. tostring(itemName))
-    end
-
-    task.wait(0.5)
-    char.HumanoidRootPart.CFrame = originalPos
-end
-
--- UI setup
-miscSection:addDropdown("Select Item", {
-    '[AK47]', '[AK47 Ammo]',
-    '[AUG]', '[AUG Ammo]',
-    '[AR]', '[AR Ammo]',
-    '[Chicken]',
-    '[Double-Barrel SG]', '[Double-Barrel SG Ammo]',
-    '[Drum-Shotgun]', '[Drum-Shotgun Ammo]',
-    '[DrumGun]', '[DrumGun Ammo]',
-    '[Glock]', '[Glock Ammo]',
-    '[LMG]', '[LMG Ammo]',
-    '[P90]', '[P90 Ammo]',
-    '[Revolver]', '[Revolver Ammo]',
-    '[RPG]', '[RPG Ammo]',
-    '[Rifle]', '[Rifle Ammo]',
-    '[Shotgun]', '[Shotgun Ammo]',
-    '[Silencer]', '[Silencer Ammo]',
-    '[SilencerAR]', '[SilencerAR Ammo]',
-    '[TacticalShotgun]', '[TacticalShotgun Ammo]',
-    '[Taser]',
-    '[Armor]', '[Fire Armor]',
-    '[Grenade]'
-}, function(Value)
-    _G.SelectedItem = Value
-end)
-
-miscSection:addSlider("Buy Times", 1, 1, 10, function(value)
-    _G.BuyTimes = value
-end)
-
-miscSection:addButton("Buy", function()
-    if _G.SelectedItem then
-        for i = 1, _G.BuyTimes do
-            AutoBuyOnce(_G.SelectedItem)
-            task.wait(0.5)
-        end
-    else
-        warn("No item selected!")
-    end
-end)
-
--- Teleport Locations
-local TeleportLocations = {
-    ["Bank"] = CFrame.new(-442, 39, -284),
-    ["Inside Bank"] = CFrame.new(-443, 23, -284),
-    ["Vault"] = CFrame.new(-658, -30, -285),
-    ["Mid Appartment Building"] = CFrame.new(-323, 80, -299),
-    ["Revolver"] = CFrame.new(-634, 21, -132),
-    ["LMG"] = CFrame.new(-626, 23, -295),
-    ["Swimming Pool"] = CFrame.new(-847, 21, -279),
-    ["Broken Fire Station"] = CFrame.new(-1182, 28, -521),
-    ["DownHill"] = CFrame.new(-559, 8, -735),
-    ["Military Base"] = CFrame.new(-40, 65, -926),
-    ["Uphill"] = CFrame.new(481, 48, -602),
-    ["Breaking Bad"] = CFrame.new(598, 28, -214),
-    ["Church"] = CFrame.new(205, 21, -124),
-    ["Police Station"] = CFrame.new(-264, 21, -93),
-    ["School"] = CFrame.new(-594, 21, 173)
-}
-
-local SelectedTeleport = nil
-
-miscSection:addDropdown("Teleport Location", {
-    "Bank", "Inside Bank", "Vault", "Mid Appartment Building", "Revolver", "LMG",
-    "Swimming Pool", "Broken Fire Station", "DownHill", "Military Base", "Uphill",
-    "Breaking Bad", "Church", "Police Station", "School"
-}, function(Value)
-    SelectedTeleport = Value
-end)
-
-miscSection:addButton("Teleport", function()
-    if SelectedTeleport and TeleportLocations[SelectedTeleport] then
-        local char = game.Players.LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = TeleportLocations[SelectedTeleport]
-            venyx:Notify("Teleport", "Teleported to " .. SelectedTeleport)
-        else
-            venyx:Notify("Teleport", "Character not found!")
-        end
-    else
-        venyx:Notify("Teleport", "No location selected!")
-    end
-end)
-
--- 🗨️ Show Chat Toggle
-local TextChatService = game:GetService("TextChatService")
-local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
-
--- Mặc định bật
-local ChatEnabled = true
-if chatWindow then
-    chatWindow.Enabled = ChatEnabled
-end
-
-miscSection:addToggle("Show Chat", ChatEnabled, function(state)
-    ChatEnabled = state
-    if chatWindow then
-        chatWindow.Enabled = state
-    end
-end)
-
--- Aura Heal setup (add or replace the aura heal section)
--- Thêm vào đầu script (sau local Players = ...)
 local HitEffectModule = {
     Locals = {
         HitEffect = {
@@ -1218,7 +1106,7 @@ local AuraHealEnabled = false
 local lastHealth = 0
 
 -- Toggle Aura Heal (add to miscSection or appropriate section)
-miscSection:addToggle("Aura Heal", false, function(value)
+auralistSection:addToggle("Aura Heal", false, function(value)
     AuraHealEnabled = value
     venyx:Notify("Aura Heal", value and "ON" or "OFF")
     if value and LocalPlayer.Character then
@@ -1234,7 +1122,7 @@ miscSection:addToggle("Aura Heal", false, function(value)
     end
 end)
 
-miscSection:addColorPicker("Aura Color", Color3.fromRGB(234, 8, 255), function(color)
+auralistSection:addColorPicker("Aura Color", Color3.fromRGB(234, 8, 255), function(color)
     HealingWave1.Color = ColorSequence.new(color)
     HealingWave2.Color = ColorSequence.new(color)
     Sparks.Color = ColorSequence.new(color)
@@ -1280,185 +1168,142 @@ if LocalPlayer.Character and AuraHealEnabled then
     connectAuraHeal(LocalPlayer.Character)
 end
 
--- 🌌 Full Goku Aura (giữ Color gốc, cho phép override bằng ColorPicker)
-local auraEnabled = false
-local auraColor = nil -- nil = dùng màu gốc, còn Color3 = override
-
-local function createEmitter(name, props)
-    local e = Instance.new("ParticleEmitter")
-    e.Name = name
-    for k,v in pairs(props) do
-        if k ~= "Color" then -- để xử lý Color riêng
-            e[k] = v
-        end
-    end
-    -- xử lý Color: nếu auraColor có giá trị -> override
-    if auraColor then
-        e.Color = ColorSequence.new(auraColor)
+auralistSection:addToggle("Blueheat Aura", false, function(value)
+    blueheatEnabled = value
+    venyx:Notify("Blueheat Aura", value and "ON" or "OFF")
+    if value then
+        createBlueheat()
     else
-        e.Color = props.Color
-    end
-    return e
-end
-
--- dữ liệu chuẩn từ aura.rbxmx
-local auraConfigs = {
-    small = {
-        Texture = "rbxassetid://243740013",
-        Rate = 10,
-        Lifetime = NumberRange.new(2,2),
-        Size = NumberSequence.new({NumberSequenceKeypoint.new(0,0.01), NumberSequenceKeypoint.new(1,0)}),
-        Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(1,0)}),
-        Color = ColorSequence.new(Color3.new(1,1,1)),
-        RotSpeed = NumberRange.new(-100,100),
-        Speed = NumberRange.new(0.5,0.5),
-        SpreadAngle = Vector2.new(7,7),
-        ZOffset = 2,
-        LightEmission = 0.5,
-        LockedToPart = true,
-        Enabled = true,
-    },
-    aura3 = {
-        Texture = "rbxassetid://833874434",
-        Rate = 30,
-        Lifetime = NumberRange.new(1,1),
-        Size = NumberSequence.new({NumberSequenceKeypoint.new(0,0.9), NumberSequenceKeypoint.new(1,0)}),
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0,1),
-            NumberSequenceKeypoint.new(0.116564,0.704918),
-            NumberSequenceKeypoint.new(0.654908,0.73224),
-            NumberSequenceKeypoint.new(1,0)
-        }),
-        Color = ColorSequence.new(Color3.new(1,1,1)),
-        RotSpeed = NumberRange.new(-100,100),
-        Speed = NumberRange.new(0.5,0.5),
-        ZOffset = -1,
-        LightEmission = 0.3,
-        LightInfluence = 1,
-        LockedToPart = true,
-        Enabled = true,
-    },
-    aura2 = {
-        Texture = "rbxassetid://833874434",
-        Rate = 50,
-        Lifetime = NumberRange.new(1,1),
-        Size = NumberSequence.new({NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0)}),
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0,1),
-            NumberSequenceKeypoint.new(0.116564,0.704918),
-            NumberSequenceKeypoint.new(0.654908,0.73224),
-            NumberSequenceKeypoint.new(1,0)
-        }),
-        Color = ColorSequence.new(Color3.fromRGB(0,85,0), Color3.fromRGB(255,85,0)), -- gốc xanh lá/đỏ cam
-        RotSpeed = NumberRange.new(-100,100),
-        Speed = NumberRange.new(0.5,0.5),
-        ZOffset = -3,
-        LightEmission = 0.3,
-        LightInfluence = 1,
-        LockedToPart = true,
-        Enabled = true,
-    },
-    aura = {
-        Texture = "rbxassetid://833874434",
-        Rate = 50,
-        Lifetime = NumberRange.new(1,1),
-        Size = NumberSequence.new({NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0)}),
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0,1),
-            NumberSequenceKeypoint.new(0.116564,0.704918),
-            NumberSequenceKeypoint.new(0.654908,0.73224),
-            NumberSequenceKeypoint.new(1,0)
-        }),
-        Color = ColorSequence.new(Color3.fromRGB(0,0,170), Color3.fromRGB(255,0,170)), -- gốc xanh dương/tím
-        RotSpeed = NumberRange.new(-100,100),
-        Speed = NumberRange.new(0.5,0.5),
-        ZOffset = -2,
-        LightEmission = 0.3,
-        LightInfluence = 1,
-        LockedToPart = true,
-        Enabled = true,
-    },
-    ParticleEmitter1 = {
-        Texture = "http://www.roblox.com/asset/?id=242102147",
-        Rate = 100,
-        Lifetime = NumberRange.new(0.6,0.6),
-        Size = NumberSequence.new({NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0)}),
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0,0.96),
-            NumberSequenceKeypoint.new(1,0.96)
-        }),
-        Color = ColorSequence.new(Color3.fromRGB(195,12,12), Color3.fromRGB(255,200,0)), -- gốc vàng cam
-        Speed = NumberRange.new(4,4),
-        Rotation = NumberRange.new(3660,3660),
-        LightEmission = 4,
-        LightInfluence = 4,
-        ZOffset = 1,
-        Enabled = true,
-    },
-    ParticleEmitter2 = {
-        Texture = "http://www.roblox.com/asset/?id=242102147",
-        Rate = 100,
-        Lifetime = NumberRange.new(0.6,0.6),
-        Size = NumberSequence.new({NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0)}),
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0,0.96),
-            NumberSequenceKeypoint.new(1,0.96)
-        }),
-        Color = ColorSequence.new(Color3.fromRGB(98,200,255), Color3.fromRGB(0,255,180)), -- gốc xanh ngọc
-        Speed = NumberRange.new(4,4),
-        Rotation = NumberRange.new(3660,3660),
-        LightEmission = 4,
-        LightInfluence = 4,
-        ZOffset = 1,
-        Enabled = true,
-    },
-}
-
--- attach aura
-local function attachAura(char)
-    for _, part in ipairs(char:GetChildren()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-            for name, props in pairs(auraConfigs) do
-                local emitter = createEmitter(name, props)
-                emitter.Parent = part
-            end
-        end
-    end
-end
-
--- remove aura
-local function removeAura(char)
-    for _, part in ipairs(char:GetChildren()) do
-        if part:IsA("BasePart") then
-            for _, child in ipairs(part:GetChildren()) do
-                if child:IsA("ParticleEmitter") and auraConfigs[child.Name] then
-                    child:Destroy()
-                end
-            end
-        end
-    end
-end
-
--- Toggle
-miscSection:addToggle("Goku Aura Infinity", false, function(state)
-    auraEnabled = state
-    local char = game.Players.LocalPlayer.Character
-    if char then
-        if auraEnabled then
-            attachAura(char)
-        else
-            removeAura(char)
-        end
+        destroyBlueheat()
     end
 end)
 
--- ColorPicker (override màu)
-miscSection:addColorPicker("Aura Color", Color3.fromRGB(255,255,0), function(color)
-    auraColor = color
-    if auraEnabled and game.Players.LocalPlayer.Character then
-        removeAura(game.Players.LocalPlayer.Character)
-        task.wait()
-        attachAura(game.Players.LocalPlayer.Character)
+auralistSection:addColorPicker("Blueheat Color", Color3.new(0.0588235, 0.0588235, 1), function(color)
+    updateBlueheatColor(color)
+    venyx:Notify("Blueheat Color", "Color changed")
+end)
+
+-- Handle character added (respawn)
+game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart")
+    if blueheatEnabled then
+        createBlueheat()
+    end
+end)
+
+-- Initial check if character exists
+local initialChar = game.Players.LocalPlayer.Character
+if initialChar and blueheatEnabled then
+    createBlueheat()
+end
+
+-- Page 3: Misc (Icon: Gear, 5012543246)
+local miscPage = venyx:addPage("Misc", 5012543246)
+local miscSection = miscPage:addSection("Miscellaneous")
+local CurrentFOV = 70
+
+miscSection:addSlider("FOV", 70, 70, 120, function(value)
+    CurrentFOV = value
+    workspace.CurrentCamera.FieldOfView = value
+end)
+
+-- khi nhân vật respawn → giữ FOV cũ
+game.Players.LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5) -- chờ camera load
+    workspace.CurrentCamera.FieldOfView = CurrentFOV
+end)
+
+-- Time Control
+local Lighting = game:GetService("Lighting")
+local timeEnabled = false
+local currentTime = Lighting.ClockTime
+
+-- Toggle bật/tắt chỉnh giờ
+miscSection:addToggle("Custom Time", false, function(value)
+    timeEnabled = value
+    if value then
+        venyx:Notify("Custom Time", "ON")
+        Lighting.ClockTime = currentTime
+    else
+        venyx:Notify("Custom Time", "OFF")
+        -- Khi tắt trả lại đồng hồ thật (optional, bạn có thể bỏ)
+        Lighting.ClockTime = os.date("*t").hour + (os.date("*t").min / 60)
+    end
+end)
+
+-- Slider chỉnh thời gian (0h - 24h)
+miscSection:addSlider("Set Time", 12, 0, 24, function(value)
+    currentTime = value
+    if timeEnabled then
+        Lighting.ClockTime = value
+    end
+end)
+
+miscSection:addSlider("Fog End", 500, 5000, Lighting.FogEnd, function(val)
+    Lighting.FogEnd = val
+end)
+
+miscSection:addColorPicker("Fog Color", Lighting.FogColor, function(color)
+    Lighting.FogColor = color
+end)
+
+-- Teleport Locations
+local TeleportLocations = {
+    ["Bank"] = CFrame.new(-442, 39, -284),
+    ["Inside Bank"] = CFrame.new(-443, 23, -284),
+    ["Vault"] = CFrame.new(-658, -30, -285),
+    ["Mid Appartment Building"] = CFrame.new(-323, 80, -299),
+    ["Revolver"] = CFrame.new(-634, 21, -132),
+    ["LMG"] = CFrame.new(-626, 23, -295),
+    ["Swimming Pool"] = CFrame.new(-847, 21, -279),
+    ["Broken Fire Station"] = CFrame.new(-1182, 28, -521),
+    ["DownHill"] = CFrame.new(-559, 8, -735),
+    ["Military Base"] = CFrame.new(-40, 65, -926),
+    ["Uphill"] = CFrame.new(481, 48, -602),
+    ["Breaking Bad"] = CFrame.new(598, 28, -214),
+    ["Church"] = CFrame.new(205, 21, -124),
+    ["Police Station"] = CFrame.new(-264, 21, -93),
+    ["School"] = CFrame.new(-594, 21, 173)
+}
+
+local SelectedTeleport = nil
+
+miscSection:addDropdown("Teleport Location", {
+    "Bank", "Inside Bank", "Vault", "Mid Appartment Building", "Revolver", "LMG",
+    "Swimming Pool", "Broken Fire Station", "DownHill", "Military Base", "Uphill",
+    "Breaking Bad", "Church", "Police Station", "School"
+}, function(Value)
+    SelectedTeleport = Value
+end)
+
+miscSection:addButton("Teleport", function()
+    if SelectedTeleport and TeleportLocations[SelectedTeleport] then
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = TeleportLocations[SelectedTeleport]
+            venyx:Notify("Teleport", "Teleported to " .. SelectedTeleport)
+        else
+            venyx:Notify("Teleport", "Character not found!")
+        end
+    else
+        venyx:Notify("Teleport", "No location selected!")
+    end
+end)
+
+-- 🗨️ Show Chat Toggle
+local TextChatService = game:GetService("TextChatService")
+local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
+
+-- Mặc định bật
+local ChatEnabled = true
+if chatWindow then
+    chatWindow.Enabled = ChatEnabled
+end
+
+miscSection:addToggle("Show Chat", ChatEnabled, function(state)
+    ChatEnabled = state
+    if chatWindow then
+        chatWindow.Enabled = state
     end
 end)
 
@@ -2426,7 +2271,7 @@ end)
 mm2Section:addButton("Shoot", function()
     task.spawn(shootMurderer)
 end)
-mm2Section:addKeybind("Shoot Keybind", Enum.KeyCode.Q, function()
+mm2Section:addKeybind("Shoot Keybind", Enum.KeyCode.MouseButton3, function()
     task.spawn(shootMurderer)
 end, function()
     venyx:Notify("Shoot Keybind", "Keybind changed!")
