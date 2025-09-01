@@ -22,6 +22,61 @@ end
 -- 1) Apply ngay sau khi tạo venyx
 applyThemeNow()
 
+-- Kiểm tra nếu là thiết bị di động (TouchEnabled)
+if game:GetService("UserInputService").TouchEnabled then
+    -- Tạo ScreenGui cho nút toggle GUI di động
+    if not game.CoreGui:FindFirstChild("MobileToggleGUI") then
+        local mobileGui = Instance.new("ScreenGui")
+        mobileGui.Name = "MobileToggleGUI"
+        mobileGui.ResetOnSpawn = false
+        mobileGui.Parent = game.CoreGui
+
+        local toggleButton = Instance.new("TextButton")
+        toggleButton.Size = UDim2.new(0, 140, 0, 45)
+        toggleButton.Position = UDim2.new(0, 30, 0.9, 0)  -- Vị trí mặc định dưới các nút khác
+        toggleButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        toggleButton.Font = Enum.Font.GothamBold
+        toggleButton.TextSize = 16
+        toggleButton.Text = "Toggle GUI"
+        toggleButton.Parent = mobileGui
+
+        -- UICorner (bo tròn)
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 12)
+        corner.Parent = toggleButton
+
+        -- UIStroke (viền)
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(255, 179, 186)
+        stroke.Thickness = 2
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = toggleButton
+
+        -- Kéo thả (draggable)
+        toggleButton.Active = true
+        toggleButton.Draggable = true
+
+        -- Hiệu ứng hover và bấm (sử dụng TweenService)
+        toggleButton.MouseEnter:Connect(function()
+            TweenService:Create(toggleButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 75, 75)}):Play()
+        end)
+        toggleButton.MouseLeave:Connect(function()
+            TweenService:Create(toggleButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
+        end)
+        toggleButton.MouseButton1Click:Connect(function()
+            local origSize = toggleButton.Size
+            local shrinkPx = 3
+            local toSmall = UDim2.new(origSize.X.Scale, math.max(0, origSize.X.Offset - shrinkPx), origSize.Y.Scale, math.max(0, origSize.Y.Offset - shrinkPx))
+            local t1 = TweenService:Create(toggleButton, TweenInfo.new(0.08), {Size = toSmall})
+            local t2 = TweenService:Create(toggleButton, TweenInfo.new(0.08), {Size = origSize})
+            t1:Play(); t1.Completed:Wait(); t2:Play()
+            venyx:toggle()  -- Toggle GUI
+            venyx:Notify("Mobile Toggle", "GUI toggled!")
+        end)
+    end
+end
+
 local combatPage = venyx:addPage("Combat", 5012540623)
 local combatSection = combatPage:addSection("Combat Features")
 local utility = {}
