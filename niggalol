@@ -2277,11 +2277,67 @@ pcall(initialize)
 local mm2Page = venyx:addPage("Murder Mystery", 5012541386)
 local mm2Section = mm2Page:addSection("Murder Mystery Features")
 
--- Loaded Shoot Toggle Button (Inside GUI)
-mm2Section:addButton("Toggle Loaded Shoot", function()
-    loadedShootVisible = not loadedShootVisible
-    loadedShootButton.Visible = loadedShootVisible
-    venyx:Notify("Loaded Shoot", loadedShootVisible and "Visible" or "Hidden")
+-- External Shoot Button (tạo nút Shoot ngoài GUI, tương tự WalkSpeed)
+local shootQuickButton = nil  -- Biến để lưu nút Shoot ngoài GUI (nếu chưa tồn tại)
+
+mm2Section:addButton("Shoot Loaded", function()
+    if game.CoreGui:FindFirstChild("ShootQuickToggle") then
+        -- Nếu đã tồn tại, toggle visibility
+        local gui = game.CoreGui:FindFirstChild("ShootQuickToggle")
+        gui.Enabled = not gui.Enabled
+        venyx:Notify("Shoot Loaded", gui.Enabled and "Visible" or "Hidden")
+    else
+        -- Tạo mới nếu chưa có
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "ShootQuickToggle"
+        gui.ResetOnSpawn = false
+        gui.Parent = game.CoreGui
+
+        shootQuickButton = Instance.new("TextButton")
+        shootQuickButton.Size = UDim2.new(0, 140, 0, 45)  -- Kích thước tương tự WalkSpeed
+        shootQuickButton.Position = UDim2.new(0, 30, 0.8, 0)  -- Vị trí mặc định dưới WalkSpeed một chút
+        shootQuickButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        shootQuickButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        shootQuickButton.Font = Enum.Font.GothamBold
+        shootQuickButton.TextSize = 16
+        shootQuickButton.Text = "Shoot"
+        shootQuickButton.Parent = gui
+
+        -- UICorner (bo tròn)
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 12)
+        corner.Parent = shootQuickButton
+
+        -- UIStroke (viền)
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(255, 179, 186)  -- Màu viền giống theme
+        stroke.Thickness = 2
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = shootQuickButton
+
+        -- Kéo thả (draggable)
+        shootQuickButton.Active = true
+        shootQuickButton.Draggable = true
+
+        -- Hiệu ứng khi hover và bấm (tương tự attachButtonEffects trong script gốc)
+        shootQuickButton.MouseEnter:Connect(function()
+            TweenService:Create(shootQuickButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 75, 75)}):Play()
+        end)
+        shootQuickButton.MouseLeave:Connect(function()
+            TweenService:Create(shootQuickButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
+        end)
+        shootQuickButton.MouseButton1Click:Connect(function()
+            local origSize = shootQuickButton.Size
+            local shrinkPx = 3  -- Shrink giống script gốc
+            local toSmall = UDim2.new(origSize.X.Scale, math.max(0, origSize.X.Offset - shrinkPx), origSize.Y.Scale, math.max(0, origSize.Y.Offset - shrinkPx))
+            local t1 = TweenService:Create(shootQuickButton, TweenInfo.new(0.08), {Size = toSmall})
+            local t2 = TweenService:Create(shootQuickButton, TweenInfo.new(0.08), {Size = origSize})
+            t1:Play(); t1.Completed:Wait(); t2:Play()
+            task.spawn(shootMurderer)  -- Gọi function shootMurderer khi bấm
+        end)
+
+        venyx:Notify("Shoot Loaded", "Button created and visible!")
+    end
 end)
 
 -- Shoot Button with Keybind (Matching other keybinds like Target Lock)
