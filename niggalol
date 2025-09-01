@@ -77,22 +77,10 @@ if game:GetService("UserInputService").TouchEnabled then
                 t2:Play()
             end)
 
-            -- Toggle GUI
-            pcall(function()
-                venyx:toggle()
-                -- Debug trạng thái
-                print("Mobile Toggle GUI clicked, new state: " .. tostring(venyx.toggled))
-                -- Thông báo trạng thái
-                venyx:Notify("Mobile Toggle", "GUI " .. (venyx.toggled and "Opened" or "Closed"))
-            end)
-            -- Phương án dự phòng: trực tiếp toggle ScreenGui của Venyx
-            local gui = game.CoreGui:FindFirstChild("nigga.lol(vhuydeptraivl)")
-            if gui then
-                gui.Enabled = not gui.Enabled
-                print("Manually toggled GUI, new Enabled state: " .. tostring(gui.Enabled))
-            else
-                print("Error: Could not find Venyx GUI in CoreGui")
-            end
+            -- Giả lập nhấn phím RightShift
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, game)
+            wait() -- Đợi một chút để giả lập nhấn phím
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, game)
         end)
     end
 end
