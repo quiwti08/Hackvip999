@@ -2277,8 +2277,7 @@ pcall(initialize)
 local mm2Page = venyx:addPage("Murder Mystery", 5012541386)
 local mm2Section = mm2Page:addSection("Murder Mystery Features")
 
--- External Shoot Button (tạo nút Shoot ngoài GUI, tương tự WalkSpeed)
-local shootQuickButton = nil  -- Biến để lưu nút Shoot ngoài GUI (nếu chưa tồn tại)
+local shootQuickButton = nil  
 
 mm2Section:addButton("Shoot Loaded", function()
     if game.CoreGui:FindFirstChild("ShootQuickToggle") then
@@ -2340,7 +2339,6 @@ mm2Section:addButton("Shoot Loaded", function()
     end
 end)
 
--- Shoot Button with Keybind (Matching other keybinds like Target Lock)
 mm2Section:addButton("Shoot", function()
     task.spawn(shootMurderer)
 end)
