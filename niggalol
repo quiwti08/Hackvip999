@@ -1169,6 +1169,100 @@ if initialChar then
     end
 end
 
+local player = Players.LocalPlayer
+
+local animationBaseUrl = "http://www.roblox.com/asset/?id="
+
+-- 🔥 Full Animation Presets
+local animations = {
+    R15 = { idle=animationBaseUrl.."2510196951", walk=animationBaseUrl.."2510202577", run=animationBaseUrl.."2510198475", jump=animationBaseUrl.."2510197830", climb=animationBaseUrl.."2510192778", fall=animationBaseUrl.."2510195892" },
+    Loser = { idle=animationBaseUrl.."782841498", walk=animationBaseUrl.."616168032", run=animationBaseUrl.."616163682", jump=animationBaseUrl.."1083218792", climb=animationBaseUrl.."1083439238", fall=animationBaseUrl.."707829716" },
+    Astronaut = { idle=animationBaseUrl.."891621366", jump=animationBaseUrl.."891627522", fall=animationBaseUrl.."891617961", walk=animationBaseUrl.."891667138", run=animationBaseUrl.."891636393", climb=animationBaseUrl.."891609353" },
+    Bubbly = { idle=animationBaseUrl.."910004836", jump=animationBaseUrl.."910016857", fall=animationBaseUrl.."910001910", walk=animationBaseUrl.."910034870", run=animationBaseUrl.."910025107", climb=animationBaseUrl.."940996062" },
+    Cartoony = { idle=animationBaseUrl.."742637544", jump=animationBaseUrl.."742637942", fall=animationBaseUrl.."742637151", walk=animationBaseUrl.."742640026", run=animationBaseUrl.."742638842", climb=animationBaseUrl.."742636889" },
+    Confident = { idle=animationBaseUrl.."1069977950", jump=animationBaseUrl.."1069984524", fall=animationBaseUrl.."1069973677", walk=animationBaseUrl.."1070017263", run=animationBaseUrl.."1070001516", climb=animationBaseUrl.."1069946257" },
+    Cowboy = { idle=animationBaseUrl.."1014390418", jump=animationBaseUrl.."1014394726", fall=animationBaseUrl.."1014384571", walk=animationBaseUrl.."1014421541", run=animationBaseUrl.."1014401683", climb=animationBaseUrl.."1014380606" },
+    Elder = { idle=animationBaseUrl.."845397899", jump=animationBaseUrl.."845398858", fall=animationBaseUrl.."845396048", walk=animationBaseUrl.."845403856", run=animationBaseUrl.."845386501", climb=animationBaseUrl.."845392038" },
+    Knight = { idle=animationBaseUrl.."657595757", jump=animationBaseUrl.."658409194", fall=animationBaseUrl.."657600338", walk=animationBaseUrl.."657552124", run=animationBaseUrl.."657564596", climb=animationBaseUrl.."658360781" },
+    Levitation = { idle=animationBaseUrl.."616006778", jump=animationBaseUrl.."616008936", fall=animationBaseUrl.."616005863", walk=animationBaseUrl.."616013216", run=animationBaseUrl.."616010382", climb=animationBaseUrl.."616003713" },
+    Mage = { idle=animationBaseUrl.."707742142", jump=animationBaseUrl.."707853694", fall=animationBaseUrl.."707829716", walk=animationBaseUrl.."707897309", run=animationBaseUrl.."707861613", climb=animationBaseUrl.."707826056" },
+    Ninja = { idle=animationBaseUrl.."656117400", jump=animationBaseUrl.."656117878", fall=animationBaseUrl.."656115606", walk=animationBaseUrl.."656121766", run=animationBaseUrl.."656118852", climb=animationBaseUrl.."656114359" },
+    Patrol = { idle=animationBaseUrl.."1149612882", jump=animationBaseUrl.."1148811837", fall=animationBaseUrl.."1148863382", walk=animationBaseUrl.."1151231493", run=animationBaseUrl.."1150967949", climb=animationBaseUrl.."1148811837" },
+    Pirate = { idle=animationBaseUrl.."750781874", jump=animationBaseUrl.."750782230", fall=animationBaseUrl.."750780242", walk=animationBaseUrl.."750785693", run=animationBaseUrl.."750783738", climb=animationBaseUrl.."750779899" },
+    Popstar = { idle=animationBaseUrl.."1212900985", jump=animationBaseUrl.."1212954642", fall=animationBaseUrl.."1212900995", walk=animationBaseUrl.."1212980338", run=animationBaseUrl.."1212980348", climb=animationBaseUrl.."1213044953" },
+    Princess = { idle=animationBaseUrl.."941003647", jump=animationBaseUrl.."941008832", fall=animationBaseUrl.."941000007", walk=animationBaseUrl.."941028902", run=animationBaseUrl.."941015281", climb=animationBaseUrl.."940996062" },
+    Robot = { idle=animationBaseUrl.."616088211", jump=animationBaseUrl.."616090535", fall=animationBaseUrl.."616087089", walk=animationBaseUrl.."616095330", run=animationBaseUrl.."616091570", climb=animationBaseUrl.."616086039" },
+    Sneaky = { idle=animationBaseUrl.."1132473842", jump=animationBaseUrl.."1132489853", fall=animationBaseUrl.."1132469004", walk=animationBaseUrl.."1132510133", run=animationBaseUrl.."1132494274", climb=animationBaseUrl.."1132461372" },
+    Stylish = { idle=animationBaseUrl.."616136790", jump=animationBaseUrl.."616139451", fall=animationBaseUrl.."616134815", walk=animationBaseUrl.."616146177", run=animationBaseUrl.."616140816", climb=animationBaseUrl.."616133594" },
+    Superhero = { idle=animationBaseUrl.."616111295", jump=animationBaseUrl.."616115533", fall=animationBaseUrl.."616108001", walk=animationBaseUrl.."616122287", run=animationBaseUrl.."616117076", climb=animationBaseUrl.."616104706" },
+    Toy = { idle=animationBaseUrl.."782841498", jump=animationBaseUrl.."782847020", fall=animationBaseUrl.."782846423", walk=animationBaseUrl.."782843345", run=animationBaseUrl.."782842708", climb=animationBaseUrl.."782843869" },
+    Vampire = { idle=animationBaseUrl.."1083445855", jump=animationBaseUrl.."1083455352", fall=animationBaseUrl.."1083443587", walk=animationBaseUrl.."1083473930", run=animationBaseUrl.."1083462077", climb=animationBaseUrl.."1083439238" },
+    Werewolf = { idle=animationBaseUrl.."1083195517", jump=animationBaseUrl.."1083218792", fall=animationBaseUrl.."1083189019", walk=animationBaseUrl.."1083178339", run=animationBaseUrl.."1083216690", climb=animationBaseUrl.."1083182000" },
+    Zombie = { idle=animationBaseUrl.."616158929", jump=animationBaseUrl.."616161997", fall=animationBaseUrl.."616157476", walk=animationBaseUrl.."616168032", run=animationBaseUrl.."616163682", climb=animationBaseUrl.."616156119" },
+    RealisticZombie = { idle=animationBaseUrl.."3489171152", jump=animationBaseUrl.."616161997", fall=animationBaseUrl.."616157476", walk=animationBaseUrl.."3489174223", run=animationBaseUrl.."3489173414", climb=animationBaseUrl.."616156119" },
+}
+
+-- Lưu preset đã chọn cho từng loại anim
+local currentAnimationPresets = { idle="Zombie", walk="R15", run="Zombie", jump="Ninja", climb="R15", fall="Mage" }
+
+-- Danh sách preset name
+local animationPresetNames = {}
+for k,_ in pairs(animations) do table.insert(animationPresetNames, k) end
+
+-- Áp dụng 1 anim
+local function applyAnimation(animate, presetName, animationType)
+    local preset = animations[presetName]
+    if not preset then return end
+    local animId = preset[animationType]
+    if not animId then return end
+
+    if animationType == "idle" and animate.idle and animate.idle:FindFirstChild("Animation1") then
+        animate.idle.Animation1.AnimationId = animId
+    elseif animationType == "walk" and animate.walk and animate.walk:FindFirstChild("WalkAnim") then
+        animate.walk.WalkAnim.AnimationId = animId
+    elseif animationType == "run" and animate.run and animate.run:FindFirstChild("RunAnim") then
+        animate.run.RunAnim.AnimationId = animId
+    elseif animationType == "jump" and animate.jump and animate.jump:FindFirstChild("JumpAnim") then
+        animate.jump.JumpAnim.AnimationId = animId
+    elseif animationType == "climb" and animate.climb and animate.climb:FindFirstChild("ClimbAnim") then
+        animate.climb.ClimbAnim.AnimationId = animId
+    elseif animationType == "fall" and animate.fall and animate.fall:FindFirstChild("FallAnim") then
+        animate.fall.FallAnim.AnimationId = animId
+    end
+end
+
+-- Áp dụng theo lựa chọn
+local function applySelectedAnimation(animationType)
+    local char = player.Character
+    if not char then return end
+    local animate = char:FindFirstChild("Animate")
+    if not animate then return end
+    local presetName = currentAnimationPresets[animationType]
+    applyAnimation(animate, presetName, animationType)
+end
+
+-- UI (miscSection đã có sẵn trong file)
+local animationTypes = {"idle","walk","run","jump","climb","fall"}
+for _, animType in ipairs(animationTypes) do
+    local displayName = animType:sub(1,1):upper()..animType:sub(2)
+    auralistSection:addDropdown(displayName.." Animation", animationPresetNames, function(value)
+        currentAnimationPresets[animType] = value
+        venyx:Notify(displayName, "Selected: "..value)
+    end)
+    auralistSection:addButton("Apply "..displayName, function()
+        applySelectedAnimation(animType)
+        venyx:Notify("Animation", displayName.." set to "..currentAnimationPresets[animType])
+    end)
+end
+
+-- Auto apply khi respawn
+player.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart", 5)
+    for _, animType in ipairs(animationTypes) do
+        applySelectedAnimation(animType)
+    end
+end)
+
 -- Page 3: Misc (Icon: Gear, 5012543246)
 local miscPage = venyx:addPage("Misc", 5012543246)
 local miscSection = miscPage:addSection("Miscellaneous")
