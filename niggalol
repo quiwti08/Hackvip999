@@ -10,9 +10,8 @@ local themes = {
     TextColor = Color3.fromRGB(255, 179, 186)
 }
 
-local venyx = library.new("nigga.lol(vhuydeptraivl)", 11351620355)
+local venyx = library.new("nigga.lol(vhuydeptraivl)")
 
--- Hàm apply theme an toàn (tương thích vài fork khác nhau)
 local function applyThemeNow()
     for k, c in pairs(themes) do
         pcall(function() venyx:setTheme(k, c) end)
@@ -22,27 +21,6 @@ end
 
 -- 1) Apply ngay sau khi tạo venyx
 applyThemeNow()
-
--- Make background images visible (set transparency to 0)
-venyx.container.Main.ImageTransparency = 0  -- Main background visible
-venyx.container.Main.Glow.ImageTransparency = 0  -- Glow visible
-venyx.container.Main.Pages.ImageTransparency = 0  -- Pages background visible
-venyx.container.Main.TopBar.ImageTransparency = 0  -- TopBar visible
-
--- Adjust title and add icon next to title on the right
-local titleLabel = venyx.container.Main.TopBar.Title
-titleLabel.Size = UDim2.new(0.7, 0, 0, 16)  -- Adjust size for icon
-titleLabel.Position = UDim2.new(0, 12, 0.5, -8)  -- Center vertically, align left
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left  -- Keep text left-aligned
-local icon = venyx.container.Main.TopBar:FindFirstChild("Icon") or Instance.new("ImageLabel")
-icon.Name = "Icon"
-icon.BackgroundTransparency = 1
-icon.Position = UDim2.new(0.85, -24, 0.5, -8)
-icon.Size = UDim2.new(0, 16, 0, 16)
-icon.Image = "rbxassetid://11351620355"  
-icon.ImageTransparency = 0 
-icon.ZIndex = 5  -- Above other elements
-icon.Parent = venyx.container.Main.TopBar
 
 local combatPage = venyx:addPage("Combat", 5012540623)
 local combatSection = combatPage:addSection("Combat Features")
@@ -84,137 +62,162 @@ UIS.InputEnded:Connect(function(i)
     end
 end)
 
-local tbEnabled = false
-local fovRadius = 20
-local hitParts = {
-    "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
-    "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
-    "RightUpperLeg", "RightLowerLeg", "RightFoot", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"
-}
-
-getgenv().GetNearestTarget = function()
-    local AimlockTarget, Closest = nil, 1 / 0
- 
-    for _, v in pairs(game:GetService("Players"):GetPlayers()) do
-        if (v.Character and v ~= Client and v.Character:FindFirstChild("HumanoidRootPart")) then
-            local Position, OnScreen = Camera:WorldToScreenPoint(v.Character.HumanoidRootPart.Position)
-            local Distance = (Vec2(Position.X, Position.Y) - Vec2(Mouse.X, Mouse.Y)).Magnitude
-            if Settings.Main.CheckForWalls then
-                if
-                    (Circle.Radius > Distance and Distance < Closest and OnScreen and
-                        getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {Client, v.Character}))
-                 then
-                    Closest = Distance
-                    AimlockTarget = v
-                end
-            elseif Settings.Main.UseCircleRadius then
-                if
-                    (Circle.Radius > Distance and Distance < Closest and OnScreen and
-                        getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {Client, v.Character}))
-                 then
-                    Closest = Distance
-                    AimlockTarget = v
-                end
-            else
-                if (Circle.Radius > Distance and Distance < Closest and OnScreen) then
-                    Closest = Distance
-                    AimlockTarget = v
-                end
-            end
-        end
-    end
-    return AimlockTarget
-end
-local function distToCursor(part)
-    local v, vis = game.Workspace.CurrentCamera:WorldToViewportPoint(part.Position)
-    if not vis then return math.huge end
-    local m = UIS.TouchEnabled and Vector2.new(game.Workspace.CurrentCamera.ViewportSize.X / 2, game.Workspace.CurrentCamera.ViewportSize.Y / 2) or UIS:GetMouseLocation()
-    return (Vector2.new(v.X, v.Y) - Vector2.new(m.X, m.Y)).Magnitude
-end
-local function GetBestTargetPart(targetChar)
-    local bestPart, bestDist = nil, fovRadius
-    if targetChar then
-        for _, partName in ipairs(hitParts) do
-            local part = targetChar:FindFirstChild(partName)
-            if part and part:IsA("BasePart") then
-                local dist = distToCursor(part)
-                if dist < bestDist then
-                    bestPart = part
-                    bestDist = dist
-                end
-            end
-        end
-    end
-    return bestPart
-end
-combatSection:addToggle("TriggerBot", false, function(value)
-    tbEnabled = value
-    venyx:Notify("TriggerBot", value and "ON" or "OFF")
-end)
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
 
 local selectedPlayer = nil
+local playerDropdown -- giữ reference dropdown
 
--- Tạo danh sách player (trừ bản thân)
+-- ⚡ Tạo danh sách player (DisplayName + Name)
 local function getPlayerList()
     local list = {}
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then
-            table.insert(list, plr.Name)
+            table.insert(list, plr.DisplayName .. " (@" .. plr.Name .. ")")
         end
     end
     return list
 end
 
--- Dropdown chọn player
-combatSection:addDropdown("Select Player", getPlayerList(), function(value)
-    selectedPlayer = Players:FindFirstChild(value)
+-- 🔍 Tìm player từ DisplayName
+local function findPlayerByDisplay(display)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local displayFull = plr.DisplayName .. " (@" .. plr.Name .. ")"
+            if displayFull == display then
+                return plr
+            end
+        end
+    end
+    return nil
+end
+
+-- 📌 Dropdown chọn player
+playerDropdown = combatSection:addDropdown("Select Player", getPlayerList(), function(value)
+    selectedPlayer = findPlayerByDisplay(value)
 end)
 
--- Biến lưu trạng thái View
-local viewing = false
+-- ===================== 📷 VIEW =====================
 local lastSubject = Camera.CameraSubject
 
--- Nút View: toggle góc nhìn
-combatSection:addButton("View", function()
+combatSection:addToggle("View Player", false, function(state)
     if not selectedPlayer then return end
     if not selectedPlayer.Character or not selectedPlayer.Character:FindFirstChild("Head") then return end
 
-    if not viewing then
-        -- Bắt đầu view
+    if state then
         lastSubject = Camera.CameraSubject
         Camera.CameraSubject = selectedPlayer.Character.Head
-        viewing = true
-        venyx:Notify("View", "Đang view: " .. selectedPlayer.Name)
+        venyx:Notify("View", "Đang xem " .. selectedPlayer.DisplayName)
     else
-        -- Tắt view, trả về camera gốc
         Camera.CameraSubject = lastSubject or LocalPlayer.Character:FindFirstChild("Humanoid")
-        viewing = false
         venyx:Notify("View", "Tắt view")
     end
 end)
 
--- Nút Go To: teleport đến player
-combatSection:addButton("Go To", function()
-    if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+-- ===================== ⚡ GO TO (1 lần) =====================
+combatSection:addToggle("Go To Player", false, function(state, toggleObj)
+    if state then
+        if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local targetHRP = selectedPlayer.Character.HumanoidRootPart
+            if myHRP and targetHRP then
+                myHRP.CFrame = targetHRP.CFrame + Vector3.new(0, 3, 0)
+                venyx:Notify("Go To", "Đã dịch chuyển tới " .. selectedPlayer.DisplayName)
+            end
+        end
+        -- 🔄 Tắt toggle ngay sau khi dịch chuyển
+        task.delay(0.1, function()
+            toggleObj:Set(false)
+        end)
+    end
+end)
+
+-- ===================== 🌀 LOOP BRING =====================
+local loopBring = false
+
+combatSection:addToggle("Loop Bring", false, function(state)
+    loopBring = state
+    venyx:Notify("Loop Bring", loopBring and "ON" or "OFF")
+end)
+
+-- Hàm nhấn phím G
+local function pressKeyG()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
+    task.wait()
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
+end
+
+-- Check KO
+local function isKO(character)
+    if not character then return false end
+    local hum = character:FindFirstChildOfClass("Humanoid")
+    if hum and hum.Health <= 0 then
+        return true
+    end
+    local be = character:FindFirstChild("BodyEffects")
+    if be and be:FindFirstChild("K.O") and be["K.O"].Value == true then
+        return true
+    end
+    return false
+end
+
+-- Check đang Grab (GRABBING_CONSTRAINT tồn tại)
+local function isGrabbed(character)
+    return character and character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+end
+
+local grabbingInProgress = false
+
+RunService.Heartbeat:Connect(function()
+    if loopBring and selectedPlayer and selectedPlayer.Character then
+        local targetChar = selectedPlayer.Character
+        local targetHRP = targetChar:FindFirstChild("UpperTorso")
+        local myChar = LocalPlayer.Character
+        local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+        if targetHRP and myHRP then
+            if isKO(targetChar) and not grabbingInProgress then
+                -- Target KO → TP mình đến họ 1 lần
+                grabbingInProgress = true
+                local originalCFrame = myHRP.CFrame
+
+                myHRP.CFrame = targetHRP.CFrame + Vector3.new(0, 2, 0)
+                task.wait(0.25)
+                pressKeyG()
+
+                -- Chờ đến khi mình grab được target
+                task.spawn(function()
+                    local timeout = tick() + 3
+                    while loopBring and not isGrabbed(myChar) and tick() < timeout do
+                        task.wait(0.05)
+                    end
+                    -- Trở về chỗ cũ nếu vẫn tồn tại
+                    if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                        myHRP.CFrame = originalCFrame
+                    end
+                    grabbingInProgress = false
+                end)
+            else
+                -- Nếu target chưa KO → cứ kéo target đứng trước mặt mình
+                if not grabbingInProgress then
+                    targetHRP.CFrame = myHRP.CFrame * CFrame.new(0, 0, -2)
+                end
+            end
         end
     end
 end)
 
--- Tự động update danh sách player khi có người join/leave
-Players.PlayerAdded:Connect(function()
-    combatSection:updateDropdown(combatSection:getModule("Select Player"), nil, getPlayerList())
-end)
+-- ===================== 🔄 AUTO UPDATE LIST =====================
+local function refreshDropdown()
+    if playerDropdown then
+        playerDropdown:Update(getPlayerList())
+    end
+end
 
-Players.PlayerRemoving:Connect(function()
-    combatSection:updateDropdown(combatSection:getModule("Select Player"), nil, getPlayerList())
-end)
+Players.PlayerAdded:Connect(refreshDropdown)
+Players.PlayerRemoving:Connect(refreshDropdown)
 
 getgenv().HitboxEnabled = false
 getgenv().HitboxTransparency = 0.9
@@ -230,22 +233,6 @@ combatSection:addSlider("Hitbox Size", 15, 5, 50, function(value)
     getgenv().HitboxSize = value
 end)
 
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local function click()
-    if UIS.TouchEnabled then
-        local touchPos = UIS:GetMouseLocation()
-        VirtualInputManager:SendTouchEvent(0, Enum.UserInputState.Begin, touchPos)
-        task.wait()
-        VirtualInputManager:SendTouchEvent(0, Enum.UserInputState.End, touchPos)
-    else
-        if mouse1press then
-            mouse1press()
-            mouse1release()
-        elseif mouse1click then
-            mouse1click()
-        end
-    end
-end
 game:GetService("RunService").RenderStepped:Connect(function()
     if getgenv().HitboxEnabled then
         for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
@@ -272,44 +259,6 @@ game:GetService("RunService").RenderStepped:Connect(function()
             end
         end
     end
-    if tbEnabled then
-        local AimlockTarget = GetNearestTarget()
-        local part = GetBestTargetPart(AimlockTarget and AimlockTarget.Character)
-        if part then
-            task.spawn(function()
-                local cap = part
-                task.wait(0)
-                if tbEnabled and distToCursor(cap) <= fovRadius then
-                    local origin = game.Workspace.CurrentCamera.CFrame.Position
-                    local direction = (cap.Position - origin)
-                    local rayParams = RaycastParams.new()
-                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                    rayParams.FilterDescendantsInstances = {game.Players.LocalPlayer.Character}
-                    local result = game.Workspace:Raycast(origin, direction, rayParams)
-                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
-                        if UIS.TouchEnabled and not UIS.MouseEnabled then
-                            local char = game.Players.LocalPlayer.Character
-                            local fired = false
-                            if char then
-                                for _, tool in ipairs(char:GetChildren()) do
-                                    if tool:IsA("Tool") then
-                                        pcall(function() tool:Activate() end)
-                                        fired = true
-                                        break
-                                    end
-                                end
-                            end
-                            if not fired then
-                                click()
-                            end
-                        else
-                            click()
-                        end
-                    end
-                end
-            end)
-        end
-    end
 end)
 
 combatSection:addToggle("Aimlock", true, function(value)
@@ -327,7 +276,7 @@ combatSection:addToggle("Desync Resolver", false, function(value)
     venyx:Notify("UnderGround Resolver", value and "ON" or "OFF")
 end)
 combatSection:addToggle("DetectDesync Resolver", true, function(value)
-    getgenv().Settings.Resolver.DetectDesync = true
+    getgenv().Settings.Resolver.DetectDesync = value
     venyx:Notify("DetectDesync Resolver", value and "ON" or "OFF")
 end)
 combatSection:addDropdown("Aim Part", {"Head", "HumanoidRootPart", "UpperTorso"}, function(value)
@@ -794,7 +743,7 @@ end
 local function createAw()
     local character = game.Players.LocalPlayer.Character
     if not character then return end
-    awHrp = character:FindFirstChild("HumanoidRootPart")
+    awHrp = character:FindFirstChild("UpperTorso")
     if not awHrp then return end
     
     destroyAw()
@@ -1269,6 +1218,51 @@ end)
 miscSection:addColorPicker("Fog Color", Lighting.FogColor, function(color)
     Lighting.FogColor = color
 end)
+
+-- Auto Armor Button (Da Hood Shop scan style)
+miscSection:addButton("Auto Armor", function()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+    local hrp = char.HumanoidRootPart
+    local originalCFrame = hrp.CFrame
+
+    -- Teleport tới vị trí Armor shop
+    hrp.CFrame = CFrame.new(-934.26, -28.50, 566.75)
+    task.wait(0.5)
+
+    -- Tìm folder chứa Shop
+    local Ignored = workspace:FindFirstChild("Ignored") or workspace:FindFirstChild("MAP") or workspace:FindFirstChild("Blacklisted")
+    if Ignored then
+        local Shop = Ignored:FindFirstChild("Shop") or Ignored:FindFirstChild("Shops") or Ignored:FindFirstChild("Pads") or Ignored:FindFirstChild("BuyPads") or Ignored:FindFirstChild("Bought")
+        if Shop then
+            for _, model in ipairs(Shop:GetChildren()) do
+                if model.Name:lower():find("armor") and model:IsA("Model") then
+                    local cd = model:FindFirstChildOfClass("ClickDetector")
+                    local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
+                    if cd and head and head:IsA("BasePart") then
+                        local dist = (head.Position - hrp.Position).Magnitude
+                        if dist <= 10 then
+                            -- Spam để chắc chắn mua được
+                            for i = 1, 5 do
+                                pcall(function() fireclickdetector(cd) end)
+                                task.wait(0.05)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    task.wait(0.5)
+    -- Trả về vị trí cũ
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        hrp.CFrame = originalCFrame
+    end
+end)
+
 
 -- Teleport Locations
 local TeleportLocations = {
