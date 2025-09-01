@@ -1,3 +1,567 @@
+-- Services
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local localplayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- Configuration
+local ESP_ENABLED = false
+local SHOOT_OFFSET = 2.8
+local OFFSET_TO_PING_MULT = 1
+local UPDATE_INTERVAL = 0.5
+local RANDOM_DELAY = 0.1
+local MAX_COIN_DISTANCE = 100
+local ANTI_CHEAT_DELAY = 0.05
+
+-- Variables
+local playerData = {}
+local espActive = ESP_ENABLED
+local lastUpdate = tick()
+local autoFarm = false
+local lastShot = tick()
+local isScriptRunning = false
+
+-- ESP Container
+local espcontainer = {
+    objects = {},
+    Add = function(self, object, config)
+        if not espActive then return end
+        pcall(function()
+            if self.objects[object] then
+                self.objects[object].highlight:Destroy()
+                self.objects[object] = nil
+            end
+            local highlight = Instance.new("Highlight")
+            highlight.Parent = object
+            highlight.FillColor = config.AccentColor
+            highlight.OutlineColor = config.AccentColor
+            highlight.FillTransparency = 0.5
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            self.objects[object] = { highlight = highlight }
+            if config.ShowLabel then
+                local billboard = Instance.new("BillboardGui")
+                billboard.Parent = object
+                billboard.Size = UDim2.new(0, 100, 0, 30)
+                billboard.StudsOffset = Vector3.new(0, 3, 0)
+                billboard.AlwaysOnTop = true
+                local textLabel = Instance.new("TextLabel")
+                textLabel.Parent = billboard
+                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                textLabel.BackgroundTransparency = 1
+                textLabel.Text = config.LabelText
+                textLabel.TextColor3 = config.AccentColor
+                textLabel.TextScaled = true
+            end
+        end)
+    end,
+    RemoveGroup = function(self, groupName)
+        for object, data in pairs(self.objects) do
+            if data.group == groupName then
+                pcall(function()
+                    data.highlight:Destroy()
+                    if data.billboard then data.billboard:Destroy() end
+                end)
+                self.objects[object] = nil
+            end
+        end
+    end,
+    ClearAllGroups = function(self)
+        for object, data in pairs(self.objects) do
+            pcall(function()
+                data.highlight:Destroy()
+                if data.billboard then data.billboard:Destroy() end
+            end)
+        end
+        self.objects = {}
+    end
+}
+
+-- Game checks
+local function isMurderMystery2()
+    return ReplicatedStorage:FindFirstChild("Remotes") 
+        and ReplicatedStorage.Remotes:FindFirstChild("Gameplay")
+end
+
+local function getMap()
+    for _, o in ipairs(Workspace:GetChildren()) do
+        if o:GetAttribute("MapID") and o:FindFirstChild("CoinContainer") and o:FindFirstChild("Spawns") then
+            return o
+        end
+    end
+    return nil
+end
+
+-- Role detection
+local function findMurderer()
+    if playerData then
+        for player, data in pairs(playerData) do
+            if data.Role == "Murderer" then
+                local plr = Players:FindFirstChild(player)
+                if plr and plr.Character then
+                    return plr
+                end
+            end
+        end
+    end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localplayer and plr.Character then
+            if plr.Backpack:FindFirstChild("Knife") or (plr.Character and plr.Character:FindFirstChild("Knife")) then
+                return plr
+            end
+        end
+    end
+    return nil
+end
+
+local function findSheriff()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character and (plr.Backpack:FindFirstChild("Gun") or (plr.Character and plr.Character:FindFirstChild("Gun"))) then
+            return plr
+        end
+    end
+    if playerData then
+        for player, data in pairs(playerData) do
+            if data.Role == "Sheriff" then
+                local plr = Players:FindFirstChild(player)
+                if plr and plr.Character then
+                    return plr
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function findSheriffThatsNotMe()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localplayer and plr.Character and (plr.Backpack:FindFirstChild("Gun") or (plr.Character and plr.Character:FindFirstChild("Gun"))) then
+            return plr
+        end
+    end
+    if playerData then
+        for player, data in pairs(playerData) do
+            if data.Role == "Sheriff" and Players:FindFirstChild(player) ~= localplayer then
+                local plr = Players:FindFirstChild(player)
+                if plr and plr.Character then
+                    return plr
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- ESP functions
+local function reloadESP()
+    if not espActive then return end
+    espcontainer:RemoveGroup("players")
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character and player ~= localplayer then
+            task.spawn(function()
+                if player == findMurderer() then
+                    espcontainer:Add(player.Character, {
+                        AccentColor = Color3.new(1, 0, 0.0156863),
+                        ArrowShow = true,
+                        ArrowMinDistance = 999999,
+                        ArrowSize = UDim2.new(0, 40, 0, 40),
+                        LabelText = "Murderer",
+                        ShowLabel = true,
+                        GroupName = "players"
+                    })
+                elseif player == findSheriff() then
+                    espcontainer:Add(player.Character, {
+                        AccentColor = Color3.new(0, 0.6, 1),
+                        ArrowShow = false,
+                        ShowLabel = false,
+                        GroupName = "players"
+                    })
+                else
+                    espcontainer:Add(player.Character, {
+                        AccentColor = Color3.new(0, 1, 0.0313725),
+                        ArrowShow = false,
+                        ShowLabel = false,
+                        GroupName = "players"
+                    })
+                end
+            end)
+        end
+    end
+end
+
+-- Predicted position
+local function getPredictedPosition(player, shootOffset)
+    local success, result = pcall(function()
+        if not player.Character then
+            return Vector3.new(0, 0, 0)
+        end
+        local playerHRP = player.Character:FindFirstChild("UpperTorso")
+        local playerHum = player.Character:FindFirstChild("Humanoid")
+        if not playerHRP or not playerHum then
+            return Vector3.new(0, 0, 0)
+        end
+        local playerPosition = playerHRP.Position
+        local velocity = playerHRP.AssemblyLinearVelocity
+        local playerMoveDirection = playerHum.MoveDirection
+        local predictedPosition = playerPosition + (velocity * Vector3.new(0, 0.5, 0)) * (shootOffset / 15) + playerMoveDirection * shootOffset
+        predictedPosition = predictedPosition * (((localplayer:GetNetworkPing() * 1000) * ((OFFSET_TO_PING_MULT - 1) * 0.01)) + 1)
+        return predictedPosition
+    end)
+    if not success then
+        return Vector3.new(0, 0, 0)
+    end
+    return result
+end
+
+-- Shoot Murderer
+local function shootMurderer()
+    if tick() - lastShot < 0.5 then return end 
+    lastShot = tick()
+    if findSheriff() ~= localplayer then
+        return
+    end
+    local murderer = findMurderer() or findSheriffThatsNotMe()
+    if not murderer then
+        return
+    end
+    if not localplayer.Character:FindFirstChild("Gun") then
+        local hum = localplayer.Character:FindFirstChild("Humanoid")
+        if localplayer.Backpack:FindFirstChild("Gun") then
+            hum:EquipTool(localplayer.Backpack:FindFirstChild("Gun"))
+            task.wait(math.random(0.05, 0.1) + ANTI_CHEAT_DELAY)
+        else
+            return
+        end
+    end
+    local murdererHRP = murderer.Character:FindFirstChild("HumanoidRootPart")
+    if not murdererHRP then
+        return
+    end
+    local predictedPosition = getPredictedPosition(murderer, SHOOT_OFFSET)
+    if predictedPosition == Vector3.new(0, 0, 0) then return end
+    local args = {
+        [1] = 1,
+        [2] = predictedPosition,
+        [3] = "AH2"
+    }
+    pcall(function()
+        localplayer.Character.Gun.KnifeLocal.CreateBeam.RemoteFunction:InvokeServer(unpack(args))
+    end)
+    task.wait(math.random(0, ANTI_CHEAT_DELAY))
+end
+
+-- AutoFarm Coins
+local function autoFarmCoins()
+    local k = TweenService
+    local g = Players.LocalPlayer
+    local r = g.Character or g.CharacterAdded:Wait()
+    local A = r:WaitForChild("HumanoidRootPart", 5)
+    local a = r:WaitForChild("Humanoid", 5)
+    if not A or not a then
+        return
+    end
+    local function findMap()
+        for _, E in ipairs(Workspace:GetChildren()) do
+            if E:GetAttribute("MapID") and E:FindFirstChild("CoinContainer") then
+                return E
+            end
+        end
+        task.wait(0.5)
+        return nil
+    end
+    local function findCoin()
+        local C = findMap()
+        if not C or not C:FindFirstChild("CoinContainer") then return nil end
+        local D, i = nil, math.huge
+        for _, l in ipairs(C.CoinContainer:GetChildren()) do
+            local q = l:FindFirstChild("CoinVisual")
+            if q and not q:GetAttribute("Collected") and l.Parent then
+                local dist = (A.Position - l.Position).Magnitude
+                if dist < i and dist < MAX_COIN_DISTANCE then
+                    D = l
+                    i = dist
+                end
+            end
+        end
+        return D
+    end
+    local function moveToCoin(B)
+        if not B or not B.Parent then return end
+        a:ChangeState(11)
+        local t = (A.Position - B.Position).Magnitude
+        if t > MAX_COIN_DISTANCE then return end
+        local offset = Vector3.new(math.random(-5, 5)/10, 0, math.random(-5, 5)/10)
+        local f = k:Create(A, TweenInfo.new(t / 25, Enum.EasingStyle.Linear), {CFrame = B.CFrame * CFrame.Angles(0, math.rad(math.random(-10, 10)), 0) + offset})
+        f:Play()
+        f.Completed:Wait()
+    end
+    while autoFarm do
+        local z = findCoin()
+        if z then
+            moveToCoin(z)
+            local h = z:FindFirstChild("CoinVisual")
+            while h and not h:GetAttribute("Collected") and h.Parent and autoFarm do
+                local x = findCoin()
+                if x and x ~= z then
+                    break
+                end
+                task.wait(0.1 + math.random(0, ANTI_CHEAT_DELAY))
+            end
+        end
+        task.wait(math.random(0.1, 0.3))
+    end
+end
+
+-- Auto-Shoot when Sheriff and Autofarm is Active
+local function checkLineOfSight(startPos, endPos)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {localplayer.Character, Workspace:FindFirstChild("CoinContainer")}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.IgnoreWater = true
+    local raycastResult = Workspace:Raycast(startPos, (endPos - startPos).Unit * (endPos - startPos).Magnitude, raycastParams)
+    return not raycastResult or raycastResult.Instance:IsDescendantOf(findMurderer().Character)
+end
+
+-- Thêm biến để giới hạn tần suất killAll
+local lastKillAll = tick()
+
+-- Auto-Shoot khi là Sheriff và Auto-Kill khi là Murderer trong AutoFarm
+RunService.Heartbeat:Connect(function()
+    if not autoFarm or not isScriptRunning then return end
+    
+    -- Kiểm tra Sheriff
+    if findSheriff() == localplayer then
+        local murderer = findMurderer()
+        if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") and localplayer.Character and localplayer.Character:FindFirstChild("HumanoidRootPart") then
+            local startPos = localplayer.Character.HumanoidRootPart.Position
+            local endPos = murderer.Character.HumanoidRootPart.Position
+            if checkLineOfSight(startPos, endPos) then
+                task.spawn(shootMurderer)
+            end
+        end
+    end
+    
+    -- Kiểm tra Murderer và gọi killAll
+    if findMurderer() == localplayer and tick() - lastKillAll >= 1 then
+        lastKillAll = tick()
+        if not localplayer.Character:FindFirstChild("Knife") then
+            local hum = localplayer.Character:FindFirstChild("Humanoid")
+            if localplayer.Backpack:FindFirstChild("Knife") then
+                hum:EquipTool(localplayer.Backpack:FindFirstChild("Knife"))
+                task.wait(0.1)
+            else
+                fu.notification("You don't have the knife..?")
+                return
+            end
+        end
+
+        for _, player in ipairs(game.Players:GetPlayers()) do
+            if player ~= localplayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local targetPart = player.Character:FindFirstChild("HumanoidRootPart")
+                targetPart.Anchored = true
+                targetPart.CFrame = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame + localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 1
+                task.wait(0.05)
+            end
+        end
+
+        local args = { [1] = "Slash" }
+        localplayer.Character.Knife.Stab:FireServer(unpack(args))
+        task.wait(0.1)
+        for _, player in ipairs(game.Players:GetPlayers()) do
+            if player ~= localplayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character:FindFirstChild("HumanoidRootPart").Anchored = false
+            end
+        end
+        fu.notification("Auto Kill All executed.")
+    end
+end)
+
+function miniFling(playerToFling)
+    local Character = localplayer.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+
+    local TCharacter = playerToFling.Character
+    local THumanoid = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = THumanoid and THumanoid.RootPart
+    local THead = TCharacter and TCharacter:FindFirstChild("Head")
+    local Accessory = TCharacter and TCharacter:FindFirstChildOfClass("Accessory")
+    local Handle = Accessory and Accessory:FindFirstChild("Handle")
+
+    if not Character or not Humanoid or not RootPart or not TCharacter then
+        fu.notification("Không tìm thấy nhân vật hợp lệ của bạn hoặc mục tiêu.")
+        return
+    end
+
+    if not TRootPart and not THead and not Handle then
+        fu.notification("Không tìm thấy bộ phận hợp lệ để fling.")
+        return
+    end
+
+    if THumanoid and THumanoid.Sit then
+        fu.notification("Mục tiêu đang ngồi, không thể fling.")
+        return
+    end
+
+    -- Lưu vị trí gốc
+    if RootPart.Velocity.Magnitude < 50 then
+        getgenv().OldPos = RootPart.CFrame
+    end
+
+    -- Chuyển camera tới mục tiêu
+    if THead then
+        workspace.CurrentCamera.CameraSubject = THead
+    elseif Handle then
+        workspace.CurrentCamera.CameraSubject = Handle
+    elseif THumanoid then
+        workspace.CurrentCamera.CameraSubject = THumanoid
+    end
+
+    -- Hàm di chuyển và fling
+    local function FPos(BasePart, Pos, Ang)
+        RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+        Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+        RootPart.Velocity = Vector3.new(9e7, 9e7, 9e7)
+        RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+    end
+
+    -- Hàm thực hiện fling
+    local function SFBasePart(BasePart)
+        local TimeToWait = 2
+        local Time = tick()
+        local Angle = 0
+
+        repeat
+            if RootPart and THumanoid and BasePart and BasePart.Parent and Humanoid.Health > 0 then
+                if BasePart.Velocity.Magnitude < 50 then
+                    Angle = Angle + 100
+                    FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(2.25, 1.5, -2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(-2.25, -1.5, 2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                else
+                    FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, -TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(0, 0, 0))
+                    task.wait()
+                end
+            else
+                break
+            end
+        until BasePart.Velocity.Magnitude > 500 or BasePart.Parent ~= TCharacter or not TCharacter.Parent or THumanoid.Sit or Humanoid.Health <= 0 or tick() > Time + TimeToWait
+    end
+
+    -- Vô hiệu hóa FallenPartsDestroyHeight
+    workspace.FallenPartsDestroyHeight = 0/0
+
+    -- Tạo BodyVelocity để tăng lực fling
+    local BV = Instance.new("BodyVelocity")
+    BV.Name = "FlingVelocity"
+    BV.Parent = RootPart
+    BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
+    BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+
+    -- Vô hiệu hóa trạng thái ngồi
+    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+
+    -- Chọn bộ phận để fling
+    if TRootPart and THead and (TRootPart.CFrame.p - THead.CFrame.p).Magnitude > 5 then
+        SFBasePart(THead)
+    elseif TRootPart then
+        SFBasePart(TRootPart)
+    elseif THead then
+        SFBasePart(THead)
+    elseif Handle then
+        SFBasePart(Handle)
+    else
+        fu.notification("Không tìm thấy bộ phận hợp lệ để fling.")
+    end
+
+    -- Dọn dẹp
+    BV:Destroy()
+    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+    workspace.CurrentCamera.CameraSubject = Humanoid
+
+    -- Trở về vị trí gốc
+    if getgenv().OldPos then
+        repeat
+            RootPart.CFrame = getgenv().OldPos * CFrame.new(0, 0.5, 0)
+            Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, 0.5, 0))
+            Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            for _, part in ipairs(Character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.Velocity = Vector3.new(0, 0, 0)
+                    part.RotVelocity = Vector3.new(0, 0, 0)
+                end
+            end
+            task.wait()
+        until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25
+    end
+    workspace.FallenPartsDestroyHeight = getgenv().FPDH or -500
+    fu.notification("Đã fling " .. playerToFling.Name)
+end
+
+-- Event connections
+Workspace.ChildAdded:Connect(function(ch)
+    if ch == getMap() and espActive then
+        task.spawn(function()
+            task.wait(math.random(1, 2))
+            if findMurderer() then
+                reloadESP()
+            end
+        end)
+    end
+end)
+
+Workspace.ChildRemoved:Connect(function(ch)
+    if ch == getMap() and espActive then
+        playerData = {}
+        espcontainer:ClearAllGroups()
+    end
+end)
+
+localplayer.CharacterAdded:Connect(function()
+    task.wait(math.random(0.5, 1.5))
+    if autoFarm then
+        task.spawn(autoFarmCoins)
+    end
+    if espActive then
+        reloadESP()
+    end
+end)
+
+Players.PlayerAdded:Connect(function(player)
+    if player ~= localplayer then
+        player.CharacterAdded:Connect(function()
+            if espActive then
+                task.wait(math.random(0.5, 1.5))
+                reloadESP()
+            end
+        end)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function()
+    if espActive then
+        task.wait(math.random(0.5, 1.5))
+        reloadESP()
+    end
+end)
+
 --// Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -5,147 +569,25 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local LocalizationService = game:GetService("LocalizationService")
 local LocalPlayer = Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local Lighting = game:GetService("Lighting")
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local StarterGui = game:GetService("StarterGui")
-local Camera = Workspace.CurrentCamera
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
-local TextChatService = game:GetService("TextChatService")
-
-local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
-if chatWindow then
-    chatWindow.Enabled = true -- Bật lại chat window
-end
 
 --// GUI Setup
+local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 local gui = Instance.new("ScreenGui")
-gui.Name = "DhuyxMenu"
+gui.Name = "zX9qW2"
 gui.ResetOnSpawn = false
-gui.Parent = game:GetService("CoreGui")
-gui.DisplayOrder = 10000
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 gui.IgnoreGuiInset = true
+gui.Parent = playerGui
 
---// Config
-local Config = { 
-    CustomPing = 40,
-    Buttons = {}, 
-    ESPEnabled = false,
-    SpeedEnabled = false,
-    FlyEnabled = false,
-    AimbotEnabled = false,
-    FullbrightEnabled = false,
-    NoclipEnabled = false,
-    ShiftAmount = 0.5,
-    SelectedPlayers = {},
-    FlySpeed = 35,
-    SpeedAmount = 20,
-    clickTpEnabled = false,
-    MacroLegitEnabled = false,
-    AntiLockEnabled = false,
-    AntiLockType = "Behind",
-    LookAtEnabled = false,
-    CsyncRandomEnabled = false,
-    CsyncOrbitEnabled = false,
-    CsyncRadius = 10,
-    CsyncHeight = 5,
-    CsyncSpeed = 5,
-    AutoWallhopEnabled = false,
-    SpinbotEnabled = false,
-    SpinbotSpeed = 450,
-    Prediction = nil,
-    FakeSpeedEnabled = false,
-    FakeSpeedAmount = 300,
-    OnlyTargetHitbox = false,
-    RainbowHitEffectEnabled = true,
-    Aimbot = {
-        Status = true,
-        Hitpart = "Head",
-    },
-    Main = {
-        Enable = true,
-        HoldKey = false,
-        ToggleKey = true,
-        UseKeyBoardKey = true,
-        KeyBoardKey = Enum.KeyCode.Q, 
-        UseMouseKey = false,
-        ThirdPerson = true,
-        FirstPerson = true,
-        AutoPingSets = true,
-        UseCircleRadius = true,
-        DisableOutSideCircle = true,
-        UseShake = true,
-        ShakePower = 1,
-        CheckForWalls = true
-    },
-    Check = {
-        CheckIfKo = true,
-        DisableOnTargetDeath = true,
-        DisableOnPlayerDeath = true
-    },
-    Horizontal = {
-        PredictMovement = true,
-        PredictionVelocity = 0.17221418
-    },
-    Smooth = {
-        Smoothness = true,
-        SmoothnessAmount = 1,
-        SmoothMethod = Enum.EasingStyle.Circular,
-        SmoothMethodV2 = Enum.EasingDirection.InOut
-    },
-    Part = {
-        AimPart = "Head",
-        CheckIfJumpedAimPart = "HumanoidRootPart",
-        CheckIfJumped = true,
-        GetClosestPart = false
-    },
-    Resolver = {
-        UnderGround = false,
-        UseUnderGroundKeybind = true,
-        UnderGroundKey = Enum.KeyCode.B,
-        DetectDesync = true,
-        Detection = 75,
-        UseDetectDesyncKeybind = true,
-        DetectDesyncKey = Enum.KeyCode.V,
-        SendNotification = true
-    },
-    Visual = {
-        Fov = true,
-        FovTransparency = 1,
-        FovThickness = 1,
-        FovColor = Color3.fromRGB(255, 185, 0),
-        FovRadius = 360
-    },
-    Spoofer = {
-        MemorySpoofer = true,
-        MemoryTabColor = Color3.fromRGB(211, 88, 33),
-        MemoryMost = 85000,
-        MemoryLeast = 80000,
-        PingSpoofer = true,
-        PingTabColor = Color3.fromRGB(211, 88, 33),
-        PingMost = 2000,
-        PingLeast = 1000
-    }
-}
-
-getgenv().HitboxSize = 15
-getgenv().HitboxTransparency = 0.9
-getgenv().HitboxStatus = "OFF"  -- "OFF", "NoVisual", "Visual"
-getgenv().TeamCheck = false
-
-local Keybinds = {}
-
---// Helpers
+--========================
+-- Helpers
+--========================
 local function attachButtonEffects(btn, shrinkPx)
     local orig = btn.Size
     btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(200, 200, 200)}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(70,70,70)}):Play()
     end)
     btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(180, 180, 180)}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55,55,55)}):Play()
     end)
     btn.MouseButton1Click:Connect(function()
         local s = shrinkPx or 3
@@ -165,7 +607,7 @@ local function makeSmoothDraggable(frame, speed)
         TweenService:Create(frame, TweenInfo.new(speed, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = goal}):Play()
     end
     frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
@@ -175,110 +617,100 @@ local function makeSmoothDraggable(frame, speed)
         end
     end)
     frame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+        if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
     end)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then update(input) end
     end)
 end
 
-local function CreateButton(parent, name, callback)
-    local buttonFrame = Instance.new("Frame")
-    buttonFrame.Size = UDim2.new(1, -10, 0, 30)
-    buttonFrame.BackgroundTransparency = 1
-    buttonFrame.Parent = parent
+--// Services
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0.7, -5, 1, 0)
-    button.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
-    button.BackgroundTransparency = 0.2
-    button.TextColor3 = Color3.fromRGB(0, 0, 0)
-    button.TextSize = 14
-    button.Font = Enum.Font.Gotham
-    button.Text = name
-    button.Parent = buttonFrame
-    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
-    attachButtonEffects(button, 3)
-    button.MouseButton1Click:Connect(callback)
+--// Helpers
+local function makeSmoothDraggable(frame, speed)
+    speed = speed or 0.2
+    local dragging, dragInput, dragStart, startPos
 
-    local keyBox = Instance.new("TextBox")
-    keyBox.Size = UDim2.new(0.3, 0, 1, 0)
-    keyBox.Position = UDim2.new(0.7, 5, 0, 0)
-    keyBox.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
-    keyBox.PlaceholderText = "Key"
-    keyBox.Text = ""
-    keyBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-    keyBox.TextSize = 14
-    keyBox.Font = Enum.Font.Gotham
-    keyBox.ClearTextOnFocus = false
-    keyBox.Parent = buttonFrame
-    Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0, 6)
+    local function update(input)
+        local delta = input.Position - dragStart
+        local goal = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        TweenService:Create(frame, TweenInfo.new(speed, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = goal}):Play()
+    end
 
-    keyBox:GetPropertyChangedSignal("Text"):Connect(function()
-        local text = keyBox.Text:upper()
-        if text == "" then
-            for k, v in pairs(Keybinds) do
-                if v == callback then
-                    Keybinds[k] = nil
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
                 end
-            end
-        elseif text == "BUTTON" then
-            local screenGui = Instance.new("ScreenGui")
-            screenGui.IgnoreGuiInset = true
-            screenGui.Parent = game:GetService("CoreGui")
-
-            local screenBtn = Instance.new("TextButton")
-            screenBtn.Size = UDim2.new(0, 70, 0, 30)
-            screenBtn.Position = UDim2.new(0, 100, 0, 300)
-            screenBtn.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-            screenBtn.Text = name
-            screenBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-            screenBtn.TextSize = 10
-            screenBtn.Font = Enum.Font.GothamBold
-            screenBtn.Parent = screenGui
-            Instance.new("UICorner", screenBtn).CornerRadius = UDim.new(0, 6)
-            makeSmoothDraggable(screenBtn, 0.18)
-            attachButtonEffects(screenBtn, 3)
-            screenBtn.MouseButton1Click:Connect(callback)
-        else
-            if Enum.KeyCode[text] then
-                Keybinds[text] = nil
-                Keybinds[text] = callback
-            end
+            end)
         end
     end)
 
-    return button
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
 end
 
--- Hàm kiểm tra xem có phải thiết bị cảm ứng không
-local function isTouchDevice()
-    return UserInputService.TouchEnabled and not (UserInputService.MouseEnabled or UserInputService.KeyboardEnabled)
+--// GUI Setup
+local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+local gui = Instance.new("ScreenGui")
+gui.Name = "DhuyxMenu"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = playerGui
+
+--// Helpers (Button Effects)
+local function attachButtonEffects(btn, shrinkPx)
+    local orig = btn.Size
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 75, 75)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55, 55, 55)}):Play()
+    end)
+    btn.MouseButton1Click:Connect(function()
+        local s = shrinkPx or 3
+        local toSmall = UDim2.new(orig.X.Scale, math.max(0, orig.X.Offset - s), orig.Y.Scale, math.max(0, orig.Y.Offset - s))
+        local t1 = TweenService:Create(btn, TweenInfo.new(0.08), {Size = toSmall})
+        local t2 = TweenService:Create(btn, TweenInfo.new(0.08), {Size = orig})
+        t1:Play(); t1.Completed:Wait(); t2:Play()
+    end)
 end
 
--- Tạo Toggle Button
-local ToggleButton = Instance.new("ImageButton")
+--// Toggle Button (kéo được, tránh chồng vào Settings)
+local ToggleButton = Instance.new("TextButton")
 ToggleButton.Size = UDim2.new(0, 45, 0, 45)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-ToggleButton.Image = "rbxassetid://80952463173309"
-ToggleButton.ScaleType = Enum.ScaleType.Fit
+ToggleButton.Position = UDim2.new(0, 15, 0, 250)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+ToggleButton.Text = "≡"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 20
+ToggleButton.Font = Enum.Font.GothamBold
 ToggleButton.Parent = gui
 Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 10)
+attachButtonEffects(ToggleButton, 5)
 makeSmoothDraggable(ToggleButton, 0.18)
 
--- Đặt vị trí dựa trên thiết bị
-if isTouchDevice() then
-    ToggleButton.Position = UDim2.new(0, 15, 0, 250) -- Giữ nguyên cho điện thoại
-else
-    ToggleButton.Position = UDim2.new(0, 770, 0, 715) -- Vị trí cho PC
-end
-
---// MainFrame
+--// MainFrame (kéo mượt)
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 370, 0, 270)
+MainFrame.Size = UDim2.new(0, 320, 0, 240)
 MainFrame.Position = UDim2.new(0.08, 0, 0.2, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-MainFrame.Visible = true
+MainFrame.Visible = false
 MainFrame.Parent = gui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 makeSmoothDraggable(MainFrame, 0.2)
@@ -288,10 +720,10 @@ local shadow = Instance.new("ImageLabel", MainFrame)
 shadow.Size = UDim2.new(1, 30, 1, 30)
 shadow.Position = UDim2.new(0, -15, 0, -15)
 shadow.Image = "rbxassetid://1316045217"
-shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+shadow.ImageColor3 = Color3.fromRGB(0,0,0)
 shadow.ImageTransparency = 0.4
 shadow.ScaleType = Enum.ScaleType.Slice
-shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+shadow.SliceCenter = Rect.new(10,10,118,118)
 shadow.ZIndex = -1
 shadow.BackgroundTransparency = 1
 
@@ -299,37 +731,16 @@ shadow.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, -10, 0, 35)
 Title.Position = UDim2.new(0, 5, 0, 5)
-Title.Text = "Xinloinguoiyeu"
+Title.Text = "DhuyxDtuyen"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 18
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.BackgroundTransparency = 1
 
--- Ping/FPS/Clock
-local PingClock = Instance.new("TextLabel")
-PingClock.Size = UDim2.new(0, 200, 0, 25)
-PingClock.Position = UDim2.new(0, 5, 0, 35)
-PingClock.BackgroundTransparency = 1
-PingClock.TextColor3 = Color3.fromRGB(200, 200, 200)
-PingClock.Font = Enum.Font.Gotham
-PingClock.TextSize = 12
-PingClock.Parent = MainFrame
-
-task.spawn(function()
-    local lastDt = 1/60
-    RunService.RenderStepped:Connect(function(dt) lastDt = dt end)
-    while task.wait(0.5) do
-        local ping =  math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
-        local fps = math.clamp(math.floor(1 / (lastDt > 0 and lastDt or 1/240)), 1, 999)
-        local timeStr = os.date("%H:%M")
-        PingClock.Text = string.format("Ping: %d ms | FPS: %d | %s", ping, fps, timeStr)
-    end
-end)
-
 --// Tabs
 local TabHolder = Instance.new("Frame", MainFrame)
 TabHolder.Size = UDim2.new(1, -10, 0, 30)
-TabHolder.Position = UDim2.new(0, 5, 0, 65)
+TabHolder.Position = UDim2.new(0, 5, 0, 40)
 TabHolder.BackgroundTransparency = 1
 local TabLayout = Instance.new("UIListLayout", TabHolder)
 TabLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -337,304 +748,101 @@ TabLayout.Padding = UDim.new(0, 5)
 
 local function createTab(name)
     local btn = Instance.new("TextButton", TabHolder)
-    btn.Size = UDim2.new(0, 70, 1, 0) -- Adjusted for more tabs
+    btn.Size = UDim2.new(0, 150, 1, 0)
     btn.Text = name
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 14
-    btn.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
-    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    btn.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
     attachButtonEffects(btn, 3)
     return btn
 end
 
-local Tab1Btn = createTab("Da Hood")
-local Tab2Btn = createTab("Universal")
-local Tab4Btn = createTab("Universal2")
-local Tab3Btn = createTab("Scripts")
-local Tab6Btn = createTab("MM2")
-local Tab5Btn = createTab("Info")
+local Tab1Btn = createTab("Functions")
+local Tab2Btn = createTab("Info")
 
---// Pages
+-- Pages container
 local Pages = Instance.new("Frame", MainFrame)
-Pages.Size = UDim2.new(1, -10, 1, -105)
-Pages.Position = UDim2.new(0, 5, 0, 100)
+Pages.Size = UDim2.new(1, -10, 1, -80)
+Pages.Position = UDim2.new(0, 5, 0, 75)
 Pages.BackgroundTransparency = 1
 Pages.ClipsDescendants = true
 
-local Page1 = Instance.new("Frame", Pages) -- Da Hood
-Page1.Size = UDim2.new(1, 0, 1, 0)
+local Page1 = Instance.new("Frame", Pages) -- Functions
+Page1.Size = UDim2.new(1,0,1,0)
 Page1.BackgroundTransparency = 1
 
-local Page2 = Instance.new("Frame", Pages) -- Universal
-Page2.Size = UDim2.new(1, 0, 1, 0)
+local Page2 = Instance.new("Frame", Pages) -- Info
+Page2.Size = UDim2.new(1,0,1,0)
 Page2.BackgroundTransparency = 1
 Page2.Visible = false
-
-local Page4 = Instance.new("Frame", Pages) -- Universal2
-Page4.Size = UDim2.new(1, 0, 1, 0)
-Page4.BackgroundTransparency = 1
-Page4.Visible = false
-
-local Page3 = Instance.new("Frame", Pages) -- Scripts
-Page3.Size = UDim2.new(1, 0, 1, 0)
-Page3.BackgroundTransparency = 1
-Page3.Visible = false
-
-local Page6 = Instance.new("Frame", Pages) -- MM2
-Page6.Size = UDim2.new(1, 0, 1, 0)
-Page6.BackgroundTransparency = 1
-Page6.Visible = false
-
-local Page5 = Instance.new("Frame", Pages) -- Info
-Page5.Size = UDim2.new(1, 0, 1, 0)
-Page5.BackgroundTransparency = 1
-Page5.Visible = false
 
 local function switchPage(page)
     Page1.Visible = (page == Page1)
     Page2.Visible = (page == Page2)
-    Page4.Visible = (page == Page4)
-    Page3.Visible = (page == Page3)
-    Page6.Visible = (page == Page6)
-    Page5.Visible = (page == Page5)
 end
 
 Tab1Btn.MouseButton1Click:Connect(function() switchPage(Page1) end)
 Tab2Btn.MouseButton1Click:Connect(function() switchPage(Page2) end)
-Tab4Btn.MouseButton1Click:Connect(function() switchPage(Page4) end)
-Tab3Btn.MouseButton1Click:Connect(function() switchPage(Page3) end)
-Tab6Btn.MouseButton1Click:Connect(function() switchPage(Page6) end)
-Tab5Btn.MouseButton1Click:Connect(function() switchPage(Page5) end)
 
---// Page 1 (Da Hood)
-local ButtonFrame1 = Instance.new("ScrollingFrame", Page1)
-ButtonFrame1.Size = UDim2.new(0.5, -5, 1, -20)
-ButtonFrame1.Position = UDim2.new(0, 5, 0, 10)
-ButtonFrame1.BackgroundTransparency = 1
-ButtonFrame1.ScrollBarThickness = 4
-ButtonFrame1.CanvasSize = UDim2.new(0, 0, 0, 0)
+--// FUNCTIONS PAGE (2 cột, 8 nút)
+local LeftCol = Instance.new("Frame", Page1)
+LeftCol.Size = UDim2.new(0.5, -5, 1, 0)
+LeftCol.Position = UDim2.new(0, 0, 0, 0)
+LeftCol.BackgroundTransparency = 1
+local LeftLayout = Instance.new("UIListLayout", LeftCol)
+LeftLayout.Padding = UDim.new(0, 8)
+LeftLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+LeftLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 
-local ButtonLayout1 = Instance.new("UIListLayout", ButtonFrame1)
-ButtonLayout1.SortOrder = Enum.SortOrder.LayoutOrder
-ButtonLayout1.Padding = UDim.new(0, 6)
-ButtonLayout1:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ButtonFrame1.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout1.AbsoluteContentSize.Y)
-end)
+local RightCol = Instance.new("Frame", Page1)
+RightCol.Size = UDim2.new(0.5, -5, 1, 0)
+RightCol.Position = UDim2.new(0.5, 5, 0, 0)
+RightCol.BackgroundTransparency = 1
+local RightLayout = Instance.new("UIListLayout", RightCol)
+RightLayout.Padding = UDim.new(0, 8)
+RightLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+RightLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 
-local PlayerListFrame = Instance.new("ScrollingFrame", Page1)
-PlayerListFrame.Size = UDim2.new(0.5, -5, 1, -20)
-PlayerListFrame.Position = UDim2.new(0.5, 0, 0, 10)
-PlayerListFrame.BackgroundTransparency = 1
-PlayerListFrame.ScrollBarThickness = 4
-PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-local UIListLayout = Instance.new("UIListLayout", PlayerListFrame)
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Padding = UDim.new(0, 4)
-UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
-end)
-
-local function UpdatePlayerList()
-    for _, child in pairs(PlayerListFrame:GetChildren()) do
-        if child:IsA("TextButton") then
-            child:Destroy()
-        end
-    end
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local button = Instance.new("TextButton")
-            button.Size = UDim2.new(1, -4, 0, 20)
-            button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            button.BackgroundTransparency = 0.2
-            button.TextColor3 = Color3.fromRGB(0, 0, 0)
-            button.TextSize = 14
-            button.Font = Enum.Font.Gotham
-            button.AutoButtonColor = false
-            button.Parent = PlayerListFrame
-
-            local function UpdateButtonText()
-                local isSelected = Config.SelectedPlayers[player.Name]
-                button.Text = (isSelected and "✓ " or "") .. player.DisplayName  -- Chỉ giữ DisplayName, xóa tên gốc để gọn
-            end
-
-            button.MouseButton1Click:Connect(function()
-                Config.SelectedPlayers[player.Name] = not Config.SelectedPlayers[player.Name]
-                UpdateButtonText()
-            end)
-
-            attachButtonEffects(button, 3)
-            UpdateButtonText()
-        end
-    end
+local function createFuncButton(name, text, parent)
+    local btn = Instance.new("TextButton", parent)
+    btn.Name = name
+    btn.Text = text
+    btn.Size = UDim2.new(0, 130, 0, 30)
+    btn.BackgroundColor3 = Color3.fromRGB(65, 65, 75)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.AutoButtonColor = false
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", btn)
+    stroke.Thickness = 1.5
+    stroke.Color = Color3.fromRGB(100, 100, 120)
+    attachButtonEffects(btn, 3)
+    return btn
 end
 
--- Gọi ban đầu và khi player add/remove
-UpdatePlayerList()
-Players.PlayerAdded:Connect(UpdatePlayerList)
-Players.PlayerRemoving:Connect(UpdatePlayerList)
+local autoFarmBtn     = createFuncButton("jH4mP8",      "AutoFarm (Off)", LeftCol)
+local shootBtn        = createFuncButton("tR7nY5",      "Shoot",          LeftCol)
+local espBtn          = createFuncButton("uP5kQ3",      "ESP (Off)",      LeftCol)
+local autoGunBtn      = createFuncButton("vQ2zW9",      "AutoGun",        LeftCol)
 
---// Page 2 (Universal)
-local ButtonFrame2Left = Instance.new("ScrollingFrame", Page2)
-ButtonFrame2Left.Size = UDim2.new(0.5, -5, 1, -20)
-ButtonFrame2Left.Position = UDim2.new(0, 5, 0, 10)
-ButtonFrame2Left.BackgroundTransparency = 1
-ButtonFrame2Left.ScrollBarThickness = 4
-ButtonFrame2Left.CanvasSize = UDim2.new(0, 0, 0, 0)
+local flingMurdererBtn= createFuncButton("flingMurderer","Fling Murderer", RightCol)
+local flingSheriffBtn = createFuncButton("flingSheriff", "Fling Sheriff",  RightCol)
+local killAllBtn      = createFuncButton("killAll",      "Kill All",       RightCol)
+local tpLobbyBtn      = createFuncButton("tpLobby",      "TP Lobby",       RightCol)
 
-local ButtonLayout2Left = Instance.new("UIListLayout", ButtonFrame2Left)
-ButtonLayout2Left.SortOrder = Enum.SortOrder.LayoutOrder
-ButtonLayout2Left.Padding = UDim.new(0, 6)
-ButtonLayout2Left:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ButtonFrame2Left.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout2Left.AbsoluteContentSize.Y)
-end)
-
-local ButtonFrame2Right = Instance.new("ScrollingFrame", Page2)
-ButtonFrame2Right.Size = UDim2.new(0.5, -5, 1, -20)
-ButtonFrame2Right.Position = UDim2.new(0.5, 0, 0, 10)
-ButtonFrame2Right.BackgroundTransparency = 1
-ButtonFrame2Right.ScrollBarThickness = 4
-ButtonFrame2Right.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-local ButtonLayout2Right = Instance.new("UIListLayout", ButtonFrame2Right)
-ButtonLayout2Right.SortOrder = Enum.SortOrder.LayoutOrder
-ButtonLayout2Right.Padding = UDim.new(0, 6)
-ButtonLayout2Right:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ButtonFrame2Right.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout2Right.AbsoluteContentSize.Y)
-end)
-
---// Page 4 (Universal2)
-local ButtonFrame4Left = Instance.new("ScrollingFrame", Page4)
-ButtonFrame4Left.Size = UDim2.new(0.5, -5, 1, -20)
-ButtonFrame4Left.Position = UDim2.new(0, 5, 0, 10)
-ButtonFrame4Left.BackgroundTransparency = 1
-ButtonFrame4Left.ScrollBarThickness = 4
-ButtonFrame4Left.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-local ButtonLayout4Left = Instance.new("UIListLayout", ButtonFrame4Left)
-ButtonLayout4Left.SortOrder = Enum.SortOrder.LayoutOrder
-ButtonLayout4Left.Padding = UDim.new(0, 6)
-ButtonLayout4Left:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ButtonFrame4Left.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout4Left.AbsoluteContentSize.Y)
-end)
-
-local ButtonFrame4Right = Instance.new("ScrollingFrame", Page4)
-ButtonFrame4Right.Size = UDim2.new(0.5, -5, 1, -20)
-ButtonFrame4Right.Position = UDim2.new(0.5, 0, 0, 10)
-ButtonFrame4Right.BackgroundTransparency = 1
-ButtonFrame4Right.ScrollBarThickness = 4
-ButtonFrame4Right.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-local ButtonLayout4Right = Instance.new("UIListLayout", ButtonFrame4Right)
-ButtonLayout4Right.SortOrder = Enum.SortOrder.LayoutOrder
-ButtonLayout4Right.Padding = UDim.new(0, 6)
-ButtonLayout4Right:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ButtonFrame4Right.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout4Right.AbsoluteContentSize.Y)
-end)
-
---// Page 6 (Murder Mystery)
-local ButtonFrame6Left = Instance.new("ScrollingFrame", Page6)
-ButtonFrame6Left.Size = UDim2.new(0.5, -5, 1, -20)
-ButtonFrame6Left.Position = UDim2.new(0, 5, 0, 10)
-ButtonFrame6Left.BackgroundTransparency = 1
-ButtonFrame6Left.ScrollBarThickness = 4
-ButtonFrame6Left.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-local ButtonLayout6Left = Instance.new("UIListLayout", ButtonFrame6Left)
-ButtonLayout6Left.SortOrder = Enum.SortOrder.LayoutOrder
-ButtonLayout6Left.Padding = UDim.new(0, 6)
-ButtonLayout6Left:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ButtonFrame6Left.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout6Left.AbsoluteContentSize.Y)
-end)
-
-local ButtonFrame6Right = Instance.new("ScrollingFrame", Page6)
-ButtonFrame6Right.Size = UDim2.new(0.5, -5, 1, -20)
-ButtonFrame6Right.Position = UDim2.new(0.5, 0, 0, 10)
-ButtonFrame6Right.BackgroundTransparency = 1
-ButtonFrame6Right.ScrollBarThickness = 4
-ButtonFrame6Right.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-local ButtonLayout6Right = Instance.new("UIListLayout", ButtonFrame6Right)
-ButtonLayout6Right.SortOrder = Enum.SortOrder.LayoutOrder
-ButtonLayout6Right.Padding = UDim.new(0, 6)
-ButtonLayout6Right:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ButtonFrame6Right.CanvasSize = UDim2.new(0, 0, 0, ButtonLayout6Right.AbsoluteContentSize.Y)
-end)
-
---// Page 3 (Scripts)
-local ScriptHubScroll = Instance.new("ScrollingFrame", Page3)
-ScriptHubScroll.Size = UDim2.new(1, -10, 1, -30) -- Extended height for more space
-ScriptHubScroll.Position = UDim2.new(0, 5, 0, 5)
-ScriptHubScroll.BackgroundTransparency = 1
-ScriptHubScroll.ScrollBarThickness = 6
-ScriptHubScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-ScriptHubScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-local ScriptListLayout = Instance.new("UIListLayout", ScriptHubScroll)
-ScriptListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ScriptListLayout.Padding = UDim.new(0, 6)
-ScriptListLayout.FillDirection = Enum.FillDirection.Vertical
-ScriptListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ScriptHubScroll.CanvasSize = UDim2.new(0, 0, 0, ScriptListLayout.AbsoluteContentSize.Y)
-end)
-
-local function CreateScriptItem(name, url)
-    local itemFrame = Instance.new("Frame", ScriptHubScroll)
-    itemFrame.Size = UDim2.new(1, 0, 0, 35)
-    itemFrame.BackgroundTransparency = 0.2
-    itemFrame.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
-
-    local nameLabel = Instance.new("TextLabel", itemFrame)
-    nameLabel.Size = UDim2.new(0.7, 0, 1, 0)
-    nameLabel.Position = UDim2.new(0, 5, 0, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = name
-    nameLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-    nameLabel.TextSize = 16
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-    local runBtn = Instance.new("TextButton", itemFrame)
-    runBtn.Size = UDim2.new(0.3, -10, 1, -4)
-    runBtn.Position = UDim2.new(0.7, 5, 0, 2)
-    runBtn.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
-    runBtn.Text = "Run"
-    runBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    runBtn.TextSize = 16
-    runBtn.Font = Enum.Font.GothamBold
-    Instance.new("UICorner", runBtn).CornerRadius = UDim.new(0, 6)
-    attachButtonEffects(runBtn, 3)
-    runBtn.MouseButton1Click:Connect(function()
-        loadstring(game:HttpGet(url))()
-    end)
-
-    Instance.new("UICorner", itemFrame).CornerRadius = UDim.new(0, 6)
-    return itemFrame
-end
-
-CreateScriptItem("Evade", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/evade")
-CreateScriptItem("Murder Mystery 2", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/mm2")
-CreateScriptItem("Blade Ball", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/Bladeball")
-CreateScriptItem("Doors", "https://raw.githubusercontent.com/DarkDoorsKing/Project/main/Doors.lua")
-CreateScriptItem("Emote", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/emote")
-CreateScriptItem("Infinite Yield", "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source")
-CreateScriptItem("Dex", "https://raw.githubusercontent.com/infyiff/backup/main/dex.lua")
-CreateScriptItem("Hypershot", "https://api.luarmor.net/files/v3/loaders/c9f7b2cda8460f26a85bc14a419b3513.lua")
-CreateScriptItem("simpleaim(PC)", "https://raw.githubusercontent.com/quiwti08/Hackvip999/refs/heads/main/simpleaimlockvip")
-CreateScriptItem("The mimic", "https://raw.githubusercontent.com/Laelmano24/Rael-Hub/main/main.txt")
-
-
---// Page 5 (Info)
-local Avatar = Instance.new("ImageLabel", Page5)
-Avatar.Size = UDim2.new(0, 80, 0, 80)
-Avatar.Position = UDim2.new(0, 10, 0, 10)
+--// INFO PAGE (mỗi thông tin 1 dòng)
+local Avatar = Instance.new("ImageLabel", Page2)
+Avatar.Size = UDim2.new(0,80,0,80)
+Avatar.Position = UDim2.new(0,10,0,10)
 Avatar.BackgroundTransparency = 1
-Avatar.Image = "rbxthumb://type=AvatarHeadShot&id="..LocalPlayer.UserId.."&w=150&h=150"
+Avatar.Image = "rbxthumb://type=AvatarHeadShot&id="..game:GetService("Players").LocalPlayer.UserId.."&w=150&h=150"
 
-local InfoPanel = Instance.new("Frame", Page5)
-InfoPanel.Position = UDim2.new(0, 100, 0, 10)
-InfoPanel.Size = UDim2.new(1, -110, 1, -20)
+local InfoPanel = Instance.new("Frame", Page2)
+InfoPanel.Position = UDim2.new(0,100,0,10)
+InfoPanel.Size = UDim2.new(1,-110,1,-20)
 InfoPanel.BackgroundTransparency = 1
 InfoPanel.ClipsDescendants = true
 
@@ -649,7 +857,7 @@ local function mkLine()
     l.BackgroundTransparency = 1
     l.Font = Enum.Font.Gotham
     l.TextSize = 14
-    l.TextColor3 = Color3.fromRGB(200, 200, 200)
+    l.TextColor3 = Color3.fromRGB(220,220,220)
     l.TextXAlignment = Enum.TextXAlignment.Left
     l.TextWrapped = false
     l.ClipsDescendants = true
@@ -658,35 +866,35 @@ local function mkLine()
 end
 
 local lineDisplay = mkLine()
-local lineUser = mkLine()
-local lineFPS = mkLine()
-local lineTime = mkLine()
+local lineUser    = mkLine()
+local lineFPS     = mkLine()
+local lineTime    = mkLine()
 local lineCountry = mkLine()
 local lineFriends = mkLine()
 
-lineDisplay.Text = "Display Name : "..LocalPlayer.DisplayName
-lineUser.Text = "Username     : @"..LocalPlayer.Name
+lineDisplay.Text = "Display Name : "..game:GetService("Players").LocalPlayer.DisplayName
+lineUser.Text    = "Username     : @"..game:GetService("Players").LocalPlayer.Name
 
 task.spawn(function()
     local c = "Unknown"
     pcall(function()
-        c = LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer) or "Unknown"
+        c = game:GetService("LocalizationService"):GetCountryRegionForPlayerAsync(game:GetService("Players").LocalPlayer) or "Unknown"
     end)
     lineCountry.Text = "Country      : "..c
 end)
 
 task.spawn(function()
-    local ok, list = pcall(function() return Players:GetFriendsOnline() end)
+    local ok, list = pcall(function() return game:GetService("Players"):GetFriendsOnline() end)
     local count = (ok and type(list)=="table") and #list or 0
     lineFriends.Text = "Friends Online: "..count
 end)
 
+local lastDt = 1/60
+game:GetService("RunService").RenderStepped:Connect(function(dt) lastDt = dt end)
 task.spawn(function()
-    local lastDt = 1/60
-    RunService.RenderStepped:Connect(function(dt) lastDt = dt end)
     while task.wait(0.5) do
         local fps = math.clamp(math.floor(1 / (lastDt > 0 and lastDt or 1/240)), 1, 999)
-        lineFPS.Text = "FPS          : "..fps
+        lineFPS.Text  = "FPS          : "..fps
         lineTime.Text = "Time         : "..os.date("%H:%M")
     end
 end)
@@ -696,2545 +904,157 @@ ToggleButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
---// Keybinds
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    local key = input.KeyCode.Name:upper()
-    if Keybinds[key] then
-        Keybinds[key]()
+-- AutoFarm Toggle
+autoFarmBtn.MouseButton1Click:Connect(function()
+    autoFarm = not autoFarm
+    autoFarmBtn.Text = "AutoFarm (" .. (autoFarm and "On" or "Off") .. ")"
+    if autoFarm then
+        task.spawn(autoFarmCoins)
     end
 end)
 
-local Notifications = {} -- Danh sách để theo dõi các thông báo hiện tại
-
-local function sendNotification(title, text, duration)
-    -- Tạo ScreenGui mới cho thông báo
-    local notifGui = Instance.new("ScreenGui")
-    notifGui.Name = "DhuyxNotification_" .. tostring(tick())
-    notifGui.Parent = game:GetService("CoreGui")
-    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    notifGui.DisplayOrder = 999999 - #Notifications -- Giảm DisplayOrder cho thông báo mới
-    notifGui.IgnoreGuiInset = true
-    notifGui.ResetOnSpawn = false
-
-    -- Tính toán vị trí dựa trên số lượng thông báo hiện tại
-    local offsetY = 20 + (#Notifications * 80) -- Mỗi thông báo cách nhau 80 pixel (70 pixel chiều cao + 10 pixel khoảng cách)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 280, 0, 70)
-    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    frame.BorderSizePixel = 0
-    frame.AnchorPoint = Vector2.new(1, 1)
-    frame.Position = UDim2.new(1, -20, 1, -offsetY) -- Đặt vị trí, thông báo mới ở dưới
-    frame.Transparency = 1 -- Ban đầu trong suốt cho hiệu ứng fade-in
-    frame.Parent = notifGui
-
-    -- Bo góc
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-
-    -- Gradient
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
-    }
-    gradient.Rotation = 90
-    gradient.Parent = frame
-
-    -- Shadow
-    local shadow = Instance.new("ImageLabel")
-    shadow.Size = UDim2.new(1, 20, 1, 20)
-    shadow.Position = UDim2.new(0, -10, 0, -10)
-    shadow.Image = "rbxassetid://1316045217"
-    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-    shadow.ImageTransparency = 0.6
-    shadow.ScaleType = Enum.ScaleType.Slice
-    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-    shadow.ZIndex = -1
-    shadow.BackgroundTransparency = 1
-    shadow.Parent = frame
-
-    -- Title
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -10, 0, 25)
-    titleLabel.Position = UDim2.new(0, 5, 0, 5)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = title or "DhuyxDtuyen"
-    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextSize = 16
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    titleLabel.Parent = frame
-
-    -- Text
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, -10, 1, -35)
-    textLabel.Position = UDim2.new(0, 5, 0, 30)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = text or "Notification"
-    textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    textLabel.Font = Enum.Font.Gotham
-    textLabel.TextSize = 14
-    textLabel.TextWrapped = true
-    textLabel.TextXAlignment = Enum.TextXAlignment.Left
-    textLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    textLabel.Parent = frame
-
-    -- Thêm thông báo vào danh sách
-    table.insert(Notifications, notifGui)
-
-    -- Fade in animation
-    local fadeIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
-    fadeIn:Play()
-
-    -- Fade out và xóa
-    task.spawn(function()
-        task.wait(duration or 3)
-        local fadeOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1})
-        fadeOut:Play()
-        fadeOut.Completed:Connect(function()
-            -- Xóa thông báo khỏi danh sách và hủy nó
-            for i, gui in ipairs(Notifications) do
-                if gui == notifGui then
-                    table.remove(Notifications, i)
-                    break
-                end
-            end
-            notifGui:Destroy()
-
-            -- Cập nhật lại vị trí của các thông báo còn lại
-            for i, gui in ipairs(Notifications) do
-                local frame = gui:FindFirstChildOfClass("Frame")
-                if frame then
-                    local newOffsetY = 20 + ((i - 1) * 80) -- Cập nhật vị trí
-                    local tween = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -newOffsetY)})
-                    tween:Play()
-                end
-            end
-        end)
-    end)
-end
-
-local autoSelect = false
-local tbEnabled = true
-local Player = nil
-local camera = Workspace.CurrentCamera
-local clickTpTool = nil
-local savedWaypoint = nil
-local noclipConnection = nil
-local spawnPoint = nil
-
--- Biến lưu trạng thái Lighting cũ cho Fullbright
-local oldLighting = {
-    Brightness = Lighting.Brightness,
-    GlobalShadows = Lighting.GlobalShadows,
-    FogEnd = Lighting.FogEnd,
-    Ambient = Lighting.Ambient,
-    OutdoorAmbient = Lighting.OutdoorAmbient,
-    ClockTime = Lighting.ClockTime
-}
-
--- Tạo hiệu ứng mờ nền
-local blur = Instance.new("BlurEffect")
-blur.Size = 20
-blur.Parent = Lighting
-
--- Tạo GUI intro
-local introGui = Instance.new("ScreenGui")
-introGui.Name = "VhuyIntroGui"
-introGui.IgnoreGuiInset = true
-introGui.ResetOnSpawn = false
-introGui.DisplayOrder = 99999
-introGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-local bg = Instance.new("Frame")
-bg.Size = UDim2.new(1, 0, 1, 0)
-bg.BackgroundColor3 = Color3.new(0, 0, 0)
-bg.BackgroundTransparency = 1
-bg.Parent = introGui
-
-local title = Instance.new("TextLabel")
-title.AnchorPoint = Vector2.new(0.5, 0.5)
-title.Position = UDim2.new(0.5, 0, 0.5, 0)
-title.Size = UDim2.new(0, 400, 0, 120)
-title.Text = "DhuyxDtuyen"
-title.Font = Enum.Font.GothamBlack
-title.TextColor3 = Color3.fromRGB(55, 55, 55)
-title.TextScaled = true
-title.TextTransparency = 1
-title.BackgroundTransparency = 1
-title.Parent = introGui
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = title
-
-local gradient = Instance.new("UIGradient")
-gradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(55, 55, 55)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(230, 230, 230))
-}
-gradient.Rotation = 45
-gradient.Parent = title
-
--- Hiệu ứng fade in
-TweenService:Create(title, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {TextTransparency = 0}):Play()
-TweenService:Create(bg, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {BackgroundTransparency = 0.4}):Play()
-
--- Hiệu ứng fade out
-task.delay(4, function()
-    TweenService:Create(title, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 1}):Play()
-    TweenService:Create(bg, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
-    task.delay(1.5, function()
-        introGui:Destroy()
-        blur:Destroy()
-    end)
+-- Shoot Murderer
+shootBtn.MouseButton1Click:Connect(function()
+    task.spawn(shootMurderer)
 end)
 
-aimbotButton = CreateButton(ButtonFrame1, "Aimlock: OFF", function()
-    Config.AimbotEnabled = not Config.AimbotEnabled
-    aimbotButton.Text = "Aimlock: " .. (Config.AimbotEnabled and "ON" or "OFF")
-    sendNotification("AIMLOCK", Config.AimbotEnabled and "ON" or "OFF")
-end)
-
-local function GetPing()
-    local stats = game:GetService("Stats"):FindFirstChild("Network")
-    local data = stats and stats:FindFirstChild("DataPing")
-    return data and math.clamp(data:GetValue(), 10, 300) or 40
-end
-
--- Ô nhập Ping (bỏ qua khi AutoPrediction bật)
-local predictionBox = Instance.new("TextBox")
-predictionBox.Size = UDim2.new(1, -10, 0, 25)
-predictionBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-predictionBox.BackgroundTransparency = 0.2
-predictionBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-predictionBox.TextSize = 14
-predictionBox.Font = Enum.Font.Gotham
-predictionBox.PlaceholderText = "Nhập Ping"
-predictionBox.Text = tostring(Config.CustomPing or 40)
-predictionBox.ClearTextOnFocus = false
-predictionBox.Parent = ButtonFrame1
-Instance.new("UICorner", predictionBox).CornerRadius = UDim.new(0, 6)
-
-predictionBox:GetPropertyChangedSignal("Text"):Connect(function()
-    if Config.Main.AutoPingSets then return end 
-    local num = tonumber(predictionBox.Text)
-    if num then
-        Config.CustomPing = math.clamp(num, 0, 1000)
+-- Toggle ESP
+espBtn.MouseButton1Click:Connect(function()
+    espActive = not espActive
+    espBtn.Text = "ESP (" .. (espActive and "On" or "Off") .. ")"
+    if espActive then
+        reloadESP()
     else
-        Config.CustomPing = 40
-        predictionBox.Text = "40"
+        espcontainer:ClearAllGroups()
     end
 end)
 
-local function UpdatePredictionFromPing(ping)
-    if ping > 190 then
-        return 0.206547
-    elseif ping > 180 then
-        return 0.19284
-    elseif ping > 170 then
-        return 0.1923111
-    elseif ping > 160 then
-        return 0.1823111
-    elseif ping > 150 then
-        return 0.171
-    elseif ping > 140 then
-        return 0.165773
-    elseif ping > 130 then
-        return 0.1223333
-    elseif ping > 120 then
-        return 0.143765
-    elseif ping > 110 then
-        return 0.1455
-    elseif ping > 100 then
-        return 0.130340
-    elseif ping > 90 then
-        return 0.136
-    elseif ping > 80 then
-        return 0.1347
-    elseif ping > 70 then
-        return 0.119
-    elseif ping > 60 then
-        return 0.12731
-    elseif ping > 50 then
-        return 0.127668
-    elseif ping > 40 then
-        return 0.125
-    elseif ping > 30 then
-        return 0.11
-    elseif ping > 20 then
-        return 0.12588
-    elseif ping > 10 then
-        return 0.9
-    else
-        return 0.17221418
+-- AutoGun
+autoGunBtn.MouseButton1Click:Connect(function()
+    local map = getMap()
+    if not map or not map:FindFirstChild("GunDrop") then
+        fu.notification("No dropped gun to be teleported to.")
+        return
     end
-end
-
-task.spawn(function()
-    while task.wait(0.2) do
-        local ping = GetPing()
-        if Config.Main.AutoPingSets then
-            Config.Horizontal.PredictionVelocity = UpdatePredictionFromPing(ping)
-        else
-            local cp = Config.CustomPing or ping
-            Config.Horizontal.PredictionVelocity = UpdatePredictionFromPing(cp)
-        end
-    end
-end)
-
-autoPredictionButton = CreateButton(ButtonFrame1, "Auto Prediction: OFF", function()
-    Config.Main.AutoPingSets = not Config.Main.AutoPingSets
-    autoPredictionButton.Text = "Auto Prediction: " .. (Config.Main.AutoPingSets and "ON" or "OFF")
-    sendNotification("Auto Prediction", Config.Main.AutoPingSets and "ON" or "OFF")
-end)
-
-local hitpartOptions = {"Head", "HumanoidRootPart", "UpperTorso"}  -- Danh sách part
-local hitpartIndex = 1
-hitpartButton = CreateButton(ButtonFrame1, "Hitpart: Head", function()
-    hitpartIndex = (hitpartIndex % #hitpartOptions) + 1
-    Config.Part.AimPart = hitpartOptions[hitpartIndex]
-    hitpartButton.Text = "Hitpart: " .. Config.Part.AimPart
-    sendNotification("Aimlock", "Hitpart changed to " .. Config.Part.AimPart)
-end)
-
--- Nút cho trang 1
-espButton = CreateButton(ButtonFrame1, "ESP: OFF", function()
-    Config.ESPEnabled = not Config.ESPEnabled
-    espButton.Text = "ESP: " .. (Config.ESPEnabled and "ON" or "OFF")
-    sendNotification("ESP", Config.ESPEnabled and "ON" or "OFF")
-end)
-
--- Thêm biến và nút toggle cho No Slowdown trong Page 1 (Da Hood)
-Config.NoSlowdownEnabled = true
-noSlowButton = CreateButton(ButtonFrame1, "No Slowdown: ON", function()
-    Config.NoSlowdownEnabled = not Config.NoSlowdownEnabled
-    noSlowButton.Text = "No Slowdown: " .. (Config.NoSlowdownEnabled and "ON" or "OFF")
-    sendNotification("No Slowdown", Config.NoSlowdownEnabled and "ON" or "OFF")
-end)
-
--- Logic No Slowdown: Dùng CFrame để di chuyển thay vì WalkSpeed
-local function applyNoSlowdown()
-    if not Config.NoSlowdownEnabled then return end
-
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not (hrp and hum) then return end
-
-    -- Kiểm tra trạng thái giảm tốc (reload, punch, v.v.)
-    local bodyEffects = char:FindFirstChild("BodyEffects")
-    local isSlowed = false
-    if bodyEffects then
-        local reload = bodyEffects:FindFirstChild("Reload")
-        local movement = bodyEffects:FindFirstChild("Movement")
-        -- Kiểm tra trạng thái reload hoặc movement bị giới hạn
-        isSlowed = (reload and reload.Value) or (movement and movement.Value < 1)
-    end
-
-    -- Nếu đang bị giảm tốc hoặc tốc độ nhỏ hơn bình thường
-    if isSlowed or hum.WalkSpeed < 17 then
-        local moveDirection = hum.MoveDirection
-        if moveDirection.Magnitude > 0 then
-            -- Di chuyển nhân vật bằng CFrame với tốc độ tương đương WalkSpeed 16
-            local speed = 20 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
-            hrp.CFrame = hrp.CFrame + moveDirection * speed
-        end
-    end
-end
-
--- Chạy logic No Slowdown mỗi frame
-local noSlowConnection
-if noSlowConnection then noSlowConnection:Disconnect() end
-noSlowConnection = RunService.Heartbeat:Connect(applyNoSlowdown)
-
--- Đảm bảo No Slowdown hoạt động sau khi respawn
-LocalPlayer.CharacterAdded:Connect(function(newChar)
-    if Config.NoSlowdownEnabled then
-        task.wait(0.5) -- Đợi nhân vật load đầy đủ
-        applyNoSlowdown()
-    end
-end)
-
--- Nút FakeSpeed (chạy 1 lần khi bấm)
-fakeSpeedButton = CreateButton(ButtonFrame1, "FakeSpeed", function()
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hrp = localplayer.Character and localplayer.Character:FindFirstChild("HumanoidRootPart")
     if hrp then
-        hrp.Velocity = hrp.CFrame.LookVector * (Config.FakeSpeedAmount or 190)
-        sendNotification("FakeSpeed", "Đã kích hoạt speed " .. tostring(Config.FakeSpeedAmount or 190))
-    end
-end)
-
--- Ô nhập Speed cho FakeSpeed (mặc định 190)
-local fakeSpeedBox = Instance.new("TextBox")
-fakeSpeedBox.Size = UDim2.new(1, -10, 0, 25)
-fakeSpeedBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-fakeSpeedBox.BackgroundTransparency = 0.2
-fakeSpeedBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-fakeSpeedBox.TextSize = 14
-fakeSpeedBox.Font = Enum.Font.Gotham
-fakeSpeedBox.PlaceholderText = "Nhập Speed"
-fakeSpeedBox.Text = "300" -- mặc định
-fakeSpeedBox.ClearTextOnFocus = false
-fakeSpeedBox.Parent = ButtonFrame1
-Instance.new("UICorner", fakeSpeedBox).CornerRadius = UDim.new(0, 6)
-
-fakeSpeedBox:GetPropertyChangedSignal("Text"):Connect(function()
-    local num = tonumber(fakeSpeedBox.Text)
-    if num then
-        Config.FakeSpeedAmount = num
-    end
-end)
-
-speedButton = CreateButton(ButtonFrame1, "Speed: OFF", function()
-    Config.SpeedEnabled = not Config.SpeedEnabled
-    speedButton.Text = "Speed: " .. (Config.SpeedEnabled and "ON" or "OFF")
-    sendNotification("SPEED", Config.SpeedEnabled and "ON" or "OFF")
-end)
-
-flyButton = CreateButton(ButtonFrame1, "Fly: OFF", function()
-    Config.FlyEnabled = not Config.FlyEnabled
-    flyButton.Text = "Fly: " .. (Config.FlyEnabled and "ON" or "OFF")
-    sendNotification("FLY", Config.FlyEnabled and "ON" or "OFF")
-end)
-
--- ========== RAPIDFIRE ==========
-local utility = {}
-getgenv().config = { enable = false, delay = 0.01 }
-getgenv().is_firing = false
-
-utility.get_gun = function()
-    local char = LocalPlayer.Character
-    if not char then return end
-    for _, tool in next, char:GetChildren() do
-        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
-            return tool
-        end
-    end
-end
-
-utility.rapid = function(tool)
-    tool:Activate()
-end
-
--- Nút RapidFire toggle trong GUI
-rapidButton = CreateButton(ButtonFrame1, "RapidFire: OFF", function()
-    config.enable = not config.enable
-    rapidButton.Text = "RapidFire: " .. (config.enable and "ON" or "OFF")
-    sendNotification("RapidFire", config.enable and "ON" or "OFF")
-end)
-
-local UIS = game:GetService("UserInputService")
-
--- PC: giữ chuột trái
-UIS.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        local gun = utility.get_gun()
-        if config.enable and gun and not is_firing then
-            is_firing = true
-            while is_firing do
-                utility.rapid(gun)
-                task.wait(config.delay)
-            end
-        end
-    end
-end)
-
-UIS.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        is_firing = false
-    end
-end)
-
-macroLegitButton = CreateButton(ButtonFrame1, "Macro Legit: " .. (Config.MacroLegitEnabled and "ON" or "OFF"), function()
-    Config.MacroLegitEnabled = not Config.MacroLegitEnabled
-    macroLegitButton.Text = "Macro Legit: " .. (Config.MacroLegitEnabled and "ON" or "OFF")
-    sendNotification("Macro Legit", Config.MacroLegitEnabled and "Enabled" or "Disabled")
-
-    if Config.MacroLegitEnabled then
-        task.spawn(function()
-            repeat
-                game:GetService("RunService").Heartbeat:Wait()
-                game:GetService("VirtualInputManager"):SendMouseWheelEvent(0.1, 0.1, true, game)
-                game:GetService("RunService").Heartbeat:Wait()
-                game:GetService("VirtualInputManager"):SendMouseWheelEvent(0.1, 0.1, false, game)
-                game:GetService("RunService").Heartbeat:Wait()
-            until not Config.MacroLegitEnabled
-        end)
-    end
-end)
-
--- Danh sách mode AntiLock
-local antiLockModes = {
-    "OFF",
-    "Behind",
-    "Down",
-    "Forward",
-    "Left",
-    "One",
-    "Right",
-    "Up",
-    "Zero",
-}
-
-Config.AntiLockType = "OFF"
-Config.AntiLockEnabled = false
-local modeIndex = 1
-local antiLockButton
-
-antiLockButton = CreateButton(ButtonFrame1, "AntiLock: OFF", function()
-    -- tăng mode
-    modeIndex = modeIndex + 1
-    if modeIndex > #antiLockModes then
-        modeIndex = 1
-    end
-
-    local mode = antiLockModes[modeIndex]
-    if mode == "OFF" then
-        Config.AntiLockEnabled = false
+        local previousPosition = hrp.CFrame
+        hrp.CFrame = map:FindFirstChild("GunDrop"):GetPivot() + Vector3.new(0, 2, 0)
+        localplayer.Backpack.ChildAdded:Wait()
+        hrp.CFrame = previousPosition
+        fu.notification("Gun picked up.")
     else
-        Config.AntiLockEnabled = true
-        Config.AntiLockType = mode
-    end
-
-    antiLockButton.Text = "AntiLock: " .. mode
-    sendNotification("AntiLock", "Mode: " .. mode)
-end)
-
--- ======= LOGIC ANTILOCK =======
-if _G.__vhuyhub_antilock_conn then
-    _G.__vhuyhub_antilock_conn:Disconnect()
-end
-
-_G.__vhuyhub_antilock_conn = RunService.Heartbeat:Connect(function()
-    if not Config.AntiLockEnabled then return end
-
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    local dir = Vector3.new(0, 0, -1) -- default Behind
-    local t = Config.AntiLockType
-    if     t == "Behind"  then dir = Vector3.new(0,  0, -1)
-    elseif t == "Down"    then dir = Vector3.new(0, -1,  0)
-    elseif t == "Forward" then dir = Vector3.new(0,  0,  1)
-    elseif t == "Left"    then dir = Vector3.new(-1, 0,  0)
-    elseif t == "One"     then dir = Vector3.new(1,  1,  1)
-    elseif t == "Right"   then dir = Vector3.new(1,  0,  0)
-    elseif t == "Up"      then dir = Vector3.new(0,  1,  0)
-    elseif t == "Zero"    then dir = Vector3.new(0,  0,  0)
-    end
-
-    local oldVel = hrp.Velocity
-    hrp.Velocity = dir * (2^16)
-    RunService.RenderStepped:Wait()
-    if hrp and hrp.Parent then
-        hrp.Velocity = oldVel
+        fu.notification("No valid character to teleport.")
     end
 end)
 
-triggerBotButton = CreateButton(ButtonFrame1, "TriggerBot: " .. (tbEnabled and "ON" or "OFF"), function()
-    tbEnabled = not tbEnabled
-    triggerBotButton.Text = "TriggerBot: " .. (tbEnabled and "ON" or "OFF")
-    sendNotification("TRIGGERBOT", tbEnabled and "ON" or "OFF")
-end)
-
--- Resolver Button (Page 2, Left Side)
-local resolverEnabled = false
-
-resolverButton = CreateButton(ButtonFrame1, "Resolver: OFF", function()
-    resolverEnabled = not resolverEnabled
-    resolverButton.Text = "Resolver: " .. (resolverEnabled and "ON" or "OFF")
-    sendNotification("Resolver", resolverEnabled and "Enabled" or "Disabled")
-end)
-
-RunService.Heartbeat:Connect(function()
-    if resolverEnabled then
-        for _,plr in ipairs(Players:GetPlayers()) do
-            if plr ~= Players.LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                -- Reset velocity để aim không bị lệch
-                plr.Character.HumanoidRootPart.Velocity = Vector3.new(0, plr.Character.HumanoidRootPart.Velocity.Y, 0)
-            end
-        end
-    end
-end)
-
-local function isAlive(plr)
-    if not plr or not plr.Character then return false end
-    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then
-        return false
-    end
-
-    -- Check riêng cho Da Hood (BodyEffects)
-    local be = plr.Character:FindFirstChild("BodyEffects")
-    if be then
-        local ko = be:FindFirstChild("K.O")
-        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
-        if (ko and ko.Value) or (grabbed and grabbed.Value) then
-            return false
-        end
-    end
-
-    return true
-end
-
--- Hàm tìm player gần nhất trong danh sách SelectedPlayers
-local function getClosestSelected()
-    local closest, dist = nil, math.huge
-    local myChar = LocalPlayer.Character
-    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil end
-
-    for name, selected in pairs(Config.SelectedPlayers or {}) do
-        if selected then
-            local plr = Players:FindFirstChild(name)
-            if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local d = (myHRP.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-                if d < dist then
-                    dist = d
-                    closest = plr
-                end
-            end
-        end
-    end
-    return closest
-end
-
-local function GetClosestTarget()
-    local closestPlayer = nil
-    local closestDistance = math.huge
-    local myChar = LocalPlayer.Character
-    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myHRP then
-        print("Debug: No local HumanoidRootPart found")
-        return nil
-    end
-    local localPos = myHRP.Position
-
-    for playerName, isSelected in pairs(Config.SelectedPlayers or {}) do
-        if isSelected then
-            local player = Players:FindFirstChild(playerName)
-            if player and isAlive(player) then -- Sử dụng hàm isAlive đã có
-                local targetHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                if targetHRP then
-                    local distance = (localPos - targetHRP.Position).Magnitude
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestPlayer = player
-                    end
-                end
-            end
-        end
-    end
-
-    if not closestPlayer then
-        print("Debug: No valid target found")
+-- Fling Murderer
+flingMurdererBtn.MouseButton1Click:Connect(function()
+    local target = findMurderer()
+    if target then
+        miniFling(target)
     else
-        print("Debug: Selected target:", closestPlayer.Name)
+        fu.notification("Không tìm thấy murderer.")
     end
-    return closestPlayer
-end
-
--- ========================
--- Nút GUI
--- ========================
-csyncRandomButton = CreateButton(ButtonFrame1, "Csync Random: " .. (Config.CsyncRandomEnabled and "ON" or "OFF"), function()
-    Config.CsyncRandomEnabled = not Config.CsyncRandomEnabled
-    csyncRandomButton.Text = "Csync Random: " .. (Config.CsyncRandomEnabled and "ON" or "OFF")
-    sendNotification("Csync Random", Config.CsyncRandomEnabled and "Enabled" or "Disabled")
 end)
 
-csyncOrbitButton = CreateButton(ButtonFrame1, "Csync Orbit: " .. (Config.CsyncOrbitEnabled and "ON" or "OFF"), function()
-    Config.CsyncOrbitEnabled = not Config.CsyncOrbitEnabled
-    csyncOrbitButton.Text = "Csync Orbit: " .. (Config.CsyncOrbitEnabled and "ON" or "OFF")
-    sendNotification("Csync Orbit", Config.CsyncOrbitEnabled and "Enabled" or "Disabled")
+-- Fling Sheriff
+flingSheriffBtn.MouseButton1Click:Connect(function()
+    local target = findSheriff()
+    if target then
+        miniFling(target)
+    else
+        fu.notification("Không tìm thấy sheriff.")
+    end
 end)
 
--- Frame nhập Radius, Height, Speed
-local boxFrame = Instance.new("Frame")
-boxFrame.Size = UDim2.new(1, 0, 0, 40)
-boxFrame.BackgroundTransparency = 1
-boxFrame.Parent = ButtonFrame1
-
-local function createLabeledBox(parent, labelText, default, onChange, pos)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1/3 - 0.02, 0, 1, 0)
-    container.Position = pos
-    container.BackgroundTransparency = 1
-    container.Parent = parent
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0, 10)
-    label.BackgroundTransparency = 1
-    label.Text = labelText
-    label.TextSize = 10
-    label.TextColor3 = Color3.fromRGB(180, 180, 180)
-    label.Font = Enum.Font.Gotham
-    label.Parent = container
-
-    local tb = Instance.new("TextBox")
-    tb.Size = UDim2.new(1, 0, 0, 20)
-    tb.Position = UDim2.new(0, 0, 0, 12)
-    tb.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    tb.TextColor3 = Color3.new(1, 1, 1)
-    tb.Text = tostring(default)
-    tb.PlaceholderText = labelText
-    tb.ClearTextOnFocus = false
-    tb.Font = Enum.Font.GothamBold
-    tb.TextSize = 12
-    tb.Parent = container
-    Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 4)
-
-    tb.FocusLost:Connect(function()
-        local num = tonumber(tb.Text)
-        if num then
-            onChange(num)
-        else
-            tb.Text = tostring(default)
-        end
-    end)
-end
-
-createLabeledBox(boxFrame, "Radius", Config.CsyncRadius, function(v) Config.CsyncRadius = v end, UDim2.new(0, 0, 0, 0))
-createLabeledBox(boxFrame, "Height", Config.CsyncHeight, function(v) Config.CsyncHeight = v end, UDim2.new(1/3, 0, 0, 0))
-createLabeledBox(boxFrame, "Speed",  Config.CsyncSpeed,  function(v) Config.CsyncSpeed  = v end, UDim2.new(2/3, 0, 0, 0))
-
-local currentTarget = nil
-local csyncPaused = false
-
-if _G.VHUB_CSYNC_LOOP then _G.VHUB_CSYNC_LOOP:Disconnect() end
-_G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function(deltaTime)
-    if not (Config.CsyncRandomEnabled or Config.CsyncOrbitEnabled) then
-        csyncPaused = true
+-- Kill All
+killAllBtn.MouseButton1Click:Connect(function()
+    if findMurderer() ~= localplayer then
+        fu.notification("You're not murderer.")
         return
     end
-
-    -- Tìm target mới nếu cần
-    if not currentTarget or not currentTarget.Parent or not isAlive(currentTarget) then
-        currentTarget = GetClosestTarget()
-        if not currentTarget then
-            csyncPaused = true
-            print("Debug: Csync paused - no valid target")
+    if not localplayer.Character:FindFirstChild("Knife") then
+        local hum = localplayer.Character:FindFirstChild("Humanoid")
+        if localplayer.Backpack:FindFirstChild("Knife") then
+            hum:EquipTool(localplayer.Backpack:FindFirstChild("Knife"))
+            task.wait(0.1)
+        else
+            fu.notification("You don't have the knife..?")
             return
         end
     end
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player ~= localplayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local targetPart = player.Character:FindFirstChild("HumanoidRootPart")
+            targetPart.Anchored = true
+            targetPart.CFrame = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame + localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 1
+            task.wait(0.05)
+        end
+    end
+    local args = { [1] = "Slash" }
+    localplayer.Character.Knife.Stab:FireServer(unpack(args))
+    task.wait(0.1)
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player ~= localplayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character:FindFirstChild("HumanoidRootPart").Anchored = false
+        end
+    end
+    fu.notification("Auto Kill All executed.")
+end)
 
-    -- Kiểm tra nhân vật và HumanoidRootPart
-    local hrp = currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
-    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp or not myHRP then
-        csyncPaused = true
-        print("Debug: Missing HRP for local or target player")
+tpLobbyBtn.MouseButton1Click:Connect(function()
+    local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+    local hrp = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart")
+
+    -- Thay tọa độ này bằng địa chỉ bạn muốn TP tới
+    hrp.CFrame = CFrame.new(-107, 152, 41)
+end)
+
+-- Input bindings
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent or not isScriptRunning then return end
+    if input.KeyCode == Enum.KeyCode.T then
+        espActive = not espActive
+        espBtn.Text = "ESP (" .. (espActive and "On" or "Off") .. ")"
+        if espActive then
+            reloadESP()
+        else
+            espcontainer:ClearAllGroups()
+        end
+    elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+        task.spawn(shootMurderer)
+    elseif input.KeyCode == Enum.KeyCode.Z then
+        autoFarm = not autoFarm
+        autoFarmBtn.Text = "AutoFarm (" .. (autoFarm and "On" or "Off") .. ")"
+        if autoFarm then
+            task.spawn(autoFarmCoins)
+        end
+    end
+end)
+
+-- Initialize
+local function initialize()
+    local success = pcall(function()
+        localplayer:WaitForChild("PlayerGui", 10)
+        ReplicatedStorage:WaitForChild("Remotes", 10):WaitForChild("Gameplay", 10):WaitForChild("PlayerDataChanged", 10)
+    end)
+    if not success or not isMurderMystery2() then
         return
     end
-
-    csyncPaused = false
-    local targetPos = hrp.Position
-
-    -- Csync Orbit
-    if Config.CsyncOrbitEnabled then
-        local t = tick() * (Config.CsyncSpeed or 1)
-        local offset = Vector3.new(
-            math.cos(t) * (Config.CsyncRadius or 10),
-            Config.CsyncHeight or 0,
-            math.sin(t) * (Config.CsyncRadius or 10)
-        )
-        myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
-        print("Debug: Orbiting at position:", (targetPos + offset))
-
-    -- Csync Random
-    elseif Config.CsyncRandomEnabled then
-        local offset = Vector3.new(
-            math.random(-(Config.CsyncRadius or 10), Config.CsyncRadius or 10),
-            Config.CsyncHeight or 0,
-            math.random(-(Config.CsyncRadius or 10), Config.CsyncRadius or 10)
-        )
-        myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
-        print("Debug: Random position:", (targetPos + offset))
-    end
-end)
-
--- Khởi tạo giá trị FOV mặc định trong Config
-Config.Visual.FovRadius = Config.Visual.FovRadius or 360 -- FOV mặc định
-
--- Hàm áp dụng FOV
-local function applyFOV()
-    if Config.CustomFOVEnabled then
-        Workspace.CurrentCamera.FieldOfView = Config.CustomFOV
-        print("Debug: Applied FOV =", Config.CustomFOV)
-    else
-        Workspace.CurrentCamera.FieldOfView = 70 -- Khôi phục FOV mặc định
-        print("Debug: Restored default FOV = 70")
-    end
-end
-
--- Tạo nút toggle Custom FOV
-fovButton = CreateButton(ButtonFrame2Left, "Custom FOV: " .. (Config.CustomFOVEnabled and "ON" or "OFF"), function()
-    Config.CustomFOVEnabled = not Config.CustomFOVEnabled
-    fovButton.Text = "Custom FOV: " .. (Config.CustomFOVEnabled and "ON" or "OFF")
-    sendNotification("Custom FOV", Config.CustomFOVEnabled and "Enabled (FOV: " .. Config.CustomFOV .. ")" or "Disabled")
-    applyFOV()
-end)
-
--- Tạo ô nhập FOV
-local fovBox = Instance.new("TextBox")
-fovBox.Size = UDim2.new(1, -10, 0, 25)
-fovBox.Position = UDim2.new(0, 0, 0, 40) -- Điều chỉnh vị trí theo GUI của bạn
-fovBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-fovBox.TextColor3 = Color3.new(1, 1, 1)
-fovBox.Text = tostring(Config.CustomFOV)
-fovBox.PlaceholderText = "FOV (40-120)"
-fovBox.ClearTextOnFocus = false
-fovBox.Font = Enum.Font.GothamBold
-fovBox.TextSize = 12
-fovBox.Parent = ButtonFrame2Left
-Instance.new("UICorner", fovBox).CornerRadius = UDim.new(0, 4)
-
--- Xử lý khi người dùng nhập FOV
-fovBox:GetPropertyChangedSignal("Text"):Connect(function()
-    local num = tonumber(fovBox.Text)
-    if num then
-        -- Giới hạn giá trị trong khoảng 40-120
-        Config.CustomFOV = math.clamp(num, 40, 120)
-        fovBox.Text = tostring(Config.CustomFOV) -- Cập nhật ô nhập
-        if Config.CustomFOVEnabled then
-            applyFOV()
-            sendNotification("Custom FOV", "Đã đặt FOV thành " .. Config.CustomFOV)
-        end
-    else
-        fovBox.Text = tostring(Config.CustomFOV) -- Khôi phục giá trị hợp lệ
-    end
-end)
-
--- Áp dụng FOV khi nhân vật respawn
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.5) -- Đợi nhân vật load
-    applyFOV()
-end)
-
--- Kiểm tra và áp dụng FOV mỗi frame để chống reset
-local fovConnection
-if fovConnection then fovConnection:Disconnect() end
-fovConnection = RunService.Heartbeat:Connect(function()
-    if Config.CustomFOVEnabled and Workspace.CurrentCamera.FieldOfView ~= Config.CustomFOV then
-        applyFOV()
-    end
-end)
-
-onlyTargetHitboxButton = CreateButton(ButtonFrame2Left, "OnlyTargetHitbox: OFF", function()
-    Config.OnlyTargetHitbox = not Config.OnlyTargetHitbox
-    onlyTargetHitboxButton.Text = "OnlyTargetHitbox: " .. (Config.OnlyTargetHitbox and "ON" or "OFF")
-    sendNotification("OnlyTargetHitbox", Config.OnlyTargetHitbox and "ON" or "OFF")
-end)
-
--- Nút toggle Hitbox
-hitboxButton = CreateButton(ButtonFrame2Left, "Hitbox: OFF", function()
-    if getgenv().HitboxStatus == "OFF" then
-        getgenv().HitboxStatus = "NoVisual"
-        getgenv().HitboxTransparency = 1  -- Không thấy hitbox
-    elseif getgenv().HitboxStatus == "NoVisual" then
-        getgenv().HitboxStatus = "Visual"
-        getgenv().HitboxTransparency = 0.9  -- Thấy hitbox
-    else
-        getgenv().HitboxStatus = "OFF"
-        getgenv().HitboxTransparency = 1  -- Reset
-    end
-    hitboxButton.Text = "Hitbox: " .. getgenv().HitboxStatus
-    if typeof(sendNotification) == "function" then
-        sendNotification("Hitbox", getgenv().HitboxStatus)
-    else
-        print("Hitbox: " .. getgenv().HitboxStatus)
-    end
-end)
-
--- Ô nhập giá trị Hitbox Size (mặc định 15)
-local hitboxBox = Instance.new("TextBox")
-hitboxBox.Size = UDim2.new(1, -10, 0, 25)
-hitboxBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-hitboxBox.BackgroundTransparency = 0.2
-hitboxBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-hitboxBox.TextSize = 14
-hitboxBox.Font = Enum.Font.Gotham
-hitboxBox.Text = tostring(getgenv().HitboxSize or 15) -- mặc định giá trị 15
-hitboxBox.PlaceholderText = "Nhập Hitbox Size"
-hitboxBox.ClearTextOnFocus = false
-hitboxBox.Parent = ButtonFrame2Left
-Instance.new("UICorner", hitboxBox).CornerRadius = UDim.new(0, 6)
-
--- Nếu người dùng nhập giá trị hợp lệ thì cập nhật
-hitboxBox:GetPropertyChangedSignal("Text"):Connect(function()
-    local num = tonumber(hitboxBox.Text)
-    if num and num > 0 then
-        getgenv().HitboxSize = num
-        sendNotification("Hitbox", "Size = "..num)
-    end
-end)
-
-
--- HugR6
-local hugEnabled = false
-local hugButton
-local Play_1, Play_2
-
-local function stopAnim()
-    if Play_1 then Play_1:Stop() end
-    if Play_2 then Play_2:Stop() end
-    Play_1, Play_2 = nil, nil
-end
-
-hugButton = CreateButton(ButtonFrame2Left, "HugR6: OFF", function()
-    hugEnabled = not hugEnabled
-    hugButton.Text = "HugR6: " .. (hugEnabled and "ON" or "OFF")
-
-    local player = game.Players.LocalPlayer
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hum = char:WaitForChild("Humanoid")
-
-    -- Nếu bật thì tạo anim và play
-    if hugEnabled then
-        if hum.RigType == Enum.HumanoidRigType.R6 then
-            local Anim_1 = Instance.new("Animation")
-            Anim_1.AnimationId = "rbxassetid://283545583"
-            Play_1 = hum:LoadAnimation(Anim_1)
-
-            local Anim_2 = Instance.new("Animation")
-            Anim_2.AnimationId = "rbxassetid://225975820"
-            Play_2 = hum:LoadAnimation(Anim_2)
-        else
-            local Anim_R15 = Instance.new("Animation")
-            Anim_R15.AnimationId = "rbxassetid://118478639008343"
-            Play_1 = hum:LoadAnimation(Anim_R15)
-        end
-
-        if Play_1 then Play_1:Play() end
-        if Play_2 then Play_2:Play() end
-    else
-        stopAnim()
-    end
-end)
-
--- Khi respawn thì tự tắt HugR6
-game.Players.LocalPlayer.CharacterAdded:Connect(function()
-    hugEnabled = false
-    stopAnim()
-    hugButton.Text = "HugR6: OFF"
-end)
-
--- Config
-getgenv().CustomAnimEnabled = true
-
--- Đổi animation liên tục
-game:GetService("RunService").Stepped:Connect(function()
-    if not getgenv().CustomAnimEnabled then return end
-    local char = game.Players.LocalPlayer.Character
-    if char and char:FindFirstChild("Animate") then
-        local anim = char.Animate
-        -- Chạy
-        anim.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
-        -- Nhảy
-        anim.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
-        -- Rơi
-        anim.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
-    end
-end)
-
--- ============ PIGGYBACK ============
-local piggyEnabled = false
-local piggyConn = nil
-local piggyButton
-local piggyAnim, piggyTrack
-
-local function stopPiggy()
-    if piggyConn then
-        piggyConn:Disconnect()
-        piggyConn = nil
-    end
-    if piggyTrack then
-        piggyTrack:Stop()
-        piggyTrack = nil
-    end
-    local myChar = LocalPlayer.Character
-    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-    if myHum then myHum.Sit = false end
-    piggyEnabled = false
-    piggyButton.Text = "Piggyback: OFF"
-end
-
-local function startPiggy(target)
-    local myChar = LocalPlayer.Character
-    local myHum  = myChar and myChar:FindFirstChildOfClass("Humanoid")
-    local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local head   = target.Character and target.Character:FindFirstChild("Head")
-
-    if not (myHum and myHRP and head) then
-        stopPiggy()
-        return
-    end
-
-    -- ép nhân vật vào trạng thái ngồi
-    myHum.Sit = true
-
-    -- load animation piggyback
-    piggyAnim = Instance.new("Animation")
-    piggyAnim.AnimationId = "rbxassetid://115900505866868"
-    piggyTrack = myHum:LoadAnimation(piggyAnim)
-    piggyTrack:Play()
-
-    piggyButton.Text = ("Piggyback: ON (%s)"):format(target.Name)
-    sendNotification("Piggyback", "Đang cõng " .. target.Name)
-
-    piggyConn = RunService.Heartbeat:Connect(function()
-        local valid = piggyEnabled
-            and target.Character
-            and target.Character:FindFirstChild("Head")
-            and myHRP
-            and myHRP.Parent
-
-        if not valid then
-            stopPiggy()
-            return
-        end
-
-        local tHead = target.Character.Head
-        myHRP.CFrame = tHead.CFrame * CFrame.new(0, -1.6, 0.7)
-
-        -- chống trôi
-        pcall(function()
-            myHRP.AssemblyLinearVelocity = Vector3.zero
-            myHRP.AssemblyAngularVelocity = Vector3.zero
+    isScriptRunning = true
+    pcall(function()
+        local gameplay = ReplicatedStorage.Remotes.Gameplay.PlayerDataChanged
+        gameplay.OnClientEvent:Connect(function(data)
+            playerData = data
+            if espActive then
+                reloadESP()
+            end
         end)
     end)
-end
-
--- Nút bật / tắt
-piggyButton = CreateButton(ButtonFrame2Left, "Piggyback: OFF", function()
-    piggyEnabled = not piggyEnabled
-    if not piggyEnabled then
-        stopPiggy()
-        sendNotification("Piggyback", "OFF")
-        return
-    end
-
-    local target = getClosestSelected()
-    if not target then
-        stopPiggy()
-        return
-    end
-
-    startPiggy(target)
-end)
-
--- Giữ Piggyback khi respawn
-LocalPlayer.CharacterAdded:Connect(function()
-    if not piggyEnabled then return end
-    task.wait(0.5)
-    local target = getClosestSelected()
-    if not target then
-        stopPiggy()
-        return
-    end
-    startPiggy(target)
-end)
--- ============ /PIGGYBACK ============
-
-fullbrightButton = CreateButton(ButtonFrame2Left, "Fullbright: OFF", function()
-    Config.FullbrightEnabled = not Config.FullbrightEnabled
-    if Config.FullbrightEnabled then
-        Lighting.Brightness = 2
-        Lighting.GlobalShadows = false
-        Lighting.FogEnd = 999999
-        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
-        Lighting.ClockTime = 12
-    else
-        Lighting.Brightness = oldLighting.Brightness
-        Lighting.GlobalShadows = oldLighting.GlobalShadows
-        Lighting.FogEnd = oldLighting.FogEnd
-        Lighting.Ambient = oldLighting.Ambient
-        Lighting.OutdoorAmbient = oldLighting.OutdoorAmbient
-        Lighting.ClockTime = oldLighting.ClockTime
-    end
-    fullbrightButton.Text = "Fullbright: " .. (Config.FullbrightEnabled and "ON" or "OFF")
-    sendNotification("FULLBRIGHT", Config.FullbrightEnabled and "ON" or "OFF")
-end)
-
-autoWallhopButton = CreateButton(ButtonFrame2Left, "Auto Wallhop: " .. (Config.AutoWallhopEnabled and "ON" or "OFF"), function()
-    Config.AutoWallhopEnabled = not Config.AutoWallhopEnabled
-    autoWallhopButton.Text = "Auto Wallhop: " .. (Config.AutoWallhopEnabled and "ON" or "OFF")
-    sendNotification("Auto Wallhop", Config.AutoWallhopEnabled and "Enabled" or "Disabled")
-end)
-
--- Biến cập nhật khi respawn
-local character, humanoid, rootPart
-
-local function updateCharacterRefs()
-    character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    humanoid = character:WaitForChild("Humanoid")
-    rootPart = character:WaitForChild("HumanoidRootPart")
-end
-
-updateCharacterRefs()
-LocalPlayer.CharacterAdded:Connect(updateCharacterRefs)
-
--- Check tường trước mặt
-local function isWallInFront()
-    if not rootPart then return false end
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = {character}
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-
-    local origin = rootPart.Position + Vector3.new(0, 2, 0) -- raycast từ ngực
-    local direction = rootPart.CFrame.LookVector * 2 -- khoảng cách 2 studs
-    local result = Workspace:Raycast(origin, direction, raycastParams)
-
-    return result and result.Instance ~= nil
-end
-
--- Thực hiện wallhop
-local isPerformingWallHop = false
-local function performWallHop()
-    if not Config.AutoWallhopEnabled or isPerformingWallHop or not humanoid or not rootPart then return end
-    isPerformingWallHop = true
-
-    while Config.AutoWallhopEnabled and isWallInFront() do
-        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        rootPart.AssemblyLinearVelocity = Vector3.new(0, 60, 0) -- lực nhảy
-        rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(-35), 0)
-        task.wait(0.4)
-    end
-
-    isPerformingWallHop = false
-end
-
--- Loop
-RunService.Heartbeat:Connect(function()
-    if Config.AutoWallhopEnabled then
-        performWallHop()
-    end
-end)
-
--- Nút bật/tắt Aura Hit Effect
-rainbowHitButton = CreateButton(ButtonFrame2Left, "Aura Hit Effect: " .. (Config.RainbowHitEffectEnabled and "ON" or "OFF"), function()
-    Config.RainbowHitEffectEnabled = not Config.RainbowHitEffectEnabled
-    rainbowHitButton.Text = "Aura Hit Effect: " .. (Config.RainbowHitEffectEnabled and "ON" or "OFF")
-    sendNotification("Aura Hit Effect", Config.RainbowHitEffectEnabled and "Enabled" or "Disabled")
-end)
-
-local lastHealth = {}
-
--- Hàm tạo rainbow color
-local function fadeColor()
-    local t = tick() * 2 -- số càng lớn thì rainbow càng nhanh
-    return Color3.fromHSV((t % 1), 1, 1)
-end
-
-RunService.Heartbeat:Connect(function()
-    if not Config.RainbowHitEffectEnabled then return end
-
-    for name, selected in pairs(Config.SelectedPlayers or {}) do
-        if selected then
-            local plr = Players:FindFirstChild(name)
-            local char = plr and plr.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                local current = hum.Health
-                local last = lastHealth[name] or current
-
-                if current < last then
-                    -- Lấy highlight cũ hoặc tạo mới
-                    local highlight = char:FindFirstChild("HitEffectHighlight")
-                    if not highlight then
-                        highlight = Instance.new("Highlight")
-                        highlight.Name = "HitEffectHighlight"
-                        highlight.Adornee = char
-                        highlight.FillTransparency = 1
-                        highlight.OutlineTransparency = 0
-                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                        highlight.Parent = char
-                    end
-
-                    -- Hiệu ứng rainbow trong 1 giây
-                    task.spawn(function()
-                        local start = tick()
-                        while tick() - start < 1 and highlight.Parent do
-                            highlight.OutlineColor = fadeColor()
-                            task.wait(0.05)
-                        end
-                        highlight:Destroy()
-                    end)
-                end
-
-                lastHealth[name] = current
-            end
-        end
-    end
-end)
-
-local antiAfkEnabled = false
-local antiAfkLoop
-
-antiAfkButton = CreateButton(ButtonFrame2Left, "Anti AFK: OFF", function()
-    antiAfkEnabled = not antiAfkEnabled
-    antiAfkButton.Text = "Anti AFK: " .. (antiAfkEnabled and "ON" or "OFF")
-    sendNotification("ANTI AFK", antiAfkEnabled and "ON" or "OFF")
-
-    if antiAfkEnabled then
-        -- Vòng lặp tự nhảy mỗi 60 giây
-        antiAfkLoop = task.spawn(function()
-            while antiAfkEnabled do
-                task.wait(60) -- Đợi 60 giây
-                pcall(function()
-                    local hum = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                    if hum then
-                        hum:ChangeState(Enum.HumanoidStateType.Jumping)
-                    end
-                end)
-            end
-        end)
-    else
-        if antiAfkLoop then
-            task.cancel(antiAfkLoop)
-            antiAfkLoop = nil
-        end
-    end
-end)
-
-local function getClosestSelected()
-    local closest, dist = nil, math.huge
-    local myChar = LocalPlayer.Character
-    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil end
-
-    for name, selected in pairs(Config.SelectedPlayers or {}) do
-        if selected then
-            local plr = Players:FindFirstChild(name)
-            if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local d = (myHRP.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-                if d < dist then
-                    dist = d
-                    closest = plr
-                end
-            end
-        end
-    end
-    return closest
-end
-
--- Biến toàn cục
-local animEnabled = false
-local animTrack = nil
-local bangConnection = nil
-
--- Hàm dừng animation và teleport
-local function stopAnimAndTp()
-    if animTrack then
-        animTrack:Stop()
-        animTrack = nil
-    end
-    if bangConnection then
-        bangConnection:Disconnect()
-        bangConnection = nil
-    end
-    animEnabled = false
-end
-
--- Tạo nút BangPlayer sử dụng CreateButton
-bangButton = CreateButton(ButtonFrame2Left, "BangPlayer: OFF", function()
-    animEnabled = not animEnabled
-    
-    if not animEnabled then
-        stopAnimAndTp()
-        bangButton.Text = "BangPlayer: OFF"
-        sendNotification("BangPlayer", "Đã tắt")
-    else
-        local target = getClosestSelected()
-        if not target then
-            animEnabled = false
-            bangButton.Text = "BangPlayer: OFF"
-            return
-        end
-
-        local myChar = LocalPlayer.Character
-        local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-        local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        if not (myHum and myHRP) then
-            animEnabled = false
-            bangButton.Text = "BangPlayer: OFF"
-            sendNotification("BangPlayer", "Không tìm thấy nhân vật!")
-            return
-        end
-
-        -- Chọn animation theo rig type
-        local anim = Instance.new("Animation")
-        anim.AnimationId = myHum.RigType == Enum.HumanoidRigType.R6 and "rbxassetid://148840371" or "rbxassetid://96387457087289"
-
-        -- Phát animation
-        animTrack = myHum:LoadAnimation(anim)
-        animTrack:Play()
-        animTrack:AdjustSpeed(10)
-
-        bangButton.Text = "BangPlayer: ON (" .. target.Name .. ")"
-        sendNotification("BangPlayer", "Đang dính theo " .. target.Name)
-
-        -- Teleport liên tục
-        bangConnection = RunService.Heartbeat:Connect(function()
-            if animEnabled and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                myHRP.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
-            else
-                stopAnimAndTp()
-                bangButton.Text = "BangPlayer: OFF"
-            end
-        end)
-    end
-end)
-
--- Xử lý khi respawn
-LocalPlayer.CharacterAdded:Connect(function()
-    if animEnabled then
-        task.wait(0.5) 
-        local target = getClosestSelected()
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            local myChar = LocalPlayer.Character
-            local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-            if myHum and myHRP then
-                -- Chọn lại animation theo rig type
-                local anim = Instance.new("Animation")
-                anim.AnimationId = myHum.RigType == Enum.HumanoidRigType.R6 and "rbxassetid://148840371" or "rbxassetid://5918726674"
-
-                -- Phát lại animation
-                animTrack = myHum:LoadAnimation(anim)
-                animTrack:Play()
-                animTrack:AdjustSpeed(10)
-
-                -- Teleport liên tục
-                bangConnection = RunService.Heartbeat:Connect(function()
-                    if animEnabled and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                        myHRP.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
-                    else
-                        stopAnimAndTp()
-                        bangButton.Text = "BangPlayer: OFF"
-                    end
-                end)
-            end
-        else
-            stopAnimAndTp()
-            bangButton.Text = "BangPlayer: OFF"
-        end
-    end
-end)
-
-tpAndStompButton = CreateButton(ButtonFrame2Left, "TP Player", function()
-    local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
-    if not myPos then return end
-
-    local closestPlayer, minDist = nil, math.huge
-
-    for name, selected in pairs(Config.SelectedPlayers) do
-        if selected then
-            local plr = Players:FindFirstChild(name)
-            if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local pos = plr.Character.HumanoidRootPart.Position
-                local dist = (myPos - pos).Magnitude
-                if dist < minDist then
-                    closestPlayer = plr
-                    minDist = dist
-                end
-            end
-        end
-    end
-
-    if closestPlayer then
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            local pos = closestPlayer.Character.HumanoidRootPart.Position
-            root.CFrame = CFrame.new(pos) + Vector3.new(0, 0, 0)
-        end
-    end
-end)
-
-local Player = Players.LocalPlayer
-local Character
-local InvisibleCharacter
-local invisRunning = false
-local IsInvis = false
-local invisFix, invisDied
-
--- Respawn về trạng thái ban đầu
-local function Respawn()
-    if IsInvis then
-        pcall(function()
-            Player.Character = Character
-            task.wait()
-            Character.Parent = workspace
-            Character:FindFirstChildWhichIsA("Humanoid"):Destroy()
-            IsInvis = false
-            InvisibleCharacter.Parent = nil
-            invisRunning = false
-        end)
-    else
-        pcall(function()
-            Player.Character = Character
-            task.wait()
-            Character.Parent = workspace
-            Character:FindFirstChildWhichIsA("Humanoid"):Destroy()
-            TurnVisible()
-        end)
+    if espActive then
+        reloadESP()
     end
 end
 
--- Tắt invisible
-function TurnVisible()
-    if not IsInvis then return end
-    if invisFix then invisFix:Disconnect() end
-    if invisDied then invisDied:Disconnect() end
-
-    local CF_1 = Player.Character.HumanoidRootPart.CFrame
-    InvisibleCharacter.Parent = Lighting
-    Player.Character = Character
-    Character.Parent = workspace
-    Character.HumanoidRootPart.CFrame = CF_1
-    IsInvis = false
-    Player.Character.Animate.Disabled = true
-    Player.Character.Animate.Disabled = false
-
-    -- 🔑 Reset Camera khi tắt invis
-    task.wait(.1)
-    Workspace.CurrentCamera.CameraSubject = Character:FindFirstChildWhichIsA("Humanoid")
-    Workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-    Player.CameraMinZoomDistance = 0.5
-    Player.CameraMaxZoomDistance = 400
-    Player.CameraMode = "Classic"
-
-    invisRunning = false
-end
-
--- Bật/Tắt invisible
-local function ToggleInvisible()
-    if invisRunning then return end
-
-    if not IsInvis then
-        invisRunning = true
-        Player = Players.LocalPlayer
-        repeat task.wait(.1) until Player.Character
-        Character = Player.Character
-        Character.Archivable = true
-
-        InvisibleCharacter = Character:Clone()
-        InvisibleCharacter.Parent = Lighting
-        InvisibleCharacter.Name = ""
-
-        -- Check rơi xuống void
-        local Void = workspace.FallenPartsDestroyHeight
-        invisFix = RunService.Stepped:Connect(function()
-            pcall(function()
-                local Y = Player.Character.HumanoidRootPart.Position.Y
-                if tostring(Void):find"-" then
-                    if Y <= Void then Respawn() end
-                else
-                    if Y >= Void then Respawn() end
-                end
-            end)
-        end)
-
-        -- Làm mờ clone
-        for _,v in pairs(InvisibleCharacter:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.Transparency = (v.Name == "HumanoidRootPart") and 1 or 0.5
-            end
-        end
-
-        -- Handle chết
-        invisDied = InvisibleCharacter:FindFirstChildOfClass("Humanoid").Died:Connect(function()
-            Respawn()
-            invisDied:Disconnect()
-        end)
-
-        -- Swap sang invisible
-        IsInvis = true
-        local CF_1 = Character.HumanoidRootPart.CFrame
-        Character:MoveTo(Vector3.new(0,math.pi*1000000,0))
-        Workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
-        task.wait(.1)
-        Workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-        Character.Parent = Lighting
-        InvisibleCharacter.Parent = Workspace
-        InvisibleCharacter.HumanoidRootPart.CFrame = CF_1
-        Player.Character = InvisibleCharacter
-
-        task.wait(.1)
-        Workspace.CurrentCamera.CameraSubject = Player.Character:FindFirstChildWhichIsA("Humanoid")
-        Workspace.CurrentCamera.CameraType = "Custom"
-        Player.CameraMinZoomDistance = 0.5
-        Player.CameraMaxZoomDistance = 400
-        Player.CameraMode = "Classic"
-        Player.Character.Animate.Disabled = true
-        Player.Character.Animate.Disabled = false
-
-        invisRunning = false -- cho phép toggle lần nữa
-    else
-        TurnVisible()
-        IsInvis = false
-        invisRunning = false
-    end
-end
-
--- Nút Invisible ở Page2Left
-local invisibleButton = CreateButton(ButtonFrame2Left, "Invisible: " .. (IsInvis and "ON" or "OFF"), function()
-    if not IsInvis then
-        ToggleInvisible() -- Bật invis
-    else
-        TurnVisible()     -- Tắt invis
-        IsInvis = false
-        invisRunning = false
-    end
-    
-    -- Cập nhật nút và notify
-    invisibleButton.Text = "Invisible: " .. (IsInvis and "ON" or "OFF")
-    sendNotification("Invisible", IsInvis and "ON" or "OFF")
-end)
-
-noclipButton = CreateButton(ButtonFrame2Left, "Noclip: OFF", function()
-    Config.NoclipEnabled = not Config.NoclipEnabled
-    
-    if Config.NoclipEnabled then
-        if noclipConnection then noclipConnection:Disconnect() end
-        noclipConnection = RunService.Stepped:Connect(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChildOfClass("Humanoid") then
-                for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end)
-    else
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-    end
-
-   sendNotification("NOCLIP", Config.NoclipEnabled and "ON" or "OFF")
-    noclipButton.Text = "Noclip: " .. (Config.NoclipEnabled and "ON" or "OFF")
-end)
-
--- Đảm bảo noclip vẫn bật khi respawn
-LocalPlayer.CharacterAdded:Connect(function()
-    if Config.NoclipEnabled then
-        task.wait(0.5) -- đợi nhân vật load
-        noclipConnection = RunService.Stepped:Connect(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChildOfClass("Humanoid") then
-                for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end)
-    end
-end)
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
-
--- ID animation
-local animations = {
-    happier = "http://www.roblox.com/asset/?id=15609995579",
-    happy = "http://www.roblox.com/asset/?id=14352343065",
-    siuu = "rbxassetid://120331939816115",
-    sturdy = "rbxassetid://128968764985212",
-    cutesit = "rbxassetid://97459465855185",
-    matching1 = "rbxassetid://102139040629559",
-    matching2 = "rbxassetid://110235213168404",
-    hug1 = "rbxassetid://105797917228398",
-    hug2 = "rbxassetid://118264035209903",
-    sit1 = "rbxassetid://94749062881621",
-    sit2 = "rbxassetid://110800242342916",
-}
-
-local currentTrack = nil
-
--- Hàm dừng animation
-local function stopAnimation()
-    if currentTrack then
-        currentTrack:Stop()
-        currentTrack = nil
-    end
-end
-
--- Hàm phát animation
-local function playAnimation(animId)
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChildOfClass("Humanoid") then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-
-    -- Đang di chuyển thì không phát
-    if hum.MoveDirection.Magnitude > 0 then return end
-
-    -- Ngừng animation cũ nếu có
-    stopAnimation()
-
-    -- Tạo animator nếu chưa có
-    local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
-
-    local anim = Instance.new("Animation")
-    anim.AnimationId = animId
-    local track = animator:LoadAnimation(anim)
-    track:Play()
-    currentTrack = track
-end
-
--- Khi respawn vẫn dùng được
-LocalPlayer.CharacterAdded:Connect(function()
-    currentTrack = nil
-end)
-
--- Liên tục kiểm tra nếu bắt đầu di chuyển thì dừng animation
-RunService.RenderStepped:Connect(function()
-    local char = LocalPlayer.Character
-    if char and currentTrack then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum and hum.MoveDirection.Magnitude > 0 then
-            stopAnimation()
-        end
-    end
-end)
-
--- Tạo 2 nút
-CreateButton(ButtonFrame2Right, "Happier Jump", function()
-    playAnimation(animations.happier)
-end)
-
-CreateButton(ButtonFrame2Right, "Happy", function()
-    playAnimation(animations.happy)
-end)
-
-CreateButton(ButtonFrame2Right, "siuu", function()
-    playAnimation(animations.siuu)
-end)
-
-CreateButton(ButtonFrame2Right, "sturdy", function()
-    playAnimation(animations.sturdy)
-end)
-
-CreateButton(ButtonFrame2Right, "cutesit", function()
-    playAnimation(animations.cutesit)
-end)
-
-CreateButton(ButtonFrame2Right, "matching1", function()
-    playAnimation(animations.matching1)
-end)
-
-CreateButton(ButtonFrame2Right, "matching2", function()
-    playAnimation(animations.matching2)
-end)
-
-CreateButton(ButtonFrame2Right, "hug1", function()
-    playAnimation(animations.hug1)
-end)
-
-CreateButton(ButtonFrame2Right, "hug2", function()
-    playAnimation(animations.hug2)
-end)
-
-CreateButton(ButtonFrame2Right, "sit1", function()
-    playAnimation(animations.sit1)
-end)
-
-CreateButton(ButtonFrame2Right, "sit2", function()
-    playAnimation(animations.sit2)
-end)
-
--- LOOP BRING
-local loopBring = false
-local loopBringConn
-loopBringButton = CreateButton(ButtonFrame2Right, "Loop Bring: OFF", function()
-    loopBring = not loopBring
-    loopBringButton.Text = "Loop Bring: " .. (loopBring and "ON" or "OFF")
-
-    if loopBring then
-        loopBringConn = RunService.Heartbeat:Connect(function()
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not myHRP then return end
-
-            for name, selected in pairs(Config.SelectedPlayers) do
-                if selected then
-                    local target = Players:FindFirstChild(name)
-                    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                        local hrp = target.Character.HumanoidRootPart
-                        hrp.CFrame = myHRP.CFrame * CFrame.new(0, 0, -3)
-                    end
-                end
-            end
-        end)
-    else
-        if loopBringConn then
-            loopBringConn:Disconnect()
-            loopBringConn = nil
-        end
-    end
-end)
-
-local function giveClickTpTool()
-    if clickTpTool then clickTpTool:Destroy() end
-    clickTpTool = Instance.new("Tool")
-    clickTpTool.RequiresHandle = false
-    clickTpTool.Name = "ClickTP"
-    clickTpTool.Parent = LocalPlayer.Backpack
-
-    clickTpTool.Activated:Connect(function()
-        local mouse = LocalPlayer:GetMouse()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            if mouse and mouse.Hit then
-                local targetPos = mouse.Hit.p + Vector3.new(0, 3, 0) -- cách mặt đất 3 stud
-                LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
-            end
-        end
-    end)
-end
-
--- Nút bật/tắt
-clickTpButton = CreateButton(ButtonFrame2Right, "Click TP: OFF", function()
-    Config.clickTpEnabled = not Config.clickTpEnabled
-    sendNotification("GIVECLICKTOOL", Config.clickTpEnabled and "ON" or "OFF")
-    clickTpButton.Text = "Click TP: " .. (Config.clickTpEnabled and "ON" or "OFF")
-    if Config.clickTpEnabled then
-        giveClickTpTool()
-        sendNotification("Click TP", "Đã cấp tool Click TP vào Backpack!")
-    else
-        if clickTpTool then
-            clickTpTool:Destroy()
-            clickTpTool = nil
-        end
-    end
-end)
-
--- Khi respawn thì gắn lại tool nếu đang bật
-LocalPlayer.CharacterAdded:Connect(function()
-    if Config.clickTpEnabled then
-        task.wait(0.5) -- đợi nhân vật load
-        giveClickTpTool()
-    end
-end)
-
-saveWaypointButton = CreateButton(ButtonFrame2Right, "Save Waypoint", function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        savedWaypoint = LocalPlayer.Character.HumanoidRootPart.CFrame
-        sendNotification("Waypoint", "Đã lưu vị trí hiện tại!")
-    else
-        sendNotification("Waypoint", "Không thể lưu vị trí!")
-    end
-end)
-
-tpWaypointButton = CreateButton(ButtonFrame2Right, "TP to Waypoint", function()
-    if savedWaypoint and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = savedWaypoint
-        sendNotification("Waypoint", "Đã teleport tới vị trí đã lưu!")
-    else
-        sendNotification("Waypoint", "Chưa có vị trí được lưu!")
-    end
-end)
-
-spinbotButton = CreateButton(ButtonFrame2Right, "Spinbot: " .. (Config.SpinbotEnabled and "ON" or "OFF"), function()
-    Config.SpinbotEnabled = not Config.SpinbotEnabled
-    spinbotButton.Text = "Spinbot: " .. (Config.SpinbotEnabled and "ON" or "OFF")
-    sendNotification("Spinbot", Config.SpinbotEnabled and "Enabled" or "Disabled")
-end)
-
--- Ô nhập Speed
-local spinbotSpeedBox = Instance.new("TextBox")
-spinbotSpeedBox.Size = UDim2.new(1, 0, 0, 20)
-spinbotSpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-spinbotSpeedBox.TextColor3 = Color3.new(1, 1, 1)
-spinbotSpeedBox.Text = tostring(Config.SpinbotSpeed)
-spinbotSpeedBox.PlaceholderText = "Speed"
-spinbotSpeedBox.ClearTextOnFocus = false
-spinbotSpeedBox.Font = Enum.Font.GothamBold
-spinbotSpeedBox.TextSize = 12
-spinbotSpeedBox.Parent = ButtonFrame2Right
-Instance.new("UICorner", spinbotSpeedBox).CornerRadius = UDim.new(0, 4)
-
-spinbotSpeedBox.FocusLost:Connect(function()
-    local num = tonumber(spinbotSpeedBox.Text)
-    if num then
-        Config.SpinbotSpeed = num
-    else
-        spinbotSpeedBox.Text = tostring(Config.SpinbotSpeed)
-    end
-end)
-
--- Logic Spinbot
-RunService.RenderStepped:Connect(function(delta)
-    if Config.SpinbotEnabled then
-        local char = LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local hum = char and char:FindFirstChild("Humanoid")
-        if hrp and hum then
-            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Config.SpinbotSpeed) * delta, 0)
-            hum.AutoRotate = false
-        end
-    else
-        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
-        if hum then hum.AutoRotate = true end
-    end
-end)
-
--- Anti Fling Button (Page 2, Right Side)
-local antiFlingEnabled = false
-
-local antiFlingButton = CreateButton(ButtonFrame2Right, "Anti Fling: " .. (antiFlingEnabled and "ON" or "OFF"), function()
-    antiFlingEnabled = not antiFlingEnabled
-    antiFlingButton.Text = "Anti Fling: " .. (antiFlingEnabled and "ON" or "OFF")
-    sendNotification("Anti Fling", antiFlingEnabled and "Enabled" or "Disabled")
-end)
-
--- Logic an toàn
-local localPlayer = Players.LocalPlayer
-local hrp = nil
-local lastPos
-
-local function protectHRP()
-    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        hrp = localPlayer.Character.HumanoidRootPart
-    end
-end
-
-localPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
-    protectHRP()
-end)
-protectHRP()
-
-RunService.Heartbeat:Connect(function()
-    if antiFlingEnabled and hrp then
-        -- chặn velocity quá cao
-        if hrp.AssemblyLinearVelocity.Magnitude > 100 then
-            hrp.AssemblyLinearVelocity = Vector3.zero
-        end
-        if hrp.AssemblyAngularVelocity.Magnitude > 100 then
-            hrp.AssemblyAngularVelocity = Vector3.zero
-        end
-
-        -- nếu bị đẩy quá xa trong 1 tick -> đưa về vị trí cũ
-        if lastPos and (hrp.Position - lastPos).Magnitude > 40 then
-            hrp.CFrame = CFrame.new(lastPos)
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.AssemblyAngularVelocity = Vector3.zero
-        end
-        lastPos = hrp.Position
-    end
-end)
-
---// Track trạng thái Alive / KO / Grab trong Da Hood
-local lastState = {}
-
-local function getDHState(plr)
-    if not plr.Character then return "None" end
-    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then
-        return "Dead"
-    end
-
-    local be = plr.Character:FindFirstChild("BodyEffects")
-    if be then
-        local ko = be:FindFirstChild("K.O")
-        if ko and ko.Value then
-            return "K.O"
-        end
-        local grab = be:FindFirstChild("GRABBING_CONSTRAINT")
-        if grab and grab.Parent then
-            return "Grab"
-        end
-    end
-
-    return "Alive"
-end
-
-local function checkPlayerState(plr)
-    local state = getDHState(plr)
-    if lastState[plr] ~= state then
-        lastState[plr] = state
-        -- Thông báo 1 lần khi đổi trạng thái
-        sendNotification(plr.DisplayName, "is now " .. state, 3)
-    end
-end
-
--- Lặp kiểm tra
-game:GetService("RunService").Heartbeat:Connect(function()
-    for name, selected in pairs(Config.SelectedPlayers) do
-        if selected then
-            local plr = Players:FindFirstChild(name)
-            if plr then
-                checkPlayerState(plr)
-            end
-        end
-    end
-end)
-
-
-local hiddenFling = false
-local flingPower = 55000
-local movel = 0.1
-
-local function flingLoop()
-    local lp = Players.LocalPlayer
-    local hrp, c, vel
-
-    task.spawn(function()
-        while true do
-            RunService.Heartbeat:Wait()
-            if hiddenFling then
-                while hiddenFling and not (c and c.Parent and hrp and hrp.Parent) do
-                    RunService.Heartbeat:Wait()
-                    c = lp.Character
-                    hrp = c and c:FindFirstChild("HumanoidRootPart")
-                end
-
-                if hiddenFling and hrp then
-                    vel = hrp.Velocity
-                    hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
-                    RunService.RenderStepped:Wait()
-                    if hrp.Parent then
-                        hrp.Velocity = vel
-                    end
-                    RunService.Stepped:Wait()
-                    if hrp.Parent then
-                        hrp.Velocity = vel + Vector3.new(0, movel, 0)
-                        movel = movel * -1
-                    end
-                end
-            end
-        end
-    end)
-end
-
-flingLoop()
-
-flintTouchButton = CreateButton(ButtonFrame2Right, "FlintTouch: OFF", function()
-    hiddenFling = not hiddenFling
-    sendNotification("FLINGTOUCH", hiddenFling and "ON" or "OFF")
-    flintTouchButton.Text = "FlintTouch: " .. (hiddenFling and "ON" or "OFF")
-end)
-
-rejoinButton = CreateButton(ButtonFrame2Right, "Rejoin", function()
-    TeleportService:Teleport(game.PlaceId, LocalPlayer)
-end)
-
-serverHopButton = CreateButton(ButtonFrame2Right, "Server Hop", function()
-    local function getServers(placeId)
-        local servers = {}
-        local cursor = ""
-        repeat
-            local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
-            if cursor ~= "" then url = url .. "&cursor=" .. cursor end
-            local success, response = pcall(function()
-                return HttpService:JSONDecode(game:HttpGet(url))
-            end)
-            if success then
-                for _, s in ipairs(response.data or {}) do
-                    if s.id ~= game.JobId and s.playing < s.maxPlayers then  -- Bỏ server hiện tại và server đầy
-                        table.insert(servers, s)
-                    end
-                end
-                cursor = response.nextPageCursor
-            else
-                cursor = nil
-            end
-        until not cursor
-        return servers
-    end
-    
-    local servers = getServers(game.PlaceId)
-    if #servers > 0 then
-        local randomServer = servers[math.random(1, #servers)]
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer.id, LocalPlayer)
-    else
-        SendNotification("DhuyxDtuyen", "No other servers found!")
-    end
-end)
-
--- Thêm nút Set Spawn Point ở ButtonFrame2Right
-setSpawnButton = CreateButton(ButtonFrame2Right, "Set Spawn Point", function()
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        spawnPoint = hrp.CFrame
-        SendNotification("DhuyxDtuyen", "Spawn point set to current position!")
-    else
-        SendNotification("DhuyxDtuyen", "Cannot set spawn point!")
-    end
-end)
-
--- Logic teleport khi respawn
-LocalPlayer.CharacterAdded:Connect(function(char)
-    if spawnPoint then
-        local hrp = char:WaitForChild("HumanoidRootPart", 5)
-        if hrp then
-            task.wait(0.2)  -- Đợi load đầy đủ
-            hrp.CFrame = spawnPoint
-        end
-    end
-end)
-
--- ESP
-local espGui = Instance.new("ScreenGui")
-espGui.Name = "SafeESP"
-espGui.ResetOnSpawn = false
-espGui.IgnoreGuiInset = true
-espGui.Parent = PlayerGui
-
-local ESPs = {}
-
-local function IsValidTarget(player)
-    if not player 
-        or not player.Character 
-        or not player.Character:FindFirstChild("Humanoid") 
-        or not player.Character:FindFirstChild("HumanoidRootPart") 
-        or player.Character.Humanoid.Health <= 0 then
-        return false
-    end
-
-    return true
-end
-
--- Hàm kiểm tra trạng thái K.O hoặc GRABBING_CONSTRAINT (chỉ cho Da Hood)
-local function IsPlayerKnockedOrGrabbed(player)
-    -- Kiểm tra xem game có folder BodyEffects không (đặc trưng của Da Hood)
-    local bodyEffects = player.Character and player.Character:FindFirstChild("BodyEffects")
-    if not bodyEffects then
-        return false -- Nếu không có BodyEffects, bỏ qua (game không phải Da Hood)
-    end
-
-    local ko = bodyEffects:FindFirstChild("K.O")
-    local grabbed = bodyEffects:FindFirstChild("GRABBING_CONSTRAINT")
-    return (ko and ko.Value) or (grabbed and grabbed.Value)
-end
-
-local function CreateESP(player)
-    if ESPs[player] or player == LocalPlayer then return end
-    local label = Instance.new("TextLabel")
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 179, 186)
-    label.TextSize = 16
-    label.Font = Enum.Font.GothamBold
-    label.Text = player.DisplayName
-    label.TextStrokeTransparency = 0.5
-    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    label.Size = UDim2.new(0, 200, 0, 20)
-    label.AnchorPoint = Vector2.new(0.5, 0.5)
-    label.Position = UDim2.new(0.5, 0, 0.5, 0)
-    label.Visible = false
-    label.Parent = espGui
-
-    local highlight = Instance.new("Highlight")
-    highlight.Enabled = false
-    highlight.FillTransparency = 0.6
-    highlight.OutlineTransparency = 0.2
-    highlight.FillColor = Color3.fromRGB(55, 55, 55)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.Adornee = player.Character
-    highlight.Parent = espGui
-
-    ESPs[player] = { label = label, highlight = highlight }
-end
-
-local function RemoveESP(player)
-    if ESPs[player] then
-        pcall(function()
-            ESPs[player].label:Destroy()
-            ESPs[player].highlight:Destroy()
-        end)
-        ESPs[player] = nil
-    end
-end
-
-local function UpdateESP()
-    if not Config.ESPEnabled then
-        for _, v in pairs(ESPs) do
-            v.label.Visible = false
-            v.highlight.Enabled = false
-        end
-        return
-    end
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and IsValidTarget(player) then
-            local character = player.Character
-            local head = character:FindFirstChild("Head")
-            if head then
-                CreateESP(player)
-                local headPos = head.Position
-                local screenPos, onScreen = Camera:WorldToViewportPoint(headPos)
-                local esp = ESPs[player]
-                if esp then
-                    local isSelected = Config.SelectedPlayers[player.Name]
-                    -- Kiểm tra trạng thái K.O hoặc grab
-                    local isKnockedOrGrabbed = IsPlayerKnockedOrGrabbed(player)
-                    if isKnockedOrGrabbed then
-                        -- Màu vàng cho K.O hoặc grab
-                        esp.label.TextColor3 = Color3.fromRGB(255, 255, 0)
-                        esp.highlight.FillColor = Color3.fromRGB(255, 255, 0)
-                        esp.highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
-                    else
-                        -- Màu cho người được chọn hoặc không chọn
-                        esp.label.TextColor3 = isSelected and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(255, 255, 255)
-                        esp.highlight.FillColor = isSelected and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(255, 255, 255)
-                        esp.highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- Giữ outline trắng
-                    end
-                    if onScreen then
-                        esp.label.Visible = true
-                        esp.label.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y - 20)
-                        esp.highlight.Enabled = true
-                    else
-                        esp.label.Visible = false
-                        esp.highlight.Enabled = false
-                    end
-                end
-            else
-                RemoveESP(player)
-            end
-        else
-            RemoveESP(player)
-        end
-    end
-end
-
-local function UpdateSpeed()
-    if Config.SpeedEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local root = LocalPlayer.Character.HumanoidRootPart
-        local humanoid = LocalPlayer.Character.Humanoid
-        local moveDirection = humanoid.MoveDirection
-        local speedAmount = Config.SpeedAmount / 8
-        root.CFrame = root.CFrame + moveDirection * speedAmount
-    end
-end
-
-local function UpdateFly(deltaTime)
-    if Config.FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local root = LocalPlayer.Character.HumanoidRootPart
-        local moveDirection = LocalPlayer.Character.Humanoid.MoveDirection
-        local flySpeed = Config.FlySpeed
-        local vertical = UserInputService:IsKeyDown(Enum.KeyCode.Space) and flySpeed / 8 or UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) and -flySpeed / 8 or 0
-        root.CFrame = root.CFrame + moveDirection * deltaTime * flySpeed * 10
-        root.CFrame = root.CFrame + Vector3.new(0, vertical, 0)
-        root.Velocity = root.Velocity * Vector3.new(1, 0, 1) + Vector3.new(0, 1.9, 0)
-    end
-end
-
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end
-    if input.KeyCode == Enum.KeyCode.Y then
-        autoSelect = not autoSelect
-        if autoSelect then
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer then
-                    Config.SelectedPlayers[player.Name] = true
-                end
-            end
-        else
-            Config.SelectedPlayers = {}
-        end
-        UpdatePlayerList()
-    end
-end)
-
-local UIS = game:GetService("UserInputService")
-
-UIS.InputBegan:Connect(function(input, gameProcessed)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 and not gameProcessed then
-        Config.Aimbot.Status = true
-    end
-end)
-
-UIS.InputEnded:Connect(function(input, gameProcessed)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        Config.Aimbot.Status = false
-    end
-end)
-
-local hitParts = {
-    "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
-    "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
-    "RightUpperLeg", "RightLowerLeg", "RightFoot", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"
-}
-
-local function validPart(p)
-    if not p or not p.Parent or not p.Parent:FindFirstChild("Humanoid") then return false end
-    local player = Players:GetPlayerFromCharacter(p.Parent)
-    if not player or not Config.SelectedPlayers[player.Name] then return false end
-    for _, n in ipairs(hitParts) do
-        if p.Name:lower() == n:lower() then return true end
-    end
-    return false
-end
-
-local function distToCursor(part)
-    local v, vis = Camera:WorldToViewportPoint(part.Position)
-    if not vis then return math.huge end
-    local m = UserInputService.TouchEnabled and Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) or UserInputService:GetMouseLocation()
-    return (Vector2.new(v.X, v.Y) - Vector2.new(m.X, m.Y)).Magnitude
-end
-
-local function click()
-    if UserInputService.TouchEnabled then
-        local touchPos = UserInputService:GetMouseLocation()
-        VirtualInputManager:SendTouchEvent(0, Enum.UserInputState.Begin, touchPos)
-        task.wait()
-        VirtualInputManager:SendTouchEvent(0, Enum.UserInputState.End, touchPos)
-    else
-        if mouse1press then
-            mouse1press()
-            mouse1release()
-        elseif mouse1click then
-            mouse1click()
-        end
-    end
-end
-
-local function GetBestTargetPart()
-    local bestPart, bestDist = nil, Config.Visual.FovRadius
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and Config.SelectedPlayers[plr.Name] and isAlive(plr) and plr.Character then
-            for _, partName in ipairs(hitParts) do
-                local part = plr.Character:FindFirstChild(partName)
-                if part and part:IsA("BasePart") then
-                    local dist = distToCursor(part)
-                    if dist < bestDist then
-                        bestPart = part
-                        bestDist = dist
-                    end
-                end
-            end
-        end
-    end
-    return bestPart
-end
-
-getgenv().Aimbot = {
-    Status = true,
-    Hitpart = "Head",
-}
-
-local function IsObstructed(origin, targetPos)
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-    local result = Workspace:Raycast(origin, (targetPos - origin), raycastParams)
-    if result and result.Instance and not result.Instance:IsDescendantOf(Player and Player.Character) then
-        return true
-    end
-    return false
-end
-
-local function GetClosestValidPlayer()
-    local closestPlayer = nil
-    local shortestDistance = math.huge
-
-    local myChar = LocalPlayer.Character
-    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil end
-
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and Config.SelectedPlayers[plr.Name] and isAlive(plr) and plr.Character then
-            local targetPart = plr.Character:FindFirstChild(getgenv().Aimbot.Hitpart)
-            local targetHRP = plr.Character:FindFirstChild("HumanoidRootPart")
-            if targetPart and targetHRP then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(targetHRP.Position)
-                local mousePos = UserInputService:GetMouseLocation()
-                local distFromMouse = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                if onScreen and distFromMouse <= Config.Visual.FovRadius then
-                    -- Tính khoảng cách 3D trong game
-                    local dist = (myHRP.Position - targetHRP.Position).Magnitude
-                    if dist < shortestDistance then
-                        shortestDistance = dist
-                        closestPlayer = plr
-                    end
-                end
-            end
-        end
-    end
-
-    return closestPlayer
-end
-
--- Frame nhập FOV Radius
-local fovFrame = Instance.new("Frame")
-fovFrame.Size = UDim2.new(1, 0, 0, 40)
-fovFrame.BackgroundTransparency = 1
-fovFrame.Parent = ButtonFrame1
-
-createLabeledBox(fovFrame, "Size FOV Circle", Config.Visual.FovRadius, function(v) Config.Visual.FovRadius = v end, UDim2.new(0, 0, 0, 0))
-
--- Vòng FOV
-local Circle = Drawing.new("Circle")
-local fovHue = 0
-RunService.Heartbeat:Connect(function()
-    fovHue = (fovHue + 0.01) % 1
-    local grayValue = 0 + fovHue * 1  -- Từ 0 (đen) đến 1 (trắng)
-    Circle.Color = Color3.new(grayValue, grayValue, grayValue)
-    Circle.Visible = Config.Visual.Fov
-    Circle.Radius = Config.Visual.FovRadius
-    Circle.Thickness = Config.Visual.FovThickness
-    Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-end)
-
-RunService.RenderStepped:Connect(function(deltaTime)
-    UpdateESP()
-    UpdateSpeed()
-    UpdateFly(deltaTime)
-
-    if Config.AimbotEnabled and Config.Aimbot.Status and Config.Main.Enable then
-        Player = GetClosestValidPlayer()
-        if Player and Player.Character and Player.Character:FindFirstChild(Config.Part.AimPart) then
-            local part = Player.Character[Config.Part.AimPart]
-            local predictedPos = part.Position + part.Velocity * Config.Horizontal.PredictionVelocity
-            if predictedPos and not IsObstructed(Camera.CFrame.Position, predictedPos) then
-                local Main = CFrame.new(Camera.CFrame.Position, predictedPos)
-                if Config.Smooth.Smoothness then
-                    Camera.CFrame = Camera.CFrame:Lerp(Main, Config.Smooth.SmoothnessAmount, Config.Smooth.SmoothMethod, Config.Smooth.SmoothMethodV2)
-                else
-                    Camera.CFrame = Main
-                end
-            end
-        end
-    end
-
-    if getgenv().HitboxStatus == "NoVisual" or getgenv().HitboxStatus == "Visual" then
-        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
-            if player.Name ~= game:GetService('Players').LocalPlayer.Name then
-                if getgenv().TeamCheck and game:GetService('Players').LocalPlayer.Team == player.Team then
-                    continue
-                end
-                if Config.OnlyTargetHitbox and not Config.SelectedPlayers[player.Name] then
-                    continue
-                end
-                pcall(function()
-                    player.Character.HumanoidRootPart.Size = Vector3.new(getgenv().HitboxSize, getgenv().HitboxSize, getgenv().HitboxSize)
-                    player.Character.HumanoidRootPart.Transparency = getgenv().HitboxTransparency
-                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really black")
-                    player.Character.HumanoidRootPart.Material = "Neon"
-                    player.Character.HumanoidRootPart.CanCollide = false
-                end)
-            end
-        end
-    else
-        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
-            if player.Name ~= game:GetService('Players').LocalPlayer.Name then
-                pcall(function()
-                    player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
-                    player.Character.HumanoidRootPart.Transparency = 1
-                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Medium stone grey")
-                    player.Character.HumanoidRootPart.Material = "Plastic"
-                    player.Character.HumanoidRootPart.CanCollide = false
-                end)
-            end
-        end
-    end
-
-    -- TRIGGERBOT
-    if tbEnabled then
-        local part = GetBestTargetPart()
-        if part then
-            task.spawn(function()
-                local cap = part
-                task.wait(0)
-                if tbEnabled and distToCursor(cap) <= Config.Visual.FovRadius then
-                    local origin = Camera.CFrame.Position
-                    local direction = (cap.Position - origin)
-                    local rayParams = RaycastParams.new()
-                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
-
-                    local result = Workspace:Raycast(origin, direction, rayParams)
-
-                    -- Chỉ bắn nếu raycast trúng chính xác target (không bị che)
-                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
-                        if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
-                            -- Mobile
-                            local char = LocalPlayer.Character
-                            local fired = false
-                            if char then
-                                for _, tool in ipairs(char:GetChildren()) do
-                                    if tool:IsA("Tool") then
-                                        pcall(function() tool:Activate() end)
-                                        fired = true
-                                        break
-                                    end
-                                end
-                            end
-                            if not fired then
-                                click() -- fallback tap
-                            end
-                        else
-                            -- PC
-                            click()
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
-local Connections = {}
-local function Connect(event, callback)
-    local connection = event:Connect(callback)
-    table.insert(Connections, connection)
-    return connection
-end
-
-Connect(Players.PlayerRemoving, function(player)
-    RemoveESP(player)
-    UpdatePlayerList()
-end)
-
-Connect(Players.PlayerAdded, function(player)
-    task.wait(math.random(2, 3))
-    RemoveESP(player)
-    if Config.SelectedPlayers[player.Name] then
-        Config.SelectedPlayers[player.Name] = true 
-    end
-    UpdatePlayerList()
-end)
-
-task.spawn(function()
-    while true do
-        UpdatePlayerList()
-        task.wait(math.random(12, 15))
-    end
-end)
-
--- === Nút Select Target ===
-local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
-
-local FOV_RADIUS = 200
-
--- Hàm lấy player gần chuột nhất trong FOV
-local function GetClosestValidPlayer()
-    local closest, shortestDist = nil, math.huge
-    local mousePos = UserInputService:GetMouseLocation()
-
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = plr.Character.HumanoidRootPart
-            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-            if onScreen then
-                local distFromMouse = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                if distFromMouse <= FOV_RADIUS and distFromMouse < shortestDist then
-                    shortestDist = distFromMouse
-                    closest = plr
-                end
-            end
-        end
-    end
-    return closest
-end
-
--- chỉ tạo nút khi đang trên mobile
-if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
-    -- Tạo nút nổi ngoài màn hình
-    local selectGui = Instance.new("ScreenGui")
-    selectGui.Name = "SelectTargetGui"
-    selectGui.ResetOnSpawn = false -- chết không mất
-    selectGui.Parent = CoreGui
-
-    local selectBtn = Instance.new("TextButton")
-    selectBtn.Size = UDim2.new(0, 110, 0, 35)
-    selectBtn.Position = UDim2.new(0, 300, 0, 200)
-    selectBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    selectBtn.Text = "Set Target"
-    selectBtn.Font = Enum.Font.GothamBold
-    selectBtn.TextSize = 14
-    selectBtn.TextColor3 = Color3.new(230, 230, 230)
-    selectBtn.Parent = selectGui
-    Instance.new("UICorner", selectBtn).CornerRadius = UDim.new(0, 8)
-    makeSmoothDraggable(selectBtn, 0.2)
-
-    -- Cho phép kéo nút
-    local dragging, dragStart, startPos
-    selectBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = selectBtn.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            selectBtn.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-
-    -- Xử lý khi click
-    selectBtn.MouseButton1Click:Connect(function()
-        local target = GetClosestValidPlayer()
-        if target then
-            local displayName = target.DisplayName
-            local username = target.Name
-            local label = tostring(displayName or username) .. " (@" .. tostring(username) .. ")"
-
-            if Config.SelectedPlayers[username] then
-                Config.SelectedPlayers[username] = nil
-                sendNotification("DhuyxDtuyen", "UnTarget: " .. label, 2)
-            else
-                Config.SelectedPlayers[username] = true
-                sendNotification("DhuyxDtuyen", "Target: " .. label, 2)
-            end
-
-            if UpdateSelectedPlayersUI then
-                UpdateSelectedPlayersUI() -- cập nhật danh sách GUI ngay
-            end
-        else
-            sendNotification("DhuyxDtuyen", "No target found in FOV", 2)
-        end
-    end)
-end
-
--- Bắt sự kiện bấm chuột giữa để chọn target
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton3 then -- Chuột giữa
-        local target = GetClosestValidPlayer()
-        if target then
-            local displayName = target.DisplayName
-            local username = target.Name
-            local label = tostring(displayName or username) .. " (@" .. tostring(username) .. ")"
-
-            if Config.SelectedPlayers[username] then
-                Config.SelectedPlayers[username] = nil
-                sendNotification("DhuyxDtuyent", "UnTarget: " .. label, 2)
-            else
-                Config.SelectedPlayers[username] = true
-                sendNotification("DhuyxDtuyen", "Target: " .. label, 2)
-            end
-
-            if UpdateSelectedPlayersUI then
-                UpdateSelectedPlayersUI()
-            end
-        else
-            sendNotification("DhuyxDtuyen", "No target found in FOV", 2)
-        end
-    end
-end)
+pcall(initialize)
