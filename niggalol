@@ -1297,6 +1297,93 @@ miscSection:addToggle("Custom Time", false, function(value)
     end
 end)
 
+miscSection:addButton("AutoBuyGun", function()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+    local hrp = char.HumanoidRootPart
+    local originalCFrame = hrp.CFrame
+
+    -- Tìm folder chứa Shop
+    local Ignored = workspace:FindFirstChild("Ignored") or workspace:FindFirstChild("MAP") or workspace:FindFirstChild("Blacklisted")
+    if not Ignored then return end
+    local Shop = Ignored:FindFirstChild("Shop") or Ignored:FindFirstChild("Shops") or Ignored:FindFirstChild("Pads") or Ignored:FindFirstChild("BuyPads") or Ignored:FindFirstChild("Bought")
+    if not Shop then return end
+
+    -- Check thiếu súng nào
+    local hasRevolver = false
+    local hasDoubleBarrel = false
+    local hasTacticalShotgun = false
+
+    for _, tool in ipairs(player.Backpack:GetChildren()) do
+        local nameLower = tool.Name:lower()
+        if nameLower:find("revolver") then hasRevolver = true end
+        if nameLower:find("double-barrel") or nameLower:find("double barrel") then hasDoubleBarrel = true end
+        if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then hasTacticalShotgun = true end
+    end
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            local nameLower = tool.Name:lower()
+            if nameLower:find("revolver") then hasRevolver = true end
+            if nameLower:find("double-barrel") or nameLower:find("double barrel") then hasDoubleBarrel = true end
+            if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then hasTacticalShotgun = true end
+        end
+    end
+
+    local function buyGunAndAmmo(gunName, gunCoord, ammoCoord)
+        -- Mua súng
+        hrp.CFrame = CFrame.new(gunCoord)
+        task.wait(0.25)
+        for _, model in ipairs(Shop:GetChildren()) do
+            local nameLower = model.Name:lower()
+            if nameLower:find(gunName:lower()) and not nameLower:find("ammo") and model:IsA("Model") then
+                local cd = model:FindFirstChildOfClass("ClickDetector")
+                local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
+                if cd and head and (head.Position - hrp.Position).Magnitude <= 10 then
+                    for i = 1, 5 do
+                        pcall(function() fireclickdetector(cd) end)
+                        task.wait(0.1)
+                    end
+                end
+            end
+        end
+
+        -- Mua ammo
+        task.wait(0.25)
+        if ammoCoord then
+            hrp.CFrame = CFrame.new(ammoCoord)
+            task.wait(0.25)
+        end
+        for _, model in ipairs(Shop:GetChildren()) do
+            local nameLower = model.Name:lower()
+            if nameLower:find("ammo") and nameLower:find(gunName:lower()) and model:IsA("Model") then
+                local cd = model:FindFirstChildOfClass("ClickDetector")
+                local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
+                if cd and head and (head.Position - hrp.Position).Magnitude <= 10 then
+                    for i = 1, 5 do
+                        pcall(function() fireclickdetector(cd) end)
+                        task.wait(0.1)
+                    end
+                end
+            end
+        end
+        task.wait(0.25)
+        hrp.CFrame = originalCFrame
+    end
+
+    -- Mua theo thứ tự nếu thiếu
+    if not hasRevolver then
+        buyGunAndAmmo("Revolver", Vector3.new(-635.03, 21.75, -124.16))
+    end
+    if not hasDoubleBarrel then
+        buyGunAndAmmo("Double-Barrel", Vector3.new(-1045.20, 21.75, -265.21))
+    end
+    if not hasTacticalShotgun then
+        buyGunAndAmmo("TacticalShotgun", Vector3.new(471.34, 48.07, -622.77), Vector3.new(492.86, 48.07, -622.48))
+    end
+end)
+
 -- Slider chỉnh thời gian (0h - 24h)
 miscSection:addSlider("Set Time", 12, 0, 24, function(value)
     currentTime = value
