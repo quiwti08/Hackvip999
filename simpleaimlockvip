@@ -1,37 +1,2945 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local TextChatService = game:GetService("TextChatService")
+-- Load the Venyx UI library
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
 
-local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
-if chatWindow then
-    chatWindow.Enabled = true -- Bật lại chat window
+local themes = {
+    Background = Color3.fromRGB(24, 24, 24),
+    Glow = Color3.fromRGB(255, 179, 186),
+    Accent = Color3.fromRGB(10, 10, 10),
+    LightContrast = Color3.fromRGB(20, 20, 20),
+    DarkContrast = Color3.fromRGB(14, 14, 14),
+    TextColor = Color3.fromRGB(255, 179, 186)
+}
+
+local venyx = library.new("nigga.lol(vhuydeptraivl)")
+
+local function applyThemeNow()
+    for k, c in pairs(themes) do
+        pcall(function() venyx:setTheme(k, c) end)
+        pcall(function() library:setTheme(k, c) end)
+    end
 end
 
+-- 1) Apply ngay sau khi tạo venyx
+applyThemeNow()
+
+local combatPage = venyx:addPage("Combat", 5012540623)
+local combatSection = combatPage:addSection("Combat Features")
+local utility = {}
+getgenv().config = { enable = false, delay = 0.01 }
+getgenv().is_firing = false
+utility.get_gun = function()
+    local char = game.Players.LocalPlayer.Character
+    if not char then return end
+    for _, tool in next, char:GetChildren() do
+        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
+            return tool
+        end
+    end
+end
+utility.rapid = function(tool)
+    tool:Activate()
+end
+combatSection:addToggle("RapidFire", false, function(value)
+    config.enable = value
+    venyx:Notify("RapidFire", value and "ON" or "OFF")
+end)
+local UIS = game:GetService("UserInputService")
+UIS.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        local gun = utility.get_gun()
+        if config.enable and gun and not is_firing then
+            is_firing = true
+            while is_firing do
+                utility.rapid(gun)
+                task.wait(config.delay)
+            end
+        end
+    end
+end)
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        is_firing = false
+    end
+end)
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
 
-local CFrameSpeedEnabled = false
-local SpeedValue = 2
+local selectedPlayer = nil
+local playerDropdown -- giữ reference dropdown
 
--- Toggle bằng phím Z
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.Z then
-        CFrameSpeedEnabled = not CFrameSpeedEnabled
-        sendNotification("DhuyxDtuyenAimLock", CFrameSpeedEnabled and "Speed:On" or "Speed:Off")
+-- ⚡ Tạo danh sách player (DisplayName + Name)
+local function getPlayerList()
+    local list = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            table.insert(list, plr.DisplayName .. " (@" .. plr.Name .. ")")
+        end
+    end
+    return list
+end
+
+-- 🔍 Tìm player từ DisplayName
+local function findPlayerByDisplay(display)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local displayFull = plr.DisplayName .. " (@" .. plr.Name .. ")"
+            if displayFull == display then
+                return plr
+            end
+        end
+    end
+    return nil
+end
+
+-- 📌 Dropdown chọn player (không refresh nữa theo yêu cầu)
+playerDropdown = combatSection:addDropdown("Select Player", getPlayerList(), function(value)
+    selectedPlayer = findPlayerByDisplay(value)
+end)
+
+-- ===================== 📷 VIEW =====================
+local lastSubject = Camera.CameraSubject
+
+combatSection:addToggle("View Player", false, function(state)
+    if not selectedPlayer then return end
+    if not selectedPlayer.Character or not selectedPlayer.Character:FindFirstChild("Head") then return end
+
+    if state then
+        lastSubject = Camera.CameraSubject
+        Camera.CameraSubject = selectedPlayer.Character.Head
+        venyx:Notify("View", "Đang xem " .. selectedPlayer.DisplayName)
+    else
+        Camera.CameraSubject = lastSubject or LocalPlayer.Character:FindFirstChild("Humanoid")
+        venyx:Notify("View", "Tắt view")
     end
 end)
 
--- Di chuyển bằng CFrame Speed
+-- ===================== ⚡ GO TO (1 lần) =====================
+combatSection:addToggle("Go To Player", false, function(state, toggleObj)
+    if state then
+        if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local targetHRP = selectedPlayer.Character.HumanoidRootPart
+            if myHRP and targetHRP then
+                myHRP.CFrame = targetHRP.CFrame + Vector3.new(0, 3, 0)
+                venyx:Notify("Go To", "Đã dịch chuyển tới " .. selectedPlayer.DisplayName)
+            end
+        end
+        -- 🔄 Tắt toggle ngay sau khi dịch chuyển
+        task.delay(0.1, function()
+            toggleObj:Set(false)
+        end)
+    end
+end)
+
+-- ===================== 🌀 LOOP BRING =====================
+local loopBring = false
+
+combatSection:addToggle("Loop Bring", false, function(state)
+    loopBring = state
+    venyx:Notify("Loop Bring", loopBring and "ON" or "OFF")
+end)
+
+-- Hàm đơn giản: Liên tục mang về trước mặt 2 stud
 RunService.Heartbeat:Connect(function()
-    if CFrameSpeedEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local HRP = LocalPlayer.Character.HumanoidRootPart
-        HRP.CFrame = HRP.CFrame + (LocalPlayer.Character.Humanoid.MoveDirection * SpeedValue)
+    if loopBring and selectedPlayer and selectedPlayer.Character then
+        local targetChar = selectedPlayer.Character
+        local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+        local myChar = LocalPlayer.Character
+        local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+        if targetHRP and myHRP then
+            targetHRP.CFrame = myHRP.CFrame * CFrame.new(0, 0, -2)
+        end
     end
 end)
 
+-- ===================== 🔄 AUTO UPDATE LIST =====================
+-- Bỏ refresh dropdown theo yêu cầu
+-- Players.PlayerAdded:Connect(refreshDropdown)
+-- Players.PlayerRemoving:Connect(refreshDropdown)
+
+getgenv().HitboxEnabled = false
+getgenv().HitboxTransparency = 0.9
+getgenv().HitboxSize = 15
+combatSection:addToggle("Hitbox", false, function(value)
+    getgenv().HitboxEnabled = value
+    venyx:Notify("Hitbox", value and "ON" or "OFF")
+end)
+combatSection:addSlider("Hitbox Transparency", 0.9, 0, 1, function(value)
+    getgenv().HitboxTransparency = value
+end)
+combatSection:addSlider("Hitbox Size", 15, 5, 50, function(value)
+    getgenv().HitboxSize = value
+end)
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if getgenv().HitboxEnabled then
+        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
+            if player.Name ~= game:GetService('Players').LocalPlayer.Name then
+                pcall(function()
+                    player.Character.HumanoidRootPart.Size = Vector3.new(getgenv().HitboxSize, getgenv().HitboxSize, getgenv().HitboxSize)
+                    player.Character.HumanoidRootPart.Transparency = getgenv().HitboxTransparency
+                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really black")
+                    player.Character.HumanoidRootPart.Material = "Neon"
+                    player.Character.HumanoidRootPart.CanCollide = false
+                end)
+            end
+        end
+    else
+        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
+            if player.Name ~= game:GetService('Players').LocalPlayer.Name then
+                pcall(function()
+                    player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+                    player.Character.HumanoidRootPart.Transparency = 1
+                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Medium stone grey")
+                    player.Character.HumanoidRootPart.Material = "Plastic"
+                    player.Character.HumanoidRootPart.CanCollide = false
+                end)
+            end
+        end
+    end
+end)
+
+combatSection:addToggle("Aimlock", true, function(value)
+    getgenv().Settings.Main.Enable = value
+    venyx:Notify("Aimlock", value and "ON" or "OFF")
+end)
+
+-- Biến AimlockTargets là table chứa nhiều target
+local AimlockTargets = {}  -- Bảng chứa các target đã chọn
+
+-- Hàm check wall
+local function WallCheck(targetPart)
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin).Unit * (targetPart.Position - origin).Magnitude
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+    return not raycastResult
+end
+
+-- Hàm chọn target gần nhất không bị che tường và alive
+local function GetNearestValidTarget()
+    local nearestTarget = nil
+    local nearestDistance = math.huge
+    for _, target in ipairs(AimlockTargets) do
+        if target and target.Character and isAlive(target) then
+            local aimPart = target.Character:FindFirstChild(getgenv().Settings.Part.AimPart)
+            if aimPart then
+                local screenPos = Camera:WorldToScreenPoint(aimPart.Position)
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                if WallCheck(aimPart) and distance < nearestDistance then
+                    nearestDistance = distance
+                    nearestTarget = target
+                end
+            end
+        end
+    end
+    return nearestTarget
+end
+
+-- Hàm isAlive (đã có sẵn)
+local function isAlive(plr)
+    if not plr or not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then
+        return false
+    end
+    local be = plr.Character:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
+        if (ko and ko.Value) or (grabbed and grabbed.Value) then
+            return false
+        end
+    end
+    return true
+end
+
+-- Hàm thông báo đẹp cho chọn target
+local TargetNotifications = {}  -- Danh sách thông báo target
+
+local function sendTargetNotification(plr)
+    if not plr then return end
+
+    -- Tạo ScreenGui
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "TargetNotification_" .. plr.Name
+    notifGui.Parent = game:GetService("CoreGui")
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    notifGui.IgnoreGuiInset = true
+    notifGui.ResetOnSpawn = false
+
+    -- Frame
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 250, 0, 150)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 0
+    frame.Position = UDim2.new(0, 20, 0.5, -75)  -- Bên trái giữa màn hình
+    frame.Transparency = 0
+    frame.Parent = notifGui
+
+    -- Bo góc
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    -- Gradient
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+    }
+    gradient.Rotation = 90
+    gradient.Parent = frame
+
+    -- Glow (sử dụng UIStroke cho glow hồng)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 179, 186)  -- Màu hồng glow
+    stroke.Thickness = 2
+    stroke.Transparency = 0.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = frame
+
+    -- Avatar
+    local avatar = Instance.new("ImageLabel")
+    avatar.Size = UDim2.new(0, 50, 0, 50)
+    avatar.Position = UDim2.new(0, 10, 0, 10)
+    avatar.BackgroundTransparency = 1
+    avatar.Image = Players:GetUserThumbnailAsync(plr.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+    avatar.Parent = frame
+
+    -- Title "Target"
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -70, 0, 25)
+    titleLabel.Position = UDim2.new(0, 70, 0, 10)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Target"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = frame
+
+    -- Name
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, -10, 0, 20)
+    nameLabel.Position = UDim2.new(0, 10, 0, 60)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
+    nameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    nameLabel.Font = Enum.Font.Gotham
+    nameLabel.TextSize = 14
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = frame
+
+    -- Age
+    local ageLabel = Instance.new("TextLabel")
+    ageLabel.Size = UDim2.new(1, -10, 0, 20)
+    ageLabel.Position = UDim2.new(0, 10, 0, 80)
+    ageLabel.BackgroundTransparency = 1
+    ageLabel.Text = "Age: " .. plr.AccountAge .. " days"
+    ageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    ageLabel.Font = Enum.Font.Gotham
+    ageLabel.TextSize = 14
+    ageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ageLabel.Parent = frame
+
+    -- Status
+    local status = isAlive(plr) and "Alive" or "K.O./Grabbed"
+    local health = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health or 0
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, -10, 0, 20)
+    statusLabel.Position = UDim2.new(0, 10, 0, 100)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "Status: " .. status .. " | Health: " .. math.floor(health)
+    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.TextSize = 14
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = frame
+
+    -- Thêm vào danh sách
+    table.insert(TargetNotifications, notifGui)
+
+    -- Hiệu ứng fade in (đã có sẵn ở vị trí)
+    task.spawn(function()
+        task.wait(3)  -- Hiện 3 giây
+        -- Kéo sang trái biến mất
+        local slideOut = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0, -300, 0.5, -75)})
+        slideOut:Play()
+        slideOut.Completed:Connect(function()
+            notifGui:Destroy()
+            for i, gui in ipairs(TargetNotifications) do
+                if gui == notifGui then
+                    table.remove(TargetNotifications, i)
+                    break
+                end
+            end
+        end)
+    end)
+end
+
+-- Hàm thông báo chung (không dùng cho target)
+local Notifications = {} -- Danh sách để theo dõi các thông báo hiện tại
+
+local function sendNotification(title, text, duration)
+    -- Tạo ScreenGui mới cho thông báo
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "DhuyxNotification_" .. tostring(tick())
+    notifGui.Parent = game:GetService("CoreGui")
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    notifGui.DisplayOrder = 999999 - #Notifications -- Giảm DisplayOrder cho thông báo mới
+    notifGui.IgnoreGuiInset = true
+    notifGui.ResetOnSpawn = false
+
+    -- Tính toán vị trí dựa trên số lượng thông báo hiện tại
+    local offsetY = 20 + (#Notifications * 80) -- Mỗi thông báo cách nhau 80 pixel (70 pixel chiều cao + 10 pixel khoảng cách)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 280, 0, 70)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 0
+    frame.AnchorPoint = Vector2.new(1, 1)
+    frame.Position = UDim2.new(1, -20, 1, -offsetY) -- Đặt vị trí, thông báo mới ở dưới
+    frame.Transparency = 1 -- Ban đầu trong suốt cho hiệu ứng fade-in
+    frame.Parent = notifGui
+
+    -- Bo góc
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    -- Gradient
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+    }
+    gradient.Rotation = 90
+    gradient.Parent = frame
+
+    -- Glow (sử dụng UIStroke cho glow hồng)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 179, 186)  -- Màu hồng glow
+    stroke.Thickness = 2
+    stroke.Transparency = 0.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = frame
+
+    -- Shadow
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0, -10, 0, -10)
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.6
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.ZIndex = -1
+    shadow.BackgroundTransparency = 1
+    shadow.Parent = frame
+
+    -- Title
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -10, 0, 25)
+    titleLabel.Position = UDim2.new(0, 5, 0, 5)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title or "DhuyxDtuyen"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    titleLabel.Parent = frame
+
+    -- Text
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -10, 1, -35)
+    textLabel.Position = UDim2.new(0, 5, 0, 30)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = text or "Notification"
+    textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    textLabel.Font = Enum.Font.Gotham
+    textLabel.TextSize = 14
+    textLabel.TextWrapped = true
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    textLabel.Parent = frame
+
+    -- Thêm thông báo vào danh sách
+    table.insert(Notifications, notifGui)
+
+    -- Fade in animation
+    local fadeIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
+    fadeIn:Play()
+
+    -- Fade out và xóa
+    task.spawn(function()
+        task.wait(duration or 3)
+        local fadeOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1})
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            -- Xóa thông báo khỏi danh sách và hủy nó
+            for i, gui in ipairs(Notifications) do
+                if gui == notifGui then
+                    table.remove(Notifications, i)
+                    break
+                end
+            end
+            notifGui:Destroy()
+
+            -- Cập nhật lại vị trí của các thông báo còn lại
+            for i, gui in ipairs(Notifications) do
+                local frame = gui:FindFirstChildOfClass("Frame")
+                if frame then
+                    local newOffsetY = 20 + ((i - 1) * 80) -- Cập nhật vị trí
+                    local tween = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -newOffsetY)})
+                    tween:Play()
+                end
+            end
+        end)
+    end)
+end
+
+-- Hàm get nearest to mouse (PC) or center (Mobile)
+local function GetNearestToCursorOrCenter()
+    local isMobile = UIS.TouchEnabled and not UIS.MouseEnabled
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local pos = isMobile and center or Vector2.new(Mouse.X, Mouse.Y)
+    local nearest = nil
+    local nearestDist = math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local screenPos = Camera:WorldToScreenPoint(plr.Character.HumanoidRootPart.Position)
+            local dist = (Vector2.new(screenPos.X, screenPos.Y) - pos).Magnitude
+            if dist < nearestDist then
+                nearestDist = dist
+                nearest = plr
+            end
+        end
+    end
+    return nearest
+end
+
+-- Keybind Set Target (mặc định Q)
+local setTargetKey = Enum.KeyCode.Q
+combatSection:addKeybind("Set Target Key", Enum.KeyCode.Q, function()
+    local target = GetNearestToCursorOrCenter()
+    if target then
+        local index = table.find(AimlockTargets, target)
+        if index then
+            table.remove(AimlockTargets, index)
+            sendNotification("Target Removed", target.DisplayName .. " removed from targets")
+        else
+            table.insert(AimlockTargets, target)
+            sendTargetNotification(target)
+        end
+        -- Cập nhật dropdown với dấu tích
+        local list = {}
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                local tickMark = table.find(AimlockTargets, plr) and " ✓" or ""
+                table.insert(list, plr.DisplayName .. " (@" .. plr.Name .. ")" .. tickMark)
+            end
+        end
+        playerDropdown:Update(list)
+    end
+end, function(key)
+    setTargetKey = key
+end)
+
+-- Button Set Target (dùng selectedPlayer từ dropdown)
+combatSection:addButton("Set Target", function()
+    if selectedPlayer then
+        local index = table.find(AimlockTargets, selectedPlayer)
+        if index then
+            table.remove(AimlockTargets, index)
+            sendNotification("Target Removed", selectedPlayer.DisplayName .. " removed from targets")
+        else
+            table.insert(AimlockTargets, selectedPlayer)
+            sendTargetNotification(selectedPlayer)
+        end
+        -- Cập nhật dropdown với dấu tích
+        local list = {}
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                local tickMark = table.find(AimlockTargets, plr) and " ✓" or ""
+                table.insert(list, plr.DisplayName .. " (@" .. plr.Name .. ")" .. tickMark)
+            end
+        end
+        playerDropdown:Update(list)
+    end
+end)
+
+combatSection:addToggle("Desync Resolver", false, function(value)
+    getgenv().Settings.Resolver.UnderGround = value
+    venyx:Notify("UnderGround Resolver", value and "ON" or "OFF")
+end)
+combatSection:addToggle("DetectDesync Resolver", true, function(value)
+    getgenv().Settings.Resolver.DetectDesync = value
+    venyx:Notify("DetectDesync Resolver", value and "ON" or "OFF")
+end)
+combatSection:addDropdown("Aim Part", {"Head", "HumanoidRootPart", "UpperTorso"}, function(value)
+    getgenv().Settings.Part.AimPart = value
+end)
+combatSection:addToggle("Use FOV Circle", false, function(value)
+    getgenv().Settings.Visual.Fov = value
+    getgenv().Settings.Visual.UseCircleRadius = value -- đồng bộ với FOV Circle
+    venyx:Notify("FOV Circle", value and "ON" or "OFF")
+end)
+combatSection:addSlider("FOV Radius", 200, 0, 1000, function(value)
+    getgenv().Settings.Visual.FovRadius = value
+end)
+combatSection:addColorPicker("FOV Color", Color3.fromRGB(255, 179, 186), function(color)
+    getgenv().Settings.Visual.FovColor = color
+end)
+
+-- Page 2: Visual (Icon: Eye, 5012541386)
+local visualPage = venyx:addPage("Visual", 5012541386)
+local visualSection = visualPage:addSection("Visual Features")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Config lấy từ UI toggle của bạn
+local Config = {
+    RainbowHitEffectEnabled = true,
+    TracerColor = Color3.fromRGB(255, 0, 0),
+}
+
+local lastHealth = {}
+
+local TweenService = game:GetService("TweenService")
+
+local function getRainbowColor()
+    local timeVal = tick() * 2
+    local r = math.floor((math.sin(timeVal) * 0.5 + 0.5) * 255)
+    local g = math.floor((math.sin(timeVal + math.pi / 2) * 0.5 + 0.5) * 255)
+    local b = math.floor((math.sin(timeVal + math.pi) * 0.5 + 0.5) * 255)
+    return Color3.fromRGB(r, g, b)
+end
+
+local function createHitEffect(targetCharacter)
+    local hrp = targetCharacter:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    
+    local effect = Instance.new("Part")
+    effect.Shape = Enum.PartType.Ball
+    effect.Anchored = true
+    effect.CanCollide = false
+    effect.Material = Enum.Material.Neon
+    effect.Color = getRainbowColor()
+    effect.Size = Vector3.new(4, 4, 4)
+    effect.Transparency = 0
+    effect.Parent = hrp
+    effect.Position = hrp.Position
+    
+    local outline = Instance.new("Part")
+    outline.Shape = Enum.PartType.Ball
+    outline.Anchored = true
+    outline.CanCollide = false
+    outline.Material = Enum.Material.Neon
+    outline.Color = getRainbowColor()
+    outline.Size = effect.Size * 1.2
+    outline.Transparency = 0.3
+    outline.Parent = effect
+    outline.Position = effect.Position
+    
+    return effect
+end
+
+local hitEffect = nil
+
+local function playHitEffect(targetCharacter)
+    if hitEffect and hitEffect.Parent then
+        hitEffect:Destroy()
+    end
+    
+    hitEffect = createHitEffect(targetCharacter)
+    if not hitEffect then return end
+    
+    local tweenInfo = TweenInfo.new(
+        0.5, -- Duration
+        Enum.EasingStyle.Quad, -- Smooth easing
+        Enum.EasingDirection.Out -- Starts fast, ends slow
+    )
+    
+    local growTween = TweenService:Create(hitEffect, tweenInfo, {
+        Size = Vector3.new(8, 8, 8),
+        Transparency = 1
+    })
+    
+    local outlineTween = TweenService:Create(hitEffect:FindFirstChild("Part"), tweenInfo, {
+        Size = Vector3.new(10, 10, 10),
+        Transparency = 1
+    })
+    
+    local colorTween = TweenService:Create(hitEffect, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {
+        Color = getRainbowColor():Lerp(Color3.new(1, 1, 1), 0.5)
+    })
+    
+    growTween:Play()
+    outlineTween:Play()
+    colorTween:Play()
+    
+    growTween.Completed:Connect(function()
+        if hitEffect and hitEffect.Parent then
+            hitEffect:Destroy()
+        end
+        hitEffect = nil
+    end)
+end
+
+-- Kết nối HealthChanged cho từng player để giảm lag
+-- Fix for setupHitEffect: Apply immediately if character exists, and connect for new characters
+local function setupHitEffect(plr)
+    if plr == LocalPlayer then return end
+    local function connectHealthChanged(char)
+        if not char then return end
+        local hum = char:WaitForChild("Humanoid", 5)
+        if not hum then return end
+        local lastHealth = hum.Health
+        hum.HealthChanged:Connect(function(current)
+            if Config.RainbowHitEffectEnabled and current < lastHealth then
+                playHitEffect(char)
+            end
+            lastHealth = current
+        end)
+    end
+
+    -- Apply immediately if character exists
+    if plr.Character then
+        connectHealthChanged(plr.Character)
+    end
+
+    -- Connect for new characters
+    plr.CharacterAdded:Connect(connectHealthChanged)
+end
+
+-- Áp dụng cho tất cả người chơi
+for _,plr in ipairs(Players:GetPlayers()) do
+    if plr ~= Players.LocalPlayer then
+        setupHitEffect(plr)
+        plr.CharacterAdded:Connect(function(char)
+            char:WaitForChild("Humanoid")
+            setupHitEffect(plr)
+        end)
+    end
+end
+Players.PlayerAdded:Connect(setupHitEffect)
+
+-- === ESP Config ===
+_G.FriendColor = Color3.fromRGB(0, 0, 255)
+_G.EnemyColor = Color3.fromRGB(255, 0, 0)
+_G.UseTeamColor = true
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local ESPEnabled = false
+local SkeletonEnabled = false
+local NameEnabled = false
+local ESPColor = Color3.fromRGB(255, 179, 186)
+local SkeletonColor = Color3.fromRGB(255, 255, 255)
+local NameColor = Color3.fromRGB(255, 179, 186)
+
+local ESPs = {}
+local espGui = Instance.new("ScreenGui")  -- Nếu chưa có, tạo ScreenGui để chứa label/highlight
+espGui.Parent = game.CoreGui  -- Hoặc game.Players.LocalPlayer.PlayerGui nếu muốn
+espGui.IgnoreGuiInset = true
+
+local function CreateESP(player)
+    if ESPs[player] or player == LocalPlayer then return end
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 179, 186)
+    label.TextSize = 16
+    label.Font = Enum.Font.GothamBold
+    label.Text = player.DisplayName
+    label.TextStrokeTransparency = 0.5
+    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    label.Size = UDim2.new(0, 200, 0, 20)
+    label.AnchorPoint = Vector2.new(0.5, 0.5)
+    label.Position = UDim2.new(0.5, 0, 0.5, 0)
+    label.Visible = false
+    label.Parent = espGui
+
+    local highlight = Instance.new("Highlight")
+    highlight.Enabled = false
+    highlight.FillTransparency = 0.6
+    highlight.OutlineTransparency = 0.2
+    highlight.FillColor = Color3.fromRGB(255, 179, 186)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.Adornee = player.Character
+    highlight.Parent = espGui
+
+    ESPs[player] = { label = label, highlight = highlight }
+end
+
+local function RemoveESP(player)
+    if ESPs[player] then
+        pcall(function()
+            ESPs[player].label:Destroy()
+            ESPs[player].highlight:Destroy()
+        end)
+        ESPs[player] = nil
+    end
+end
+
+local function UpdateESP()
+    if not ESPEnabled then  -- Sử dụng ESPEnabled (hoặc NameEnabled nếu riêng)
+        for _, v in pairs(ESPs) do
+            v.label.Visible = false
+            v.highlight.Enabled = false
+        end
+        return
+    end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local head = player.Character:FindFirstChild("Head")
+            if head then
+                CreateESP(player)
+                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                local esp = ESPs[player]
+                if esp then
+                    if onScreen then
+                        esp.label.Visible = true
+                        esp.label.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y - 20)
+                        esp.highlight.Enabled = true
+                    else
+                        esp.label.Visible = false
+                        esp.highlight.Enabled = false
+                    end
+                end
+            else
+                RemoveESP(player)
+            end
+        else
+            RemoveESP(player)
+        end
+    end
+end
+
+local skeletonLines = {}  -- Đã có, giữ
+local function drawSkeleton(plr, color)
+    if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+
+    local parts = {
+        Head = plr.Character:FindFirstChild("Head"),
+        Torso = plr.Character:FindFirstChild("UpperTorso") or plr.Character:FindFirstChild("Torso"),
+        LeftArm = plr.Character:FindFirstChild("LeftUpperArm") or plr.Character:FindFirstChild("Left Arm"),
+        RightArm = plr.Character:FindFirstChild("RightUpperArm") or plr.Character:FindFirstChild("Right Arm"),
+        LeftLeg = plr.Character:FindFirstChild("LeftUpperLeg") or plr.Character:FindFirstChild("Left Leg"),
+        RightLeg = plr.Character:FindFirstChild("RightUpperLeg") or plr.Character:FindFirstChild("Right Leg")
+    }
+
+    local cam = workspace.CurrentCamera
+    local function wts(part)
+        local vec, vis = cam:WorldToViewportPoint(part.Position)
+        return Vector2.new(vec.X, vec.Y), vis
+    end
+
+    -- Chỉ update nếu on-screen (giảm lag)
+    local rootPos, onScreen = wts(plr.Character.HumanoidRootPart)
+    if not onScreen then return end
+
+    local function drawLine(a, b, tag)
+        if not a or not b then return end
+        local posA, visA = wts(a)
+        local posB, visB = wts(b)
+        if not visA or not visB then return end
+
+        local line = skeletonLines[tag] or Drawing.new("Line")
+        line.Thickness = 2
+        line.From = posA
+        line.To = posB
+        line.Color = color
+        line.Visible = true
+        skeletonLines[tag] = line  -- Reuse
+    end
+
+    drawLine(parts.Head, parts.Torso, plr.Name .. "_neck")
+    drawLine(parts.Torso, parts.LeftArm, plr.Name .. "_larm")
+    drawLine(parts.Torso, parts.RightArm, plr.Name .. "_rarm")
+    drawLine(parts.Torso, parts.LeftLeg, plr.Name .. "_lleg")
+    drawLine(parts.Torso, parts.RightLeg, plr.Name .. "_rleg")
+end
+
+-- Fix ESP, Name, Skeleton in RenderStepped (remove undefined espHighlight and espName, integrate logic)
+RunService.RenderStepped:Connect(function()
+    for _, line in pairs(skeletonLines) do
+        line.Visible = false
+    end
+
+    for _, v in ipairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer then
+            local color = ESPColor
+            if _G.UseTeamColor then
+                color = v.TeamColor.Color
+            elseif v.Team == LocalPlayer.Team then
+                color = _G.FriendColor
+            else
+                color = _G.EnemyColor
+            end
+
+            if ESPEnabled or NameEnabled or SkeletonEnabled then
+                if v.Character and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
+                    local head = v.Character:FindFirstChild("Head")
+                    if head then
+                        CreateESP(v)
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                        local esp = ESPs[v]
+                        if esp then
+                            if onScreen then
+                                if ESPEnabled then
+                                    esp.highlight.Enabled = true
+                                    esp.highlight.FillColor = color
+                                    esp.highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                                    esp.highlight.Adornee = v.Character
+                                else
+                                    esp.highlight.Enabled = false
+                                end
+                                if NameEnabled then
+                                    esp.label.Visible = true
+                                    esp.label.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y - 20)
+                                    esp.label.TextColor3 = NameColor
+                                else
+                                    esp.label.Visible = false
+                                end
+                            else
+                                esp.label.Visible = false
+                                esp.highlight.Enabled = false
+                            end
+                        end
+                    else
+                        RemoveESP(v)
+                    end
+                else
+                    RemoveESP(v)
+                end
+            end
+
+            if SkeletonEnabled then
+                drawSkeleton(v, SkeletonColor)
+            end
+        end
+    end
+end)
+
+-- xoá khi player thoát
+Players.PlayerRemoving:Connect(function(plr)
+    RemoveESP(plr)
+end)
+
+-- === UI Buttons ===
+visualSection:addToggle("ESP Highlight", false, function(value)
+    ESPEnabled = value
+    venyx:Notify("ESP Highlight", value and "ON" or "OFF")
+    if not value then
+        for _, v in ipairs(Players:GetPlayers()) do
+            if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("GetReal") then
+                v.Character.GetReal:Destroy()
+            end
+        end
+    end
+end)
+visualSection:addColorPicker("ESP Color", ESPColor, function(color)
+    ESPColor = color
+end)
+
+visualSection:addToggle("ESP Name", false, function(value)
+    NameEnabled = value
+    venyx:Notify("ESP Name", value and "ON" or "OFF")
+    if not value then
+        for _, v in ipairs(Players:GetPlayers()) do
+            if v ~= LocalPlayer and v.Character and v.Character.Head:FindFirstChild("ESPName") then
+                v.Character.Head.ESPName:Destroy()
+            end
+        end
+    end
+end)
+visualSection:addColorPicker("Name Color", NameColor, function(color)
+    NameColor = color
+end)
+
+visualSection:addToggle("Skeleton ESP", false, function(value)
+    SkeletonEnabled = value
+    venyx:Notify("Skeleton ESP", value and "ON" or "OFF")
+    if not value then
+        for _, line in pairs(skeletonLines) do line:Remove() end
+        skeletonLines = {}
+    end
+end)
+visualSection:addColorPicker("Skeleton Color", SkeletonColor, function(color)
+    SkeletonColor = color
+end)
+
+-- Rainbow Hit Effect
+visualSection:addToggle("Rainbow Hit Effect", false, function(value)
+    Config.RainbowHitEffectEnabled = value
+end)
+
+local tracerEnabled = false
+local tracerColor = Color3.fromRGB(255, 179, 186)
+local tracerLines = {}
+
+local function UpdateTracers()
+    for _, line in pairs(tracerLines) do
+        line:Remove()
+    end
+    tracerLines = {}
+    if not tracerEnabled then return end
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local root = player.Character.HumanoidRootPart
+            local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+            if onScreen then
+                local tracer = Drawing.new("Line")
+                tracer.Visible = true
+                tracer.Color = tracerColor
+                tracer.Thickness = 2
+                tracer.Transparency = 1
+                tracer.From = screenCenter
+                tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                table.insert(tracerLines, tracer)
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(UpdateTracers)
+
+-- UI for Tracer
+visualSection:addToggle("Tracer", false, function(value)
+    tracerEnabled = value
+    venyx:Notify("Tracer", value and "ON" or "OFF")
+end)
+visualSection:addColorPicker("Tracer Color", tracerColor, function(color)
+    tracerColor = color
+end)
+
+-- New Page: Auralist (Icon: 5012541386, same as Visual page for consistency)
+local auralistPage = venyx:addPage("Auralist", 5012541386)
+local auralistSection = auralistPage:addSection("Aura Features")
+
+local awEnabled = false
+local awInstances = {}
+local awHrp = nil
+local awColor = Color3.new(1, 1, 1) -- Default white for Angel Wings
+
+local function destroyAw()
+    for _, inst in pairs(awInstances) do
+        pcall(function() inst:Destroy() end)
+    end
+    awInstances = {}
+end
+
+local function createAw()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    awHrp = character:FindFirstChild("UpperTorso")
+    if not awHrp then return end
+    
+    destroyAw()
+    
+    -- Attachment1 at (0, 4.25, 0)
+    local att1 = Instance.new("Attachment")
+    att1.Name = "AngelAttachment1"
+    att1.CFrame = CFrame.new(0, 4.25, 0)
+    att1.Parent = awHrp
+    table.insert(awInstances, att1)
+    
+    -- ParticleEmitter1 in att1
+    local pe1 = Instance.new("ParticleEmitter")
+    pe1.Name = "AngelParticle1"
+    pe1.Acceleration = Vector3.new(0, -6, 0)
+    pe1.Brightness = 1
+    pe1.Color = ColorSequence.new(awColor)
+    pe1.Drag = 0
+    pe1.EmissionDirection = Enum.NormalId.Bottom
+    pe1.Enabled = true
+    pe1.Lifetime = NumberRange.new(1, 2)
+    pe1.LightEmission = 1
+    pe1.LightInfluence = 1
+    pe1.LockedToPart = true
+    pe1.Orientation = Enum.ParticleOrientation.FacingCamera
+    pe1.Rate = 50
+    pe1.RotSpeed = NumberRange.new(-100, 100)
+    pe1.Rotation = NumberRange.new(-360, 360)
+    pe1.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5, 0.3), NumberSequenceKeypoint.new(1, 0.5, 0.3)})
+    pe1.Speed = NumberRange.new(2.5, 2.5)
+    pe1.SpreadAngle = Vector2.new(0, 360)
+    pe1.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    pe1.Texture = "rbxassetid://7511321694"
+    pe1.TimeScale = 1
+    pe1.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.1, 0),
+        NumberSequenceKeypoint.new(0.3, 0),
+        NumberSequenceKeypoint.new(0.8, 0),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    pe1.VelocityInheritance = 0
+    pe1.WindAffectsDrag = false
+    pe1.ZOffset = 0
+    pe1.Parent = att1
+    table.insert(awInstances, pe1)
+    
+    -- ParticleEmitter2 in att1
+    local pe2 = Instance.new("ParticleEmitter")
+    pe2.Name = "AngelParticle2"
+    pe2.Acceleration = Vector3.new(0, -6, 0)
+    pe2.Brightness = 1
+    pe2.Color = ColorSequence.new(awColor)
+    pe2.Drag = 0
+    pe2.EmissionDirection = Enum.NormalId.Bottom
+    pe2.Enabled = true
+    pe2.Lifetime = NumberRange.new(1, 2)
+    pe2.LightEmission = 1
+    pe2.LightInfluence = 1
+    pe2.LockedToPart = true
+    pe2.Orientation = Enum.ParticleOrientation.FacingCamera
+    pe2.Rate = 100
+    pe2.RotSpeed = NumberRange.new(-100, 100)
+    pe2.Rotation = NumberRange.new(-360, 360)
+    pe2.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5, 0.3), NumberSequenceKeypoint.new(1, 0.5, 0.3)})
+    pe2.Speed = NumberRange.new(2.5, 2.5)
+    pe2.SpreadAngle = Vector2.new(0, 360)
+    pe2.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    pe2.Texture = "rbxassetid://1084976679"
+    pe2.TimeScale = 1
+    pe2.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.2, 0),
+        NumberSequenceKeypoint.new(0.8, 0),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    pe2.VelocityInheritance = 0
+    pe2.WindAffectsDrag = false
+    pe2.ZOffset = 0
+    pe2.Parent = att1
+    table.insert(awInstances, pe2)
+    
+    -- Attachment2 at (0, 0.75, 0.5)
+    local att2 = Instance.new("Attachment")
+    att2.Name = "AngelAttachment2"
+    att2.CFrame = CFrame.new(0, 0.75, 0.5)
+    att2.Parent = awHrp
+    table.insert(awInstances, att2)
+    
+    -- Attachment3 at (-5.25, 0, 2)
+    local att3 = Instance.new("Attachment")
+    att3.Name = "AngelAttachment3"
+    att3.CFrame = CFrame.new(-5.25, 0, 2) * CFrame.fromMatrix(Vector3.new(0,0,0), Vector3.new(0.866025388, 0, 0.5), Vector3.new(0,1,0), Vector3.new(-0.5, 0, 0.866025388))
+    att3.Parent = awHrp
+    table.insert(awInstances, att3)
+    
+    -- Attachment4 at (5.25, 0, 2)
+    local att4 = Instance.new("Attachment")
+    att4.Name = "AngelAttachment4"
+    att4.CFrame = CFrame.new(5.25, 0, 2) * CFrame.fromMatrix(Vector3.new(0,0,0), Vector3.new(0.866025388, 0, -0.5), Vector3.new(0,1,0), Vector3.new(0.5, 0, 0.866025388))
+    att4.Parent = awHrp
+    table.insert(awInstances, att4)
+    
+    -- Beam1: att2 to att3
+    local beam1 = Instance.new("Beam")
+    beam1.Name = "AngelBeam1"
+    beam1.Attachment0 = att2
+    beam1.Attachment1 = att3
+    beam1.Brightness = 1
+    beam1.Color = ColorSequence.new(awColor)
+    beam1.CurveSize0 = 2
+    beam1.CurveSize1 = 2
+    beam1.Enabled = true
+    beam1.FaceCamera = false
+    beam1.LightEmission = 1
+    beam1.LightInfluence = 1
+    beam1.Segments = 10
+    beam1.Texture = "rbxassetid://9544400688"
+    beam1.TextureLength = 1
+    beam1.TextureMode = Enum.TextureMode.Stretch
+    beam1.TextureSpeed = 0
+    beam1.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    beam1.Width0 = 4
+    beam1.Width1 = 6
+    beam1.ZOffset = 0
+    beam1.Parent = awHrp
+    table.insert(awInstances, beam1)
+    
+    -- Beam2: att2 to att4
+    local beam2 = Instance.new("Beam")
+    beam2.Name = "AngelBeam2"
+    beam2.Attachment0 = att2
+    beam2.Attachment1 = att4
+    beam2.Brightness = 1
+    beam2.Color = ColorSequence.new(awColor)
+    beam2.CurveSize0 = -2
+    beam2.CurveSize1 = -2
+    beam2.Enabled = true
+    beam2.FaceCamera = false
+    beam2.LightEmission = 1
+    beam2.LightInfluence = 1
+    beam2.Segments = 10
+    beam2.Texture = "rbxassetid://9544400688"
+    beam2.TextureLength = 1
+    beam2.TextureMode = Enum.TextureMode.Stretch
+    beam2.TextureSpeed = 0
+    beam2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    beam2.Width0 = 4
+    beam2.Width1 = 6
+    beam2.ZOffset = 0
+    beam2.Parent = awHrp
+    table.insert(awInstances, beam2)
+    
+    -- PointLight
+    local pl = Instance.new("PointLight")
+    pl.Name = "AngelPointLight"
+    pl.Brightness = 4
+    pl.Color = awColor
+    pl.Enabled = true
+    pl.Range = 5
+    pl.Shadows = false
+    pl.Parent = awHrp
+    table.insert(awInstances, pl)
+end
+
+local function updateAwColor(newColor)
+    awColor = newColor
+    if awEnabled then
+        for _, inst in pairs(awInstances) do
+            if inst:IsA("ParticleEmitter") or inst:IsA("Beam") then
+                inst.Color = ColorSequence.new(awColor)
+            elseif inst:IsA("PointLight") then
+                inst.Color = awColor
+            end
+        end
+    end
+end
+
+-- Blueheat Aura
+local bhEnabled = false
+local bhInstances = {}
+local bhColor = Color3.new(0.0588235, 0.0588235, 1) -- Default dark blue
+
+local function destroyBh()
+    for _, inst in pairs(bhInstances) do
+        pcall(function() inst:Destroy() end)
+    end
+    bhInstances = {}
+end
+
+local function createBh()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    
+    destroyBh()
+    
+    -- Get all parts except HumanoidRootPart
+    local parts = {}
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            table.insert(parts, part)
+        end
+    end
+    
+    for _, part in pairs(parts) do
+        -- Atom1
+        local atom1 = Instance.new("ParticleEmitter")
+        atom1.Name = "BhAtom1"
+        atom1.Acceleration = Vector3.new(0, 1, 0)
+        atom1.Brightness = 10
+        atom1.Color = ColorSequence.new(bhColor)
+        atom1.Drag = 50
+        atom1.EmissionDirection = Enum.NormalId.Top
+        atom1.Enabled = true
+        atom1.Lifetime = NumberRange.new(0.4, 0.6)
+        atom1.LightEmission = 1
+        atom1.LightInfluence = 0
+        atom1.LockedToPart = false
+        atom1.Orientation = Enum.ParticleOrientation.FacingCamera
+        atom1.Rate = 20
+        atom1.RotSpeed = NumberRange.new(0, 0)
+        atom1.Rotation = NumberRange.new(-360, 360)
+        atom1.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.125), NumberSequenceKeypoint.new(1, 0)})
+        atom1.Speed = NumberRange.new(30, 40)
+        atom1.SpreadAngle = Vector2.new(90, 90)
+        atom1.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+        atom1.Texture = "rbxassetid://11448304274"
+        atom1.TimeScale = 0.75
+        atom1.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.500529, 0), NumberSequenceKeypoint.new(1, 1)})
+        atom1.VelocityInheritance = 0
+        atom1.WindAffectsDrag = false
+        atom1.ZOffset = -1
+        atom1.Parent = part
+        table.insert(bhInstances, atom1)
+        
+        -- Flame1
+        local flame1 = Instance.new("ParticleEmitter")
+        flame1.Name = "BhFlame1"
+        flame1.Acceleration = Vector3.new(0, 1, 0)
+        flame1.Brightness = 10
+        flame1.Color = ColorSequence.new(bhColor)
+        flame1.Drag = 0
+        flame1.EmissionDirection = Enum.NormalId.Top
+        flame1.Enabled = true
+        flame1.Lifetime = NumberRange.new(0.4, 0.6)
+        flame1.LightEmission = 1
+        flame1.LightInfluence = 0
+        flame1.LockedToPart = false
+        flame1.Orientation = Enum.ParticleOrientation.FacingCamera
+        flame1.Rate = 150
+        flame1.RotSpeed = NumberRange.new(0, 0)
+        flame1.Rotation = NumberRange.new(-360, 360)
+        flame1.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})
+        flame1.Speed = NumberRange.new(1, 2)
+        flame1.SpreadAngle = Vector2.new(90, 90)
+        flame1.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+        flame1.Texture = "rbxassetid://10545078665"
+        flame1.TimeScale = 0.75
+        flame1.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.500529, 0), NumberSequenceKeypoint.new(1, 1)})
+        flame1.VelocityInheritance = 0
+        flame1.WindAffectsDrag = false
+        flame1.ZOffset = -1
+        flame1.Parent = part
+        table.insert(bhInstances, flame1)
+        
+        -- Flame2
+        local flame2 = Instance.new("ParticleEmitter")
+        flame2.Name = "BhFlame2"
+        flame2.Acceleration = Vector3.new(0, 1, 0)
+        flame2.Brightness = 10
+        flame2.Color = ColorSequence.new(bhColor)
+        flame2.Drag = 0
+        flame2.EmissionDirection = Enum.NormalId.Top
+        flame2.Enabled = true
+        flame2.Lifetime = NumberRange.new(0.3, 0.4)
+        flame2.LightEmission = 1
+        flame2.LightInfluence = 0
+        flame2.LockedToPart = false
+        flame2.Orientation = Enum.ParticleOrientation.FacingCamera
+        flame2.Rate = 150
+        flame2.RotSpeed = NumberRange.new(0, 0)
+        flame2.Rotation = NumberRange.new(-360, 360)
+        flame2.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1.1875), NumberSequenceKeypoint.new(1, 0)})
+        flame2.Speed = NumberRange.new(2, 3)
+        flame2.SpreadAngle = Vector2.new(90, 90)
+        flame2.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+        flame2.Texture = "rbxassetid://10545078665"
+        flame2.TimeScale = 0.75
+        flame2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.500529, 0), NumberSequenceKeypoint.new(1, 1)})
+        flame2.VelocityInheritance = 0
+        flame2.WindAffectsDrag = false
+        flame2.ZOffset = -1.10000002
+        flame2.Parent = part
+        table.insert(bhInstances, flame2)
+        
+        -- Glow
+        local glow = Instance.new("ParticleEmitter")
+        glow.Name = "BhGlow"
+        glow.Acceleration = Vector3.new(0, 1, 0)
+        glow.Brightness = 10
+        glow.Color = ColorSequence.new(bhColor)
+        glow.Drag = 0
+        glow.EmissionDirection = Enum.NormalId.Top
+        glow.Enabled = true
+        glow.FlipbookFramerate = NumberRange.new(30, 30)
+        glow.FlipbookLayout = Enum.ParticleFlipbookLayout.Grid4x4
+        glow.FlipbookMode = Enum.ParticleFlipbookMode.OneShot
+        glow.Lifetime = NumberRange.new(0.4, 0.6)
+        glow.LightEmission = 1
+        glow.LightInfluence = 0
+        glow.LockedToPart = true
+        glow.Orientation = Enum.ParticleOrientation.FacingCamera
+        glow.Rate = 200
+        glow.RotSpeed = NumberRange.new(0, 0)
+        glow.Rotation = NumberRange.new(-360, 360)
+        glow.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0.5)})
+        glow.Speed = NumberRange.new(0.1, 0.1)
+        glow.SpreadAngle = Vector2.new(360, 360)
+        glow.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+        glow.Texture = "rbxassetid://8451174579"
+        glow.TimeScale = 0.75
+        glow.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9125), NumberSequenceKeypoint.new(1, 1)})
+        glow.VelocityInheritance = 0
+        glow.WindAffectsDrag = false
+        glow.ZOffset = 1
+        glow.Parent = part
+        table.insert(bhInstances, glow)
+        
+        -- Steam
+        local steam = Instance.new("ParticleEmitter")
+        steam.Name = "BhSteam"
+        steam.Acceleration = Vector3.new(0, 1, 0)
+        steam.Brightness = 10
+        steam.Color = ColorSequence.new(bhColor)
+        steam.Drag = 5
+        steam.EmissionDirection = Enum.NormalId.Top
+        steam.Enabled = true
+        steam.Lifetime = NumberRange.new(0.4, 0.6)
+        steam.LightEmission = 1
+        steam.LightInfluence = 0
+        steam.LockedToPart = false
+        steam.Orientation = Enum.ParticleOrientation.FacingCamera
+        steam.Rate = 100
+        steam.RotSpeed = NumberRange.new(0, 0)
+        steam.Rotation = NumberRange.new(-360, 360)
+        steam.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 2.4375), NumberSequenceKeypoint.new(1, 0)})
+        steam.Speed = NumberRange.new(8, 10)
+        steam.SpreadAngle = Vector2.new(90, 90)
+        steam.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+        steam.Texture = "rbxassetid://11156590261"
+        steam.TimeScale = 0.75
+        steam.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.499471, 0.8875), NumberSequenceKeypoint.new(1, 1)})
+        steam.VelocityInheritance = 0
+        steam.WindAffectsDrag = false
+        steam.ZOffset = -1
+        steam.Parent = part
+        table.insert(bhInstances, steam)
+    end
+end
+
+local function updateBhColor(newColor)
+    bhColor = newColor
+    if bhEnabled then
+        for _, inst in pairs(bhInstances) do
+            if inst:IsA("ParticleEmitter") then
+                inst.Color = ColorSequence.new(bhColor)
+            end
+        end
+    end
+end
+
+-- UI controls for both effects
+auralistSection:addToggle("Angel Wings", false, function(value)
+    awEnabled = value
+    venyx:Notify("Angel Wings", value and "ON" or "OFF")
+    if value then
+        createAw()
+    else
+        destroyAw()
+    end
+end)
+
+auralistSection:addColorPicker("Angel Wings Color", Color3.new(1, 1, 1), function(color)
+    updateAwColor(color)
+    venyx:Notify("Angel Wings Color", "Color changed")
+end)
+
+auralistSection:addToggle("Blueheat Aura", false, function(value)
+    bhEnabled = value
+    venyx:Notify("Blueheat Aura", value and "ON" or "OFF")
+    if value then
+        createBh()
+    else
+        destroyBh()
+    end
+end)
+
+auralistSection:addColorPicker("Blueheat Color", Color3.new(0.0588235, 0.0588235, 1), function(color)
+    updateBhColor(color)
+    venyx:Notify("Blueheat Color", "Color changed")
+end)
+
+-- Handle character respawn for both effects
+game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart", 5)
+    if awEnabled then
+        createAw()
+    end
+    if bhEnabled then
+        createBh()
+    end
+end)
+
+-- Initial check for character
+local initialChar = game.Players.LocalPlayer.Character
+if initialChar then
+    initialChar:WaitForChild("HumanoidRootPart", 5)
+    if awEnabled then
+        createAw()
+    end
+    if bhEnabled then
+        createBh()
+    end
+end
+
+local player = Players.LocalPlayer
+
+local animationBaseUrl = "http://www.roblox.com/asset/?id="
+
+-- 🔥 Full Animation Presets
+local animations = {
+    R15 = { idle=animationBaseUrl.."2510196951", walk=animationBaseUrl.."2510202577", run=animationBaseUrl.."2510198475", jump=animationBaseUrl.."2510197830", climb=animationBaseUrl.."2510192778", fall=animationBaseUrl.."2510195892" },
+    Loser = { idle=animationBaseUrl.."782841498", walk=animationBaseUrl.."616168032", run=animationBaseUrl.."616163682", jump=animationBaseUrl.."1083218792", climb=animationBaseUrl.."1083439238", fall=animationBaseUrl.."707829716" },
+    Astronaut = { idle=animationBaseUrl.."891621366", jump=animationBaseUrl.."891627522", fall=animationBaseUrl.."891617961", walk=animationBaseUrl.."891667138", run=animationBaseUrl.."891636393", climb=animationBaseUrl.."891609353" },
+    Bubbly = { idle=animationBaseUrl.."910004836", jump=animationBaseUrl.."910016857", fall=animationBaseUrl.."910001910", walk=animationBaseUrl.."910034870", run=animationBaseUrl.."910025107", climb=animationBaseUrl.."940996062" },
+    Cartoony = { idle=animationBaseUrl.."742637544", jump=animationBaseUrl.."742637942", fall=animationBaseUrl.."742637151", walk=animationBaseUrl.."742640026", run=animationBaseUrl.."742638842", climb=animationBaseUrl.."742636889" },
+    Confident = { idle=animationBaseUrl.."1069977950", jump=animationBaseUrl.."1069984524", fall=animationBaseUrl.."1069973677", walk=animationBaseUrl.."1070017263", run=animationBaseUrl.."1070001516", climb=animationBaseUrl.."1069946257" },
+    Cowboy = { idle=animationBaseUrl.."1014390418", jump=animationBaseUrl.."1014394726", fall=animationBaseUrl.."1014384571", walk=animationBaseUrl.."1014421541", run=animationBaseUrl.."1014401683", climb=animationBaseUrl.."1014380606" },
+    Elder = { idle=animationBaseUrl.."845397899", jump=animationBaseUrl.."845398858", fall=animationBaseUrl.."845396048", walk=animationBaseUrl.."845403856", run=animationBaseUrl.."845386501", climb=animationBaseUrl.."845392038" },
+    Knight = { idle=animationBaseUrl.."657595757", jump=animationBaseUrl.."658409194", fall=animationBaseUrl.."657600338", walk=animationBaseUrl.."657552124", run=animationBaseUrl.."657564596", climb=animationBaseUrl.."658360781" },
+    Levitation = { idle=animationBaseUrl.."616006778", jump=animationBaseUrl.."616008936", fall=animationBaseUrl.."616005863", walk=animationBaseUrl.."616013216", run=animationBaseUrl.."616010382", climb=animationBaseUrl.."616003713" },
+    Mage = { idle=animationBaseUrl.."707742142", jump=animationBaseUrl.."707853694", fall=animationBaseUrl.."707829716", walk=animationBaseUrl.."707897309", run=animationBaseUrl.."707861613", climb=animationBaseUrl.."707826056" },
+    Ninja = { idle=animationBaseUrl.."656117400", jump=animationBaseUrl.."656117878", fall=animationBaseUrl.."656115606", walk=animationBaseUrl.."656121766", run=animationBaseUrl.."656118852", climb=animationBaseUrl.."656114359" },
+    Patrol = { idle=animationBaseUrl.."1149612882", jump=animationBaseUrl.."1148811837", fall=animationBaseUrl.."1148863382", walk=animationBaseUrl.."1151231493", run=animationBaseUrl.."1150967949", climb=animationBaseUrl.."1148811837" },
+    Pirate = { idle=animationBaseUrl.."750781874", jump=animationBaseUrl.."750782230", fall=animationBaseUrl.."750780242", walk=animationBaseUrl.."750785693", run=animationBaseUrl.."750783738", climb=animationBaseUrl.."750779899" },
+    Popstar = { idle=animationBaseUrl.."1212900985", jump=animationBaseUrl.."1212954642", fall=animationBaseUrl.."1212900995", walk=animationBaseUrl.."1212980338", run=animationBaseUrl.."1212980348", climb=animationBaseUrl.."1213044953" },
+    Princess = { idle=animationBaseUrl.."941003647", jump=animationBaseUrl.."941008832", fall=animationBaseUrl.."941000007", walk=animationBaseUrl.."941028902", run=animationBaseUrl.."941015281", climb=animationBaseUrl.."940996062" },
+    Robot = { idle=animationBaseUrl.."616088211", jump=animationBaseUrl.."616090535", fall=animationBaseUrl.."616087089", walk=animationBaseUrl.."616095330", run=animationBaseUrl.."616091570", climb=animationBaseUrl.."616086039" },
+    Sneaky = { idle=animationBaseUrl.."1132473842", jump=animationBaseUrl.."1132489853", fall=animationBaseUrl.."1132469004", walk=animationBaseUrl.."1132510133", run=animationBaseUrl.."1132494274", climb=animationBaseUrl.."1132461372" },
+    Stylish = { idle=animationBaseUrl.."616136790", jump=animationBaseUrl.."616139451", fall=animationBaseUrl.."616134815", walk=animationBaseUrl.."616146177", run=animationBaseUrl.."616140816", climb=animationBaseUrl.."616133594" },
+    Superhero = { idle=animationBaseUrl.."616111295", jump=animationBaseUrl.."616115533", fall=animationBaseUrl.."616108001", walk=animationBaseUrl.."616122287", run=animationBaseUrl.."616117076", climb=animationBaseUrl.."616104706" },
+    Toy = { idle=animationBaseUrl.."782841498", jump=animationBaseUrl.."782847020", fall=animationBaseUrl.."782846423", walk=animationBaseUrl.."782843345", run=animationBaseUrl.."782842708", climb=animationBaseUrl.."782843869" },
+    Vampire = { idle=animationBaseUrl.."1083445855", jump=animationBaseUrl.."1083455352", fall=animationBaseUrl.."1083443587", walk=animationBaseUrl.."1083473930", run=animationBaseUrl.."1083462077", climb=animationBaseUrl.."1083439238" },
+    Werewolf = { idle=animationBaseUrl.."1083195517", jump=animationBaseUrl.."1083218792", fall=animationBaseUrl.."1083189019", walk=animationBaseUrl.."1083178339", run=animationBaseUrl.."1083216690", climb=animationBaseUrl.."1083182000" },
+    Zombie = { idle=animationBaseUrl.."616158929", jump=animationBaseUrl.."616161997", fall=animationBaseUrl.."616157476", walk=animationBaseUrl.."616168032", run=animationBaseUrl.."616163682", climb=animationBaseUrl.."616156119" },
+    RealisticZombie = { idle=animationBaseUrl.."3489171152", jump=animationBaseUrl.."616161997", fall=animationBaseUrl.."616157476", walk=animationBaseUrl.."3489174223", run=animationBaseUrl.."3489173414", climb=animationBaseUrl.."616156119" },
+}
+
+-- Lưu preset đã chọn cho từng loại anim
+local currentAnimationPresets = { idle="Zombie", walk="R15", run="Zombie", jump="Ninja", climb="R15", fall="Mage" }
+
+-- Danh sách preset name
+local animationPresetNames = {}
+for k,_ in pairs(animations) do table.insert(animationPresetNames, k) end
+
+-- Áp dụng 1 anim
+local function applyAnimation(animate, presetName, animationType)
+    local preset = animations[presetName]
+    if not preset then return end
+    local animId = preset[animationType]
+    if not animId then return end
+
+    if animationType == "idle" and animate.idle and animate.idle:FindFirstChild("Animation1") then
+        animate.idle.Animation1.AnimationId = animId
+    elseif animationType == "walk" and animate.walk and animate.walk:FindFirstChild("WalkAnim") then
+        animate.walk.WalkAnim.AnimationId = animId
+    elseif animationType == "run" and animate.run and animate.run:FindFirstChild("RunAnim") then
+        animate.run.RunAnim.AnimationId = animId
+    elseif animationType == "jump" and animate.jump and animate.jump:FindFirstChild("JumpAnim") then
+        animate.jump.JumpAnim.AnimationId = animId
+    elseif animationType == "climb" and animate.climb and animate.climb:FindFirstChild("ClimbAnim") then
+        animate.climb.ClimbAnim.AnimationId = animId
+    elseif animationType == "fall" and animate.fall and animate.fall:FindFirstChild("FallAnim") then
+        animate.fall.FallAnim.AnimationId = animId
+    end
+end
+
+-- Áp dụng theo lựa chọn
+local function applySelectedAnimation(animationType)
+    local char = player.Character
+    if not char then return end
+    local animate = char:FindFirstChild("Animate")
+    if not animate then return end
+    local presetName = currentAnimationPresets[animationType]
+    applyAnimation(animate, presetName, animationType)
+end
+
+-- UI (miscSection đã có sẵn trong file)
+local animationTypes = {"idle","walk","run","jump","climb","fall"}
+for _, animType in ipairs(animationTypes) do
+    local displayName = animType:sub(1,1):upper()..animType:sub(2)
+    auralistSection:addDropdown(displayName.." Animation", animationPresetNames, function(value)
+        currentAnimationPresets[animType] = value
+        venyx:Notify(displayName, "Selected: "..value)
+    end)
+    auralistSection:addButton("Apply "..displayName, function()
+        applySelectedAnimation(animType)
+        venyx:Notify("Animation", displayName.." set to "..currentAnimationPresets[animType])
+    end)
+end
+
+-- Auto apply khi respawn
+player.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart", 5)
+    for _, animType in ipairs(animationTypes) do
+        applySelectedAnimation(animType)
+    end
+end)
+
+-- Page 3: Misc (Icon: Gear, 5012543246)
+local miscPage = venyx:addPage("Misc", 5012543246)
+local miscSection = miscPage:addSection("Miscellaneous")
+local CurrentFOV = 70
+
+miscSection:addSlider("FOV", 70, 70, 120, function(value)
+    CurrentFOV = value
+    workspace.CurrentCamera.FieldOfView = value
+end)
+
+-- khi nhân vật respawn → giữ FOV cũ
+game.Players.LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5) -- chờ camera load
+    workspace.CurrentCamera.FieldOfView = CurrentFOV
+end)
+
+-- Time Control
+local Lighting = game:GetService("Lighting")
+local timeEnabled = false
+local currentTime = Lighting.ClockTime
+
+-- Toggle bật/tắt chỉnh giờ
+miscSection:addToggle("Custom Time", false, function(value)
+    timeEnabled = value
+    if value then
+        venyx:Notify("Custom Time", "ON")
+        Lighting.ClockTime = currentTime
+    else
+        venyx:Notify("Custom Time", "OFF")
+        -- Khi tắt trả lại đồng hồ thật (optional, bạn có thể bỏ)
+        Lighting.ClockTime = os.date("*t").hour + (os.date("*t").min / 60)
+    end
+end)
+
+-- Slider chỉnh thời gian (0h - 24h)
+miscSection:addSlider("Set Time", 12, 0, 24, function(value)
+    currentTime = value
+    if timeEnabled then
+        Lighting.ClockTime = value
+    end
+end)
+
+miscSection:addSlider("Fog End", 500, 5000, Lighting.FogEnd, function(val)
+    Lighting.FogEnd = val
+end)
+
+miscSection:addColorPicker("Fog Color", Lighting.FogColor, function(color)
+    Lighting.FogColor = color
+end)
+
+-- Auto Armor Button (Da Hood Shop scan style)
+miscSection:addButton("Auto Armor", function()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+    local hrp = char.HumanoidRootPart
+    local originalCFrame = hrp.CFrame
+
+    -- Teleport tới vị trí Armor shop
+    hrp.CFrame = CFrame.new(-934.26, -28.50, 566.75)
+    task.wait(0.5)
+
+    -- Tìm folder chứa Shop
+    local Ignored = workspace:FindFirstChild("Ignored") or workspace:FindFirstChild("MAP") or workspace:FindFirstChild("Blacklisted")
+    if Ignored then
+        local Shop = Ignored:FindFirstChild("Shop") or Ignored:FindFirstChild("Shops") or Ignored:FindFirstChild("Pads") or Ignored:FindFirstChild("BuyPads") or Ignored:FindFirstChild("Bought")
+        if Shop then
+            for _, model in ipairs(Shop:GetChildren()) do
+                if model.Name:lower():find("armor") and model:IsA("Model") then
+                    local cd = model:FindFirstChildOfClass("ClickDetector")
+                    local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
+                    if cd and head and head:IsA("BasePart") then
+                        local dist = (head.Position - hrp.Position).Magnitude
+                        if dist <= 10 then
+                            -- Spam để chắc chắn mua được
+                            for i = 1, 5 do
+                                pcall(function() fireclickdetector(cd) end)
+                                task.wait(0.05)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    task.wait(0.5)
+    -- Trả về vị trí cũ
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        hrp.CFrame = originalCFrame
+    end
+end)
+
+-- AutoBuyGun Button
+miscSection:addButton("AutoBuyGun", function()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+    local hrp = char.HumanoidRootPart
+    local originalCFrame = hrp.CFrame
+
+    -- Tìm folder chứa Shop
+    local Ignored = workspace:FindFirstChild("Ignored") or workspace:FindFirstChild("MAP") or workspace:FindFirstChild("Blacklisted")
+    if not Ignored then return end
+    local Shop = Ignored:FindFirstChild("Shop") or Ignored:FindFirstChild("Shops") or Ignored:FindFirstChild("Pads") or Ignored:FindFirstChild("BuyPads") or Ignored:FindFirstChild("Bought")
+    if not Shop then return end
+
+    -- Check thiếu súng nào
+    local hasRevolver = false
+    local hasDoubleBarrel = false
+    local hasTacticalShotgun = false
+
+    for _, tool in ipairs(player.Backpack:GetChildren()) do
+        local nameLower = tool.Name:lower()
+        if nameLower:find("revolver") then hasRevolver = true end
+        if nameLower:find("double-barrel") or nameLower:find("double barrel") then hasDoubleBarrel = true end
+        if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then hasTacticalShotgun = true end
+    end
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            local nameLower = tool.Name:lower()
+            if nameLower:find("revolver") then hasRevolver = true end
+            if nameLower:find("double-barrel") or nameLower:find("double barrel") then hasDoubleBarrel = true end
+            if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then hasTacticalShotgun = true end
+        end
+    end
+
+    local function buyGunAndAmmo(gunName, gunCoord, ammoName, ammoCoord)
+        -- Mua súng
+        hrp.CFrame = CFrame.new(gunCoord)
+        task.wait(0.25)
+        for _, model in ipairs(Shop:GetChildren()) do
+            local nameLower = model.Name:lower()
+            if nameLower:find(gunName:lower()) and model:IsA("Model") then
+                local cd = model:FindFirstChildOfClass("ClickDetector")
+                local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
+                if cd and head and (head.Position - hrp.Position).Magnitude <= 10 then
+                    for i = 1, 5 do
+                        pcall(function() fireclickdetector(cd) end)
+                        task.wait(0.1)
+                    end
+                end
+            end
+        end
+
+        -- Mua ammo
+        task.wait(0.25)
+        if ammoCoord then
+            hrp.CFrame = CFrame.new(ammoCoord)
+            task.wait(0.25)
+        end
+        for _, model in ipairs(Shop:GetChildren()) do
+            local nameLower = model.Name:lower()
+            if nameLower:find("ammo") and nameLower:find(gunName:lower()) and model:IsA("Model") then
+                local cd = model:FindFirstChildOfClass("ClickDetector")
+                local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
+                if cd and head and (head.Position - hrp.Position).Magnitude <= 10 then
+                    for i = 1, 5 do
+                        pcall(function() fireclickdetector(cd) end)
+                        task.wait(0.1)
+                    end
+                end
+            end
+        end
+        hrp.CFrame = originalCFrame
+    end
+
+    -- Mua theo thứ tự nếu thiếu
+    if not hasRevolver then
+        buyGunAndAmmo("Revolver", Vector3.new(-635.03, 21.75, -124.16))
+    end
+    if not hasDoubleBarrel then
+        buyGunAndAmmo("Double-Barrel", Vector3.new(-1045.20, 21.75, -265.21))
+    end
+    if not hasTacticalShotgun then
+        buyGunAndAmmo("TacticalShotgun", Vector3.new(471.34, 48.07, -622.77), "TacticalShotgun Ammo", Vector3.new(492.86, 48.07, -622.48))
+    end
+end)
+
+-- Teleport Locations
+local TeleportLocations = {
+    ["Bank"] = CFrame.new(-442, 39, -284),
+    ["Inside Bank"] = CFrame.new(-443, 23, -284),
+    ["Vault"] = CFrame.new(-658, -30, -285),
+    ["Mid Appartment Building"] = CFrame.new(-323, 80, -299),
+    ["Revolver"] = CFrame.new(-634, 21, -132),
+    ["LMG"] = CFrame.new(-626, 23, -295),
+    ["Swimming Pool"] = CFrame.new(-847, 21, -279),
+    ["Broken Fire Station"] = CFrame.new(-1182, 28, -521),
+    ["DownHill"] = CFrame.new(-559, 8, -735),
+    ["Military Base"] = CFrame.new(-40, 65, -926),
+    ["Uphill"] = CFrame.new(481, 48, -602),
+    ["Breaking Bad"] = CFrame.new(598, 28, -214),
+    ["Church"] = CFrame.new(205, 21, -124),
+    ["Police Station"] = CFrame.new(-264, 21, -93),
+    ["School"] = CFrame.new(-594, 21, 173)
+}
+
+local SelectedTeleport = nil
+
+miscSection:addDropdown("Teleport Location", {
+    "Bank", "Inside Bank", "Vault", "Mid Appartment Building", "Revolver", "LMG",
+    "Swimming Pool", "Broken Fire Station", "DownHill", "Military Base", "Uphill",
+    "Breaking Bad", "Church", "Police Station", "School"
+}, function(Value)
+    SelectedTeleport = Value
+end)
+
+miscSection:addButton("Teleport", function()
+    if SelectedTeleport and TeleportLocations[SelectedTeleport] then
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = TeleportLocations[SelectedTeleport]
+            venyx:Notify("Teleport", "Teleported to " .. SelectedTeleport)
+        else
+            venyx:Notify("Teleport", "Character not found!")
+        end
+    else
+        venyx:Notify("Teleport", "No location selected!")
+    end
+end)
+
+-- 🗨️ Show Chat Toggle
+local TextChatService = game:GetService("TextChatService")
+local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
+
+-- Mặc định bật
+local ChatEnabled = true
+if chatWindow then
+    chatWindow.Enabled = ChatEnabled
+end
+
+miscSection:addToggle("Show Chat", ChatEnabled, function(state)
+    ChatEnabled = state
+    if chatWindow then
+        chatWindow.Enabled = state
+    end
+end)
+
+-- Jump Happier Animation Logic
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local currentTrack = nil
+local jumpHappierKey = Enum.KeyCode.C
+local jumpHappierAnim = "http://www.roblox.com/asset/?id=15609995579"
+
+-- Hàm dừng animation
+local function stopAnimation()
+    if currentTrack then
+        currentTrack:Stop()
+        currentTrack = nil
+    end
+end
+
+local function playAnimation(animId)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    -- Nếu đang di chuyển thì không phát
+    if hum.MoveDirection.Magnitude > 0 then return end
+
+    -- Ngừng track cũ
+    stopAnimation()
+
+    -- Animator
+    local animator = hum:FindFirstChildOfClass("Animator")
+    if not animator then
+        animator = Instance.new("Animator")
+        animator.Parent = hum
+    end
+
+    -- Luôn tạo Animation mới
+    local anim = Instance.new("Animation")
+    anim.AnimationId = animId
+    local track = animator:LoadAnimation(anim)
+    track.Looped = false -- cho phép chạy lại khi bấm lần sau
+    track:Play()
+    currentTrack = track
+
+    -- Reset khi kết thúc
+    task.spawn(function()
+        track.Stopped:Wait()
+        if currentTrack == track then
+            currentTrack = nil
+        end
+    end)
+end
+
+
+-- Reset currentTrack khi nhân vật respawn và reconnect logic nếu cần
+LocalPlayer.CharacterAdded:Connect(function(char)
+    currentTrack = nil
+    char:WaitForChild("Humanoid")  -- Ensure humanoid loads
+end)
+
+-- Dừng animation khi bắt đầu di chuyển
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    if char and currentTrack then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.MoveDirection.Magnitude > 0 then
+            stopAnimation()
+        end
+    end
+end)
+
+-- UI trong Misc Section
+miscSection:addKeybind("Jump Happier Key", jumpHappierKey, function()
+    playAnimation(jumpHappierAnim)
+end)
+
+-- Respawn
+game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    if auraEnabled then
+        task.wait(1)
+        attachAura(char)
+    end
+end)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Config
+getgenv().Time = 1
+getgenv().RightUpperLegAccessories = {
+    {id = 18457575895}, 
+}
+
+local korbloxEnabled = true
+local addedAccessories = {}
+local runServiceConn
+
+-- Ẩn chân và gắn accessories
+local function hideRightLegAndAddAccessories(character)
+    local rightUpperLeg = character:FindFirstChild("RightUpperLeg")
+
+    if rightUpperLeg then
+        rightUpperLeg.Transparency = 1
+        local rightLowerLeg = character:FindFirstChild("RightLowerLeg")
+        local rightFoot = character:FindFirstChild("RightFoot")
+        if rightLowerLeg then rightLowerLeg:Destroy() end
+        if rightFoot then rightFoot:Destroy() end
+
+        for _, accessory in ipairs(getgenv().RightUpperLegAccessories) do
+            local obj = game:GetObjects("rbxassetid://" .. tostring(accessory.id))[1]
+            if obj then
+                obj.Parent = game.Workspace
+                local handle = obj:FindFirstChild("Handle")
+                if handle then
+                    handle.CFrame = rightUpperLeg.CFrame
+                    local weld = Instance.new("Weld")
+                    weld.Part0 = handle
+                    weld.Part1 = rightUpperLeg
+                    weld.C0 = CFrame.new(0, -0.12, 0)
+                    weld.Parent = handle
+                    obj.Parent = character
+                    table.insert(addedAccessories, obj)
+                end
+            end
+        end
+    end
+end
+
+-- Khôi phục chân và xoá accessories
+local function restoreRightLeg(character)
+    local rightUpperLeg = character:FindFirstChild("RightUpperLeg")
+    if rightUpperLeg then
+        rightUpperLeg.Transparency = 0
+    end
+    for _, acc in ipairs(addedAccessories) do
+        if acc and acc.Parent then
+            acc:Destroy()
+        end
+    end
+    addedAccessories = {}
+end
+
+-- Apply Korblox animations (liên tục ép lại bằng RunService)
+local function applyKorbloxAnimations()
+    if runServiceConn then runServiceConn:Disconnect() end
+    runServiceConn = RunService.Stepped:Connect(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Animate") then
+            local animate = char.Animate
+            animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+            animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
+            animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+        end
+    end)
+end
+
+-- Restore animations (ngắt RunService)
+local function restoreAnimations()
+    if runServiceConn then
+        runServiceConn:Disconnect()
+        runServiceConn = nil
+    end
+    -- Animate sẽ tự revert về default do script gốc của Roblox
+end
+
+-- Enable Korblox
+local function enableKorblox(character)
+    task.wait(getgenv().Time)
+    hideRightLegAndAddAccessories(character)
+    applyKorbloxAnimations()
+end
+
+-- Disable Korblox
+local function disableKorblox(character)
+    restoreRightLeg(character)
+    restoreAnimations()
+end
+
+-- Respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if korbloxEnabled then
+        task.wait(1)
+        enableKorblox(char)
+    else
+        disableKorblox(char)
+    end
+end)
+
+-- Toggle UI
+miscSection:addToggle("Korblox", true, function(state)
+    korbloxEnabled = state
+    local char = LocalPlayer.Character
+    if char then
+        if korbloxEnabled then
+            enableKorblox(char)
+        else
+            disableKorblox(char)
+        end
+    end
+end)
+
+-- Keybind Sorter Inventory (mặc định T)
+local sorterKey = Enum.KeyCode.T
+miscSection:addKeybind("Sorter Inventory Key", Enum.KeyCode.T, function()
+    local backpack = LocalPlayer.Backpack
+    local char = LocalPlayer.Character
+    if not backpack or not char then return end
+
+    -- Cho hết tool vào backpack (không hiển thị ở hotbar)
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            tool.Parent = backpack
+        end
+    end
+
+    -- Tìm 3 tool
+    local doubleBarrel = nil
+    local revolver = nil
+    local tacticalShotgun = nil
+
+    for _, tool in ipairs(backpack:GetChildren()) do
+        local nameLower = tool.Name:lower()
+        if nameLower:find("double-barrel") or nameLower:find("double barrel") then doubleBarrel = tool end
+        if nameLower:find("revolver") then revolver = tool end
+        if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then tacticalShotgun = tool end
+    end
+
+    -- Xếp thứ tự
+    if doubleBarrel then doubleBarrel.Parent = char end  -- Ô 1
+    if revolver then revolver.Parent = char end  -- Ô 2
+    if tacticalShotgun then tacticalShotgun.Parent = char end  -- Ô 3
+
+    sendNotification("Sorter Inventory", "Inventory sorted!")
+end, function(key)
+    sorterKey = key
+end)
+
+miscSection:addButton("Rejoin", function()
+    local ts = game:GetService("TeleportService")
+    local p = game:GetService("Players").LocalPlayer
+    ts:Teleport(game.PlaceId, p)
+end)
+
+miscSection:addButton("Server Hop", function()
+    local HttpService = game:GetService("HttpService")
+    local TeleportService = game:GetService("TeleportService")
+    local Player = game:GetService("Players").LocalPlayer
+
+    local servers = {}
+    local req = game:HttpGet(
+        ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100")
+        :format(game.PlaceId)
+    )
+    local data = HttpService:JSONDecode(req)
+
+    for _, v in pairs(data.data) do
+        if v.playing < v.maxPlayers then
+            table.insert(servers, v.id)
+        end
+    end
+
+    if #servers > 0 then
+        local randomServer = servers[math.random(1, #servers)]
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer, Player)
+    else
+        warn("❌ Không tìm thấy server trống để hop!")
+    end
+end)
+
+-- Page 4: Movement (Icon: Specified, 16181398286)
+local movementPage = venyx:addPage("Movement", 16181398286)
+local movementSection = movementPage:addSection("Movement Features")
+Config.SpeedEnabled = false
+Config.SpeedAmount = 20
+
+-- ⚡ Biến lưu trạng thái WalkSpeed
+local walkSpeedEnabled = false
+local walkSpeedValue = 140
+local defaultWalkSpeed = 16
+
+-- 🏃 Hàm toggle WalkSpeed (giữ nguyên logic "xxx" như script gốc)
+local function toggleWalkSpeed(state)
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("xxx")
+    if not hum then return end
+
+    if state then
+        if hum.Health > 0 then
+            hum.Name = "xxx"
+            hum.WalkSpeed = walkSpeedValue
+        end
+    else
+        if hum.Health > 0 then
+            hum.Name = "Humanoid"
+            hum.WalkSpeed = defaultWalkSpeed
+        end
+    end
+end
+
+-- ✅ Nút toggle trong Movement tab
+movementSection:addToggle("WalkSpeed", false, function(value)
+    walkSpeedEnabled = value
+    toggleWalkSpeed(value)
+    venyx:Notify("WalkSpeed", value and "ON ("..walkSpeedValue..")" or "OFF")
+end)
+
+movementSection:addSlider("WalkSpeed Value", 140, 16, 300, function(value)
+    walkSpeedValue = value
+    if walkSpeedEnabled then
+        toggleWalkSpeed(true)
+    end
+end)
+
+-- 🔄 Giữ WalkSpeed khi respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    if walkSpeedEnabled then
+        toggleWalkSpeed(true)
+    end
+end)
+
+-- ⌨️ Keybind để bật/tắt WalkSpeed (không có phím mặc định)
+movementSection:addKeybind("WalkSpeed Key", Enum.KeyCode.H, function()
+    walkSpeedEnabled = not walkSpeedEnabled
+    toggleWalkSpeed(walkSpeedEnabled)
+    venyx:Notify("WalkSpeed", walkSpeedEnabled and "ON ("..walkSpeedValue..")" or "OFF")
+end, function()
+end)
+
+movementSection:addButton("Load WalkSpeed", function()
+    if game.CoreGui:FindFirstChild("WalkSpeedQuickToggle") then
+        game.CoreGui.WalkSpeedQuickToggle:Destroy()
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "WalkSpeedQuickToggle"
+    gui.ResetOnSpawn = false
+    gui.Parent = game.CoreGui
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 140, 0, 45)
+    btn.Position = UDim2.new(0, 30, 0.7, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.Text = "WalkSpeed: OFF"
+    btn.Parent = gui
+
+    -- 🎨 UICorner (bo tròn)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = btn
+
+    -- 🎨 UIStroke (viền)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 179, 186)
+    stroke.Thickness = 2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = btn
+
+    -- ⚡ Kéo thả được
+    btn.Active = true
+    btn.Draggable = true
+
+    -- 🏃 Logic WalkSpeed
+    local enabled = false
+    local speed = 140
+    local defaultSpeed = 16
+    local player = game.Players.LocalPlayer
+
+    btn.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        local char = player.Character
+        local hum = char and (char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("xxx"))
+        if hum then
+            if enabled then
+                hum.Name = "xxx"
+                hum.WalkSpeed = speed
+                btn.Text = "WalkSpeed: "..speed
+                stroke.Color = Color3.fromRGB(0, 255, 0) -- viền xanh khi bật
+            else
+                hum.Name = "Humanoid"
+                hum.WalkSpeed = defaultSpeed
+                btn.Text = "WalkSpeed: OFF"
+                stroke.Color = Color3.fromRGB(255, 0, 0) -- viền đỏ khi tắt
+            end
+        end
+    end)
+end)
+
+local function UpdateSpeed()
+    if Config.SpeedEnabled and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local root = game.Players.LocalPlayer.Character.HumanoidRootPart
+        local humanoid = game.Players.LocalPlayer.Character.Humanoid
+        local moveDirection = humanoid.MoveDirection
+        local speedAmount = Config.SpeedAmount / 8
+        root.CFrame = root.CFrame + moveDirection * speedAmount
+    end
+end
+game:GetService("RunService").RenderStepped:Connect(UpdateSpeed)
+movementSection:addToggle("Speed CFrame", false, function(value)
+    Config.SpeedEnabled = value
+    venyx:Notify("Speed CFrame", value and "ON" or "OFF")
+end)
+movementSection:addKeybind("Speed Key", Enum.KeyCode.Z, function()
+    Config.SpeedEnabled = not Config.SpeedEnabled
+    venyx:Notify("Speed CFrame", Config.SpeedEnabled and "ON" or "OFF")
+end, function()
+end)
+movementSection:addSlider("Speed CFrame Value", 20, 1, 100, function(value)
+    Config.SpeedAmount = value
+end)
+Config.FlyEnabled = false
+Config.FlySpeed = 35
+local function UpdateFly(deltaTime)
+    if Config.FlyEnabled and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local root = game.Players.LocalPlayer.Character.HumanoidRootPart
+        local moveDirection = game.Players.LocalPlayer.Character.Humanoid.MoveDirection
+        local flySpeed = Config.FlySpeed
+        local vertical = game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) and flySpeed / 8 or game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftControl) and -flySpeed / 8 or 0
+        root.CFrame = root.CFrame + moveDirection * deltaTime * flySpeed * 10
+        root.CFrame = root.CFrame + Vector3.new(0, vertical, 0)
+        root.Velocity = root.Velocity * Vector3.new(1, 0, 1) + Vector3.new(0, 1.9, 0)
+    end
+end
+game:GetService("RunService").RenderStepped:Connect(UpdateFly)
+movementSection:addToggle("Fly", false, function(value)
+    Config.FlyEnabled = value
+    venyx:Notify("Fly", value and "ON" or "OFF")
+end)
+movementSection:addKeybind("Fly Key", Enum.KeyCode.F, function()
+    Config.FlyEnabled = not Config.FlyEnabled
+    venyx:Notify("Fly", Config.FlyEnabled and "ON" or "OFF")
+end, function()
+end)
+movementSection:addSlider("Fly Speed", 35, 1, 100, function(value)
+    Config.FlySpeed = value
+end)
+Config.NoSlowdownEnabled = true
+-- Logic No Slowdown: Dùng CFrame để di chuyển thay vì WalkSpeed
+local function applyNoSlowdown()
+    if not Config.NoSlowdownEnabled then return end
+
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not (hrp and hum) then return end
+
+    -- Kiểm tra trạng thái giảm tốc (reload, punch, v.v.)
+    local bodyEffects = char:FindFirstChild("BodyEffects")
+    local isSlowed = false
+    if bodyEffects then
+        local reload = bodyEffects:FindFirstChild("Reload")
+        local movement = bodyEffects:FindFirstChild("Movement")
+        -- Kiểm tra trạng thái reload hoặc movement bị giới hạn
+        isSlowed = (reload and reload.Value) or (movement and movement.Value < 1)
+    end
+
+    -- Nếu đang bị giảm tốc hoặc tốc độ nhỏ hơn bình thường
+    if isSlowed or hum.WalkSpeed < 16 then
+        local moveDirection = hum.MoveDirection
+        if moveDirection.Magnitude > 0 then
+            -- Di chuyển nhân vật bằng CFrame với tốc độ tương đương WalkSpeed 16
+            local speed = 17 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
+            hrp.CFrame = hrp.CFrame + moveDirection * speed
+        end
+    end
+end
+
+-- Chạy logic No Slowdown mỗi frame
+local noSlowConnection
+if noSlowConnection then noSlowConnection:Disconnect() end
+noSlowConnection = RunService.Heartbeat:Connect(applyNoSlowdown)
+
+-- Đảm bảo No Slowdown hoạt động sau khi respawn
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    if Config.NoSlowdownEnabled then
+        task.wait(0.5) -- Đợi nhân vật load đầy đủ
+        applyNoSlowdown()
+    end
+end)
+movementSection:addToggle("No Slowdown", true, function(value)
+    Config.NoSlowdownEnabled = value
+    venyx:Notify("No Slowdown", value and "ON" or "OFF")
+end)
+
+-- External Loaded Shoot Button
+local loadedShootButton = Instance.new("TextButton")
+loadedShootButton.Size = UDim2.new(0, 45, 0, 45)
+loadedShootButton.Position = UDim2.new(0, 15, 0, 310) -- Below assumed Walkspeed button
+loadedShootButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+loadedShootButton.Text = "LS"
+loadedShootButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+loadedShootButton.TextSize = 16
+loadedShootButton.Font = Enum.Font.GothamBold
+loadedShootButton.Visible = false -- Initially hidden
+loadedShootButton.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+Instance.new("UICorner", loadedShootButton).CornerRadius = UDim.new(0, 10)
+local function attachButtonEffects(btn, shrinkPx)
+    local orig = btn.Size
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 75, 75)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55, 55, 55)}):Play()
+    end)
+    btn.MouseButton1Click:Connect(function()
+        local s = shrinkPx or 3
+        local toSmall = UDim2.new(orig.X.Scale, math.max(0, orig.X.Offset - s), orig.Y.Scale, math.max(0, orig.Y.Offset - s))
+        local t1 = TweenService:Create(btn, TweenInfo.new(0.08), {Size = toSmall})
+        local t2 = TweenService:Create(btn, TweenInfo.new(0.08), {Size = orig})
+        t1:Play(); t1.Completed:Wait(); t2:Play()
+        task.spawn(shootMurderer)
+    end)
+end
+attachButtonEffects(loadedShootButton, 5)
+
+-- Configuration
+local ESP_ENABLED = false
+local SHOOT_OFFSET = 2.8
+local OFFSET_TO_PING_MULT = 1
+local UPDATE_INTERVAL = 0.5
+local RANDOM_DELAY = 0.1
+local MAX_COIN_DISTANCE = 100
+local ANTI_CHEAT_DELAY = 0.05
+
+-- Variables
+local playerData = {}
+local espActive = ESP_ENABLED
+local lastUpdate = tick()
+local autoFarm = false
+local lastShot = tick()
+local isScriptRunning = false
+local loadedShootVisible = false -- Track visibility of external Loaded Shoot button
+
+-- ESP Container
+local espcontainer = {
+    objects = {},
+    Add = function(self, object, config)
+        if not espActive then return end
+        pcall(function()
+            if self.objects[object] then
+                self.objects[object].highlight:Destroy()
+                self.objects[object] = nil
+            end
+            local highlight = Instance.new("Highlight")
+            highlight.Parent = object
+            highlight.FillColor = config.AccentColor
+            highlight.OutlineColor = config.AccentColor
+            highlight.FillTransparency = 0.5
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            self.objects[object] = { highlight = highlight }
+            if config.ShowLabel then
+                local billboard = Instance.new("BillboardGui")
+                billboard.Parent = object
+                billboard.Size = UDim2.new(0, 100, 0, 30)
+                billboard.StudsOffset = Vector3.new(0, 3, 0)
+                billboard.AlwaysOnTop = true
+                local textLabel = Instance.new("TextLabel")
+                textLabel.Parent = billboard
+                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                textLabel.BackgroundTransparency = 1
+                textLabel.Text = config.LabelText
+                textLabel.TextColor3 = config.AccentColor
+                textLabel.TextScaled = true
+            end
+        end)
+    end,
+    RemoveGroup = function(self, groupName)
+        for object, data in pairs(self.objects) do
+            if data.group == groupName then
+                pcall(function()
+                    data.highlight:Destroy()
+                    if data.billboard then data.billboard:Destroy() end
+                end)
+                self.objects[object] = nil
+            end
+        end
+    end,
+    ClearAllGroups = function(self)
+        for object, data in pairs(self.objects) do
+            pcall(function()
+                data.highlight:Destroy()
+                if data.billboard then data.billboard:Destroy() end
+            end)
+        end
+        self.objects = {}
+    end
+}
+
+-- Game checks
+local function isMurderMystery2()
+    return ReplicatedStorage:FindFirstChild("Remotes") 
+        and ReplicatedStorage.Remotes:FindFirstChild("Gameplay")
+end
+
+local function getMap()
+    for _, o in ipairs(Workspace:GetChildren()) do
+        if o:GetAttribute("MapID") and o:FindFirstChild("CoinContainer") and o:FindFirstChild("Spawns") then
+            return o
+        end
+    end
+    return nil
+end
+
+-- Role detection
+local function findMurderer()
+    if playerData then
+        for player, data in pairs(playerData) do
+            if data.Role == "Murderer" then
+                local plr = Players:FindFirstChild(player)
+                if plr and plr.Character then
+                    return plr
+                end
+            end
+        end
+    end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localplayer and plr.Character then
+            if plr.Backpack:FindFirstChild("Knife") or (plr.Character and plr.Character:FindFirstChild("Knife")) then
+                return plr
+            end
+        end
+    end
+    return nil
+end
+
+local function findSheriff()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character and (plr.Backpack:FindFirstChild("Gun") or (plr.Character and plr.Character:FindFirstChild("Gun"))) then
+            return plr
+        end
+    end
+    if playerData then
+        for player, data in pairs(playerData) do
+            if data.Role = "Sheriff" then
+                local plr = Players:FindFirstChild(player)
+                if plr and plr.Character then
+                    return plr
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function findSheriffThatsNotMe()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localplayer and plr.Character and (plr.Backpack:FindFirstChild("Gun") or (plr.Character and plr.Character:FindFirstChild("Gun"))) then
+            return plr
+        end
+    end
+    if playerData then
+        for player, data in pairs(playerData) do
+            if data.Role == "Sheriff" and Players:FindFirstChild(player) ~= localplayer then
+                local plr = Players:FindFirstChild(player)
+                if plr and plr.Character then
+                    return plr
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- ESP functions
+local function reloadESP()
+    if not espActive then return end
+    espcontainer:RemoveGroup("players")
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character and player ~= localplayer then
+            task.spawn(function()
+                if player == findMurderer() then
+                    espcontainer:Add(player.Character, {
+                        AccentColor = Color3.new(1, 0, 0.0156863),
+                        ArrowShow = true,
+                        ArrowMinDistance = 999999,
+                        ArrowSize = UDim2.new(0, 40, 0, 40),
+                        LabelText = "Murderer",
+                        ShowLabel = true,
+                        GroupName = "players"
+                    })
+                elseif player == findSheriff() then
+                    espcontainer:Add(player.Character, {
+                        AccentColor = Color3.new(0, 0.6, 1),
+                        ArrowShow = false,
+                        ShowLabel = false,
+                        GroupName = "players"
+                    })
+                else
+                    espcontainer:Add(player.Character, {
+                        AccentColor = Color3.new(0, 1, 0.0313725),
+                        ArrowShow = false,
+                        ShowLabel = false,
+                        GroupName = "players"
+                    })
+                end
+            end)
+        end
+    end
+end
+
+-- Predicted position
+local function getPredictedPosition(player, shootOffset)
+    local success, result = pcall(function()
+        if not player.Character then
+            return Vector3.new(0, 0, 0)
+        end
+        local playerHRP = player.Character:FindFirstChild("UpperTorso")
+        local playerHum = player.Character:FindFirstChild("Humanoid")
+        if not playerHRP or not playerHum then
+            return Vector3.new(0, 0, 0)
+        end
+        local playerPosition = playerHRP.Position
+        local velocity = playerHRP.AssemblyLinearVelocity
+        local playerMoveDirection = playerHum.MoveDirection
+        local predictedPosition = playerPosition + (velocity * Vector3.new(0, 0.5, 0)) * (shootOffset / 15) + playerMoveDirection * shootOffset
+        predictedPosition = predictedPosition * (((localplayer:GetNetworkPing() * 1000) * ((OFFSET_TO_PING_MULT - 1) * 0.01)) + 1)
+        return predictedPosition
+    end)
+    if not success then
+        return Vector3.new(0, 0, 0)
+    end
+    return result
+end
+
+-- Shoot Murderer
+local function shootMurderer()
+    if tick() - lastShot < 0.5 then return end 
+    lastShot = tick()
+    if findSheriff() ~= localplayer then
+        venyx:Notify("Shoot", "You are not the Sheriff!")
+        return
+    end
+    local murderer = findMurderer() or findSheriffThatsNotMe()
+    if not murderer then
+        venyx:Notify("Shoot", "No target found!")
+        return
+    end
+    if not localplayer.Character:FindFirstChild("Gun") then
+        local hum = localplayer.Character:FindFirstChild("Humanoid")
+        if localplayer.Backpack:FindFirstChild("Gun") then
+            hum:EquipTool(localplayer.Backpack:FindFirstChild("Gun"))
+            task.wait(math.random(0.05, 0.1) + ANTI_CHEAT_DELAY)
+        else
+            venyx:Notify("Shoot", "No gun found!")
+            return
+        end
+    end
+    local murdererHRP = murderer.Character:FindFirstChild("HumanoidRootPart")
+    if not murdererHRP then
+        venyx:Notify("Shoot", "Target has no HumanoidRootPart!")
+        return
+    end
+    local predictedPosition = getPredictedPosition(murderer, SHOOT_OFFSET)
+    if predictedPosition == Vector3.new(0, 0, 0) then 
+        venyx:Notify("Shoot", "Invalid predicted position!")
+        return 
+    end
+    local args = {
+        [1] = 1,
+        [2] = predictedPosition,
+        [3] = "AH2"
+    }
+    pcall(function()
+        localplayer.Character.Gun.KnifeLocal.CreateBeam.RemoteFunction:InvokeServer(unpack(args))
+    end)
+    task.wait(math.random(0, ANTI_CHEAT_DELAY))
+    venyx:Notify("Shoot", "Shot fired at target!")
+end
+
+-- AutoFarm Coins
+local function autoFarmCoins()
+    local k = TweenService
+    local g = Players.LocalPlayer
+    local r = g.Character or g.CharacterAdded:Wait()
+    local A = r:WaitForChild("HumanoidRootPart", 5)
+    local a = r:WaitForChild("Humanoid", 5)
+    if not A or not a then
+        venyx:Notify("AutoFarm", "No valid character found!")
+        return
+    end
+    local function findMap()
+        for _, E in ipairs(Workspace:GetChildren()) do
+            if E:GetAttribute("MapID") and E:FindFirstChild("CoinContainer") then
+                return E
+            end
+        end
+        task.wait(0.5)
+        return nil
+    end
+    local function findCoin()
+        local C = findMap()
+        if not C or not C:FindFirstChild("CoinContainer") then return nil end
+        local D, i = nil, math.huge
+        for _, l in ipairs(C.CoinContainer:GetChildren()) do
+            local q = l:FindFirstChild("CoinVisual")
+            if q and not q:GetAttribute("Collected") and l.Parent then
+                local dist = (A.Position - l.Position).Magnitude
+                if dist < i and dist < MAX_COIN_DISTANCE then
+                    D = l
+                    i = dist
+                end
+            end
+        end
+        return D
+    end
+    local function moveToCoin(B)
+        if not B or not B.Parent then return end
+        a:ChangeState(11)
+        local t = (A.Position - B.Position).Magnitude
+        if t > MAX_COIN_DISTANCE then return end
+        local offset = Vector3.new(math.random(-5, 5)/10, 0, math.random(-5, 5)/10)
+        local f = k:Create(A, TweenInfo.new(t / 25, Enum.EasingStyle.Linear), {CFrame = B.CFrame * CFrame.Angles(0, math.rad(math.random(-10, 10)), 0) + offset})
+        f:Play()
+        f.Completed:Wait()
+    end
+    while autoFarm do
+        local z = findCoin()
+        if z then
+            moveToCoin(z)
+            local h = z:FindFirstChild("CoinVisual")
+            while h and not h:GetAttribute("Collected") and h.Parent and autoFarm do
+                local x = findCoin()
+                if x and x ~= z then
+                    break
+                end
+                task.wait(0.1 + math.random(0, ANTI_CHEAT_DELAY))
+            end
+        end
+        task.wait(math.random(0.1, 0.3))
+    end
+end
+
+-- Check Line of Sight
+local function checkLineOfSight(startPos, endPos)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {localplayer.Character, Workspace:FindFirstChild("CoinContainer")}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.IgnoreWater = true
+    local raycastResult = Workspace:Raycast(startPos, (endPos - startPos).Unit * (endPos - startPos).Magnitude, raycastParams)
+    return not raycastResult or raycastResult.Instance:IsDescendantOf(findMurderer().Character)
+end
+
+-- Mini Fling
+local function miniFling(playerToFling)
+    local Character = localplayer.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+    local TCharacter = playerToFling.Character
+    local THumanoid = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = THumanoid and THumanoid.RootPart
+    local THead = TCharacter and TCharacter:FindFirstChild("Head")
+    local Accessory = TCharacter and TCharacter:FindFirstChildOfClass("Accessory")
+    local Handle = Accessory and Accessory:FindFirstChild("Handle")
+    if not Character or not Humanoid or not RootPart or not TCharacter then
+        venyx:Notify("Fling", "Invalid character or target!")
+        return
+    end
+    if not TRootPart and not THead and not Handle then
+        venyx:Notify("Fling", "No valid parts to fling!")
+        return
+    end
+    if THumanoid and THumanoid.Sit then
+        venyx:Notify("Fling", "Target is sitting, cannot fling!")
+        return
+    end
+    if RootPart.Velocity.Magnitude < 50 then
+        getgenv().OldPos = RootPart.CFrame
+    end
+    if THead then
+        workspace.CurrentCamera.CameraSubject = THead
+    elseif Handle then
+        workspace.CurrentCamera.CameraSubject = Handle
+    end
+    venyx:Notify("Fling", "Fling executed on " .. playerToFling.Name)
+end
+
+-- Kill All
+local lastKillAll = tick()
+local function killAll()
+    if findMurderer() ~= localplayer then
+        venyx:Notify("Kill All", "You are not the Murderer!")
+        return
+    end
+    if not localplayer.Character:FindFirstChild("Knife") then
+        local hum = localplayer.Character:FindFirstChild("Humanoid")
+        if localplayer.Backpack:FindFirstChild("Knife") then
+            hum:EquipTool(localplayer.Backpack:FindFirstChild("Knife"))
+            task.wait(0.1)
+        else
+            venyx:Notify("Kill All", "No knife found!")
+            return
+        end
+    end
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player ~= localplayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local targetPart = player.Character:FindFirstChild("HumanoidRootPart")
+            targetPart.Anchored = true
+            targetPart.CFrame = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame + localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 1
+            task.wait(0.05)
+        end
+    end
+    local args = { [1] = "Slash" }
+    localplayer.Character.Knife.Stab:FireServer(unpack(args))
+    task.wait(0.1)
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player ~= localplayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character:FindFirstChild("HumanoidRootPart").Anchored = false
+        end
+    end
+    venyx:Notify("Kill All", "Auto Kill All executed.")
+end
+
+-- Auto-Shoot and Auto-Kill in AutoFarm
+RunService.Heartbeat:Connect(function()
+    if not autoFarm or not isScriptRunning then return end
+    if findSheriff() == localplayer then
+        local murderer = findMurderer()
+        if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") and localplayer.Character and localplayer.Character:FindFirstChild("HumanoidRootPart") then
+            local startPos = localplayer.Character.HumanoidRootPart.Position
+            local endPos = murderer.Character.HumanoidRootPart.Position
+            if checkLineOfSight(startPos, endPos) then
+                task.spawn(shootMurderer)
+            end
+        end
+    end
+    if findMurderer() == localplayer and tick() - lastKillAll >= 1 then
+        lastKillAll = tick()
+        task.spawn(killAll)
+    end
+end)
+
+-- AutoGun
+local function autoGun()
+    local map = getMap()
+    if not map or not map:FindFirstChild("GunDrop") then
+        venyx:Notify("AutoGun", "No dropped gun to teleport to!")
+        return
+    end
+    local hrp = localplayer.Character and localplayer.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local previousPosition = hrp.CFrame
+        hrp.CFrame = map:FindFirstChild("GunDrop"):GetPivot() + Vector3.new(0, 2, 0)
+        localplayer.Backpack.ChildAdded:Wait()
+        hrp.CFrame = previousPosition
+        venyx:Notify("AutoGun", "Gun picked up!")
+    else
+        venyx:Notify("AutoGun", "No valid character to teleport!")
+    end
+end
+
+-- Initialize
+local function initialize()
+    local success = pcall(function()
+        localplayer:WaitForChild("PlayerGui", 10)
+        ReplicatedStorage:WaitForChild("Remotes", 10):WaitForChild("Gameplay", 10):WaitForChild("PlayerDataChanged", 10)
+    end)
+    if not success or not isMurderMystery2() then
+        venyx:Notify("Initialization", "Failed to initialize or not in Murder Mystery 2!")
+        return
+    end
+    isScriptRunning = true
+    pcall(function()
+        local gameplay = ReplicatedStorage.Remotes.Gameplay.PlayerDataChanged
+        gameplay.OnClientEvent:Connect(function(data)
+            playerData = data
+            if espActive then
+                reloadESP()
+            end
+        end)
+    end)
+    if espActive then
+        reloadESP()
+    end
+end
+
+pcall(initialize)
+
+-- Murder Mystery Page
+local mm2Page = venyx:addPage("Murder Mystery", 5012541386)
+local mm2Section = mm2Page:addSection("Murder Mystery Features")
+
+local shootQuickButton = nil  
+
+mm2Section:addButton("Shoot Loaded", function()
+    if game.CoreGui:FindFirstChild("ShootQuickToggle") then
+        -- Nếu đã tồn tại, toggle visibility
+        local gui = game.CoreGui:FindFirstChild("ShootQuickToggle")
+        gui.Enabled = not gui.Enabled
+        venyx:Notify("Shoot Loaded", gui.Enabled and "Visible" or "Hidden")
+    else
+        -- Tạo mới nếu chưa có
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "ShootQuickToggle"
+        gui.ResetOnSpawn = false
+        gui.Parent = game.CoreGui
+
+        shootQuickButton = Instance.new("TextButton")
+        shootQuickButton.Size = UDim2.new(0, 140, 0, 45)  -- Kích thước tương tự WalkSpeed
+        shootQuickButton.Position = UDim2.new(0, 30, 0.8, 0)  -- Vị trí mặc định dưới WalkSpeed một chút
+        shootQuickButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        shootQuickButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        shootQuickButton.Font = Enum.Font.GothamBold
+        shootQuickButton.TextSize = 16
+        shootQuickButton.Text = "Shoot"
+        shootQuickButton.Parent = gui
+
+        -- UICorner (bo tròn)
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 12)
+        corner.Parent = shootQuickButton
+
+        -- UIStroke (viền)
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(255, 179, 186)  -- Màu viền giống theme
+        stroke.Thickness = 2
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = shootQuickButton
+
+        -- Kéo thả (draggable)
+        shootQuickButton.Active = true
+        shootQuickButton.Draggable = true
+
+        -- Hiệu ứng khi hover và bấm (tương tự attachButtonEffects trong script gốc)
+        shootQuickButton.MouseEnter:Connect(function()
+            TweenService:Create(shootQuickButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 75, 75)}):Play()
+        end)
+        shootQuickButton.MouseLeave:Connect(function()
+            TweenService:Create(shootQuickButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
+        end)
+        shootQuickButton.MouseButton1Click:Connect(function()
+            local origSize = shootQuickButton.Size
+            local shrinkPx = 3  -- Shrink giống script gốc
+            local toSmall = UDim2.new(origSize.X.Scale, math.max(0, origSize.X.Offset - shrinkPx), origSize.Y.Scale, math.max(0, origSize.Y.Offset - shrinkPx))
+            local t1 = TweenService:Create(shootQuickButton, TweenInfo.new(0.08), {Size = toSmall})
+            local t2 = TweenService:Create(shootQuickButton, TweenInfo.new(0.08), {Size = origSize})
+            t1:Play(); t1.Completed:Wait(); t2:Play()
+            task.spawn(shootMurderer)  -- Gọi function shootMurderer khi bấm
+        end)
+
+        venyx:Notify("Shoot Loaded", "Button created and visible!")
+    end
+end)
+
+mm2Section:addButton("Shoot", function()
+    task.spawn(shootMurderer)
+end)
+mm2Section:addKeybind("Shoot Keybind", Enum.KeyCode.J, function()
+    task.spawn(shootMurderer)
+end, function()
+    venyx:Notify("Shoot Keybind", "Keybind changed!")
+end)
+
+-- ESP MM2 Toggle
+mm2Section:addToggle("ESP MM2", false, function(value)
+    espActive = value
+    if espActive then
+        reloadESP()
+        venyx:Notify("ESP MM2", "ON")
+    else
+        espcontainer:ClearAllGroups()
+        venyx:Notify("ESP MM2", "OFF")
+    end
+end)
+
+-- AutoFarm Toggle
+mm2Section:addToggle("AutoFarm", false, function(value)
+    autoFarm = value
+    if autoFarm then
+        task.spawn(autoFarmCoins)
+        venyx:Notify("AutoFarm", "ON")
+    else
+        venyx:Notify("AutoFarm", "OFF")
+    end
+end)
+
+-- Fling Murderer Button
+mm2Section:addButton("Fling Murderer", function()
+    local target = findMurderer()
+    if target then
+        miniFling(target)
+    else
+        venyx:Notify("Fling Murderer", "No murderer found!")
+    end
+end)
+
+-- Fling Sheriff Button
+mm2Section:addButton("Fling Sheriff", function()
+    local target = findSheriff()
+    if target then
+        miniFling(target)
+    else
+        venyx:Notify("Fling Sheriff", "No sheriff found!")
+    end
+end)
+
+-- AutoGun Button
+mm2Section:addButton("AutoGun", function()
+    task.spawn(autoGun)
+end)
+
+-- Kill All Button
+mm2Section:addButton("Kill All", function()
+    task.spawn(killAll)
+end)
+
+-- Page 5: Settings (Icon: Settings Cog, 5012544103)
+local settingsPage = venyx:addPage("Settings", 5012544103)
+local settingsSection = settingsPage:addSection("UI Settings")
+local configSection = settingsPage:addSection("Config")
+local themeSection = settingsPage:addSection("Theme")
+
+-- Toggle GUI keybind
+settingsSection:addKeybind("Toggle GUI", Enum.KeyCode.RightShift, function()
+    venyx:toggle()
+end, function()
+    print("Toggle key changed")
+end)
+
+-- Theme editing (color pickers for each theme)
+for themeName, defaultColor in pairs(themes) do
+    themeSection:addColorPicker(themeName, defaultColor, function(color)
+        venyx:setTheme(themeName, color)
+    end)
+end
 
 getgenv().Settings = {
     Main = {
@@ -41,7 +2949,7 @@ getgenv().Settings = {
         ToggleKey = true,
  
         UseKeyBoardKey = true,
-        KeyBoardKey = Enum.KeyCode.Q, 
+        KeyBoardKey = Enum.KeyCode.Q,
  
         UseMouseKey = false,
         ThirdPerson = true,
@@ -49,8 +2957,8 @@ getgenv().Settings = {
  
         AutoPingSets = true,
  
-        UseCircleRadius = true,
-        DisableOutSideCircle = true,
+        UseCircleRadius = false,
+        DisableOutSideCircle = false,
  
         UseShake = true,
         ShakePower = 1,
@@ -80,15 +2988,21 @@ getgenv().Settings = {
     },
     Resolver = {
         UnderGround = false,
+        UseUnderGroundKeybind = true,
+        UnderGroundKey = Enum.KeyCode.C,
         DetectDesync = true,
         Detection = 75,
+ 
+        UseDetectDesyncKeybind = true,
+        DetectDesyncKey = Enum.KeyCode.V,
+        SendNotification = true
     },
     Visual = {
-        Fov = true,
+        Fov = false,
         FovTransparency = 1,
         FovThickness = 1,
-        FovColor = Color3.fromRGB(255, 185, 0),
-        FovRadius = 360
+        FovColor = Color3.fromRGB(255, 179, 186),
+        FovRadius = 200
     },
     Spoofer = {
         MemorySpoofer = true,
@@ -104,84 +3018,6 @@ getgenv().Settings = {
 }
  
 -- // Locals
-
--- Rayfield UI
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local UserInputService = game:GetService("UserInputService")
-
--- Shortcut
-local Vec2 = Vector2.new
-local Mouse = LocalPlayer:GetMouse()
-
--- ✅ Rayfield Window
-local Window = Rayfield:CreateWindow({
-   Name = "AimLock Hub",
-   LoadingTitle = "DhuyxDtuyen",
-   LoadingSubtitle = "PC only",
-   ConfigurationSaving = { Enabled = false }
-})
-
-local Tab = Window:CreateTab("Main", 4483362458)
-
--- Notify helper
-local function sendNotification(title, content, duration)
-    Rayfield:Notify({ Title = title, Content = content, Duration = duration or 2 })
-end
-
--- 🔹 FOV Slider
-Tab:CreateSlider({
-   Name = "FOV Size",
-   Range = {50, 500},
-   Increment = 10,
-   Suffix = "px",
-   CurrentValue = getgenv().Settings.Visual.FovRadius,
-   Callback = function(Value)
-       getgenv().Settings.Visual.FovRadius = Value
-       sendNotification("FOV", "Đã chỉnh FOV = "..Value, 2)
-   end,
-})
-
--- 🔹 FOV Color
-Tab:CreateColorPicker({
-   Name = "FOV Color",
-   Color = getgenv().Settings.Visual.FovColor,
-   Callback = function(Value)
-       getgenv().Settings.Visual.FovColor = Value
-       sendNotification("FOV", "Đã đổi màu FOV", 2)
-   end
-})
-
--- 🔹 Resolver Toggles
-Tab:CreateToggle({
-   Name = "Underground Resolver",
-   CurrentValue = getgenv().Settings.Resolver.UnderGround,
-   Callback = function(Value)
-       getgenv().Settings.Resolver.UnderGround = Value
-       sendNotification("Resolver", "Underground "..(Value and "ON" or "OFF"), 2)
-   end,
-})
-
-Tab:CreateToggle({
-   Name = "Desync Resolver",
-   CurrentValue = getgenv().Settings.Resolver.DetectDesync,
-   Callback = function(Value)
-       getgenv().Settings.Resolver.DetectDesync = Value
-       sendNotification("Resolver", "Desync "..(Value and "ON" or "OFF"), 2)
-   end,
-})
-
--- 🔹 CFrameSpeed
-Tab:CreateToggle({
-   Name = "CFrame Speed",
-   CurrentValue = false,
-   Callback = function(Value)
-       CFrameSpeedEnabled = Value
-       sendNotification("CFrameSpeed", Value and "Đã bật" or "Đã tắt", 2)
-   end,
-})
  
 local Players, Uis, RService, Inset, CurrentCamera = 
 game:GetService("Players"), 
@@ -203,20 +3039,15 @@ local OldAimPart = getgenv().Settings.Part.AimPart
 local AimlockTarget, MousePressed, CanNotify = nil, false, false
  
 getgenv().UpdateFOV = function()
-    if (not Circle) then return end
+    if (not Circle) then
+        return (Circle)
+    end
     Circle.Color = Settings.Visual.FovColor
     Circle.Visible = Settings.Visual.Fov
     Circle.Radius = Settings.Visual.FovRadius
     Circle.Thickness = Settings.Visual.FovThickness
-
-    if UserInputService.TouchEnabled then
-        -- Mobile: luôn ở giữa màn hình
-        local viewport = Camera.ViewportSize
-        Circle.Position = Vector2.new(viewport.X/2, viewport.Y/2)
-    else
-        -- PC: theo chuột
-        Circle.Position = Vector2.new(Mouse.X, Mouse.Y + Inset)
-    end
+    Circle.Position = Vec2(Mouse.X, Mouse.Y + Inset)
+    return (Circle)
 end
  
 RService.Heartbeat:Connect(UpdateFOV)
@@ -285,32 +3116,25 @@ getgenv().GetObscuringObjects = function(T)
 end
  
 getgenv().GetNearestTarget = function()
-    local AimlockTarget, Closest = nil, 1/0
-    local centerVec2
-
-    if UserInputService.TouchEnabled then
-        -- 📱 Mobile → tâm màn hình
-        local vp = Camera.ViewportSize
-        centerVec2 = Vec2(vp.X/2, vp.Y/2)
-    else
-        -- 💻 PC → chuột
-        centerVec2 = Vec2(Mouse.X, Mouse.Y)
-    end
-
-    for _, v in pairs(Players:GetPlayers()) do
-        if (v.Character and v ~= LocalPlayer and v.Character:FindFirstChild("HumanoidRootPart")) then
+    local AimlockTarget, Closest = nil, 1 / 0
+ 
+    for _, v in pairs(game:GetService("Players"):GetPlayers()) do
+        if (v.Character and v ~= Client and v.Character:FindFirstChild("HumanoidRootPart")) then
             local Position, OnScreen = Camera:WorldToScreenPoint(v.Character.HumanoidRootPart.Position)
-            local Distance = (Vec2(Position.X, Position.Y) - centerVec2).Magnitude
-
+            local Distance = (Vec2(Position.X, Position.Y) - Vec2(Mouse.X, Mouse.Y)).Magnitude
             if Settings.Main.CheckForWalls then
-                if (Circle.Radius > Distance and Distance < Closest and OnScreen and
-                    getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {LocalPlayer, v.Character})) then
+                if
+                    (Circle.Radius > Distance and Distance < Closest and OnScreen and
+                        getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {Client, v.Character}))
+                 then
                     Closest = Distance
                     AimlockTarget = v
                 end
             elseif Settings.Main.UseCircleRadius then
-                if (Circle.Radius > Distance and Distance < Closest and OnScreen and
-                    getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {LocalPlayer, v.Character})) then
+                if
+                    (Circle.Radius > Distance and Distance < Closest and OnScreen and
+                        getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {Client, v.Character}))
+                 then
                     Closest = Distance
                     AimlockTarget = v
                 end
@@ -356,6 +3180,7 @@ Uis.InputBegan:connect(
         end
     end
 )
+
  
 Uis.InputBegan:Connect(
     function(keyinput, stupid)
@@ -465,210 +3290,57 @@ task.spawn(
         end
     end
 )
- 
-RService.Heartbeat:Connect(
-    function()
-        if getgenv().Settings.Main.Enable == true and MousePressed == true then
-            if getgenv().Settings.Main.UseShake == true and AimlockTarget and AimlockTarget.Character then
-                pcall(
-                    function()
-                        local TargetVelv1 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                        TargetVelv1.Velocity =
-                            Vec3(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
-                            Vec3(
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
-                            ) *
-                                0.1
-                        TargetVelv1.AssemblyLinearVelocity =
-                            Vec3(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
-                            Vec3(
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                                math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
-                            ) *
-                                0.1
-                    end
-                )
-            end
-            if getgenv().Settings.Resolver.UnderGround == true and AimlockTarget and AimlockTarget.Character then
-                pcall(
-                    function()
-                        local TargetVelv2 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                        TargetVelv2.Velocity = Vec3(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
-                        TargetVelv2.AssemblyLinearVelocity = Vec3(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
-                    end
-                )
-            end
-            if
-                getgenv().Settings.Resolver.DetectDesync == true and AimlockTarget and AimlockTarget.Character and
-                    AimlockTarget.Character:WaitForChild("HumanoidRootPart").Velocity.magnitude >
-                        getgenv().Settings.Resolver.Detection
-             then
-                pcall(
-                    function()
-                        local TargetVel = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                        TargetVel.Velocity = Vec3(0, 0, 0)
-                        TargetVel.AssemblyLinearVelocity = Vec3(0, 0, 0)
-                    end
-                )
-            end
-            if getgenv().Settings.Main.ThirdPerson == true and getgenv().Settings.Main.FirstPerson == true then
-                if
-                    (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude > 1 or
-                        (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude <= 1
-                 then
-                    CanNotify = true
-                else
-                    CanNotify = false
-                end
-            elseif getgenv().Settings.Main.ThirdPerson == true and getgenv().Settings.Main.FirstPerson == false then
-                if (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude > 1 then
-                    CanNotify = true
-                else
-                    CanNotify = false
-                end
-            elseif getgenv().Settings.Main.ThirdPerson == false and getgenv().Settings.Main.FirstPerson == true then
-                if (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude <= 1 then
-                    CanNotify = true
-                else
-                    CanNotify = false
-                end
-            end
-            if getgenv().Settings.Main.AutoPingSets == true and getgenv().Settings.Horizontal.PredictionVelocity then
-                local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
-                local split = string.split(pingvalue, "(")
-                local ping = tonumber(split[1])
-                if ping > 190 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.206547
-                elseif ping > 180 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.19284
-                elseif ping > 170 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1923111
-                elseif ping > 160 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1823111
-                elseif ping > 150 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.171
-                elseif ping > 140 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.165773
-                elseif ping > 130 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1223333
-                elseif ping > 120 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.143765
-                elseif ping > 110 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1455
-                elseif ping > 100 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.130340
-                elseif ping > 90 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.136
-                elseif ping > 80 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1347
-                elseif ping > 70 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.119
-                elseif ping > 60 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.12731
-                elseif ping > 50 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.127668
-                elseif ping > 40 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.125
-                elseif ping > 30 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.11
-                elseif ping > 20 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.12588
-                elseif ping > 10 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.9
-                end
-            end
-            if getgenv().Settings.Check.CheckIfKo == true and AimlockTarget and AimlockTarget.Character then
-                local KOd = AimlockTarget.Character:WaitForChild("BodyEffects")["K.O"].Value
-                local Grabbed = AimlockTarget.Character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
-                if AimlockTarget.Character.Humanoid.health < 1 or KOd or Grabbed then
-                    if MousePressed == true then
-                        AimlockTarget = nil
-                        MousePressed = false
-                    end
-                end
-            end
-            if
-                getgenv().Settings.Check.DisableOnTargetDeath == true and AimlockTarget and
-                    AimlockTarget.Character:FindFirstChild("Humanoid")
-             then
-                if AimlockTarget.Character.Humanoid.health < 1 then
-                    if MousePressed == true then
-                        AimlockTarget = nil
-                        MousePressed = false
-                    end
-                end
-            end
-            if
-                getgenv().Settings.Check.DisableOnPlayerDeath == true and Client.Character and
-                    Client.Character:FindFirstChild("Humanoid") and
-                    Client.Character.Humanoid.health < 1
-             then
-                if MousePressed == true then
-                    AimlockTarget = nil
-                    MousePressed = false
-                end
-            end
-            if getgenv().Settings.Part.CheckIfJumped == true and getgenv().Settings.Part.GetClosestPart == false then
-                if AimlockTarget and AimlockTarget.Character then
-                    if AimlockTarget.Character.Humanoid.FloorMaterial == Enum.Material.Air then
-                        getgenv().Settings.Part.AimPart = getgenv().Settings.Part.CheckIfJumpedAimPart
-                    else
-                        getgenv().Settings.Part.AimPart = OldAimPart
-                    end
-                end
-            end
-            if
-                AimlockTarget and AimlockTarget.Character and
-                    AimlockTarget.Character:FindFirstChild(getgenv().Settings.Part.AimPart)
-             then
+
+RService.Heartbeat:Connect(function()
+    if getgenv().Settings.Main.Enable == true and MousePressed == true then
+        local currentTarget = GetNearestValidTarget()  -- Chọn target gần nhất valid
+        if currentTarget then  -- Chỉ aim nếu có target valid (không che tường, alive)
+            AimlockTarget = currentTarget  -- Gán AimlockTarget tạm thời cho aim
+        else
+            AimlockTarget = nil  -- Dừng aim nhưng không bỏ targets
+        end
+
+        if AimlockTarget and AimlockTarget.Character and
+            AimlockTarget.Character:FindFirstChild(getgenv().Settings.Part.AimPart) then
+            if isAlive(AimlockTarget) then -- Only aim if target is alive
                 if getgenv().Settings.Main.FirstPerson == true then
                     if CanNotify == true then
                         if getgenv().Settings.Horizontal.PredictMovement == true then
                             if getgenv().Settings.Smooth.Smoothness == true then
-                                local Main =
-                                    CF(
+                                local Main = CF(
                                     Camera.CFrame.p,
                                     AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
                                         AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
-                                            getgenv().Settings.Horizontal.PredictionVelocity
+                                        getgenv().Settings.Horizontal.PredictionVelocity
                                 )
- 
-                                Camera.CFrame =
-                                    Camera.CFrame:Lerp(
+                                Camera.CFrame = Camera.CFrame:Lerp(
                                     Main,
                                     getgenv().Settings.Smooth.SmoothnessAmount,
                                     Enum.EasingStyle.Elastic,
                                     Enum.EasingDirection.InOut
                                 )
                             else
-                                Camera.CFrame =
-                                    CF(
+                                Camera.CFrame = CF(
                                     Camera.CFrame.p,
                                     AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
                                         AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
-                                            getgenv().Settings.Horizontal.PredictionVelocity + Vector3
+                                        getgenv().Settings.Horizontal.PredictionVelocity + Vector3
                                 )
                             end
                         elseif getgenv().Settings.Horizontal.PredictMovement == false then
                             if getgenv().Settings.Smooth.Smoothness == true then
-                                local Main =
-                                    CF(
+                                local Main = CF(
                                     Camera.CFrame.p,
                                     AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
                                 )
-                                Camera.CFrame =
-                                    Camera.CFrame:Lerp(
+                                Camera.CFrame = Camera.CFrame:Lerp(
                                     Main,
                                     getgenv().Settings.Smooth.SmoothnessAmount,
                                     getgenv().Settings.Smooth.SmoothMethod,
                                     getgenv().Settings.Smooth.SmoothMethodV2
                                 )
                             else
-                                Camera.CFrame =
-                                    CF(
+                                Camera.CFrame = CF(
                                     Camera.CFrame.p,
                                     AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
                                 )
@@ -677,9 +3349,10 @@ RService.Heartbeat:Connect(
                     end
                 end
             end
+            -- If target is not alive (K.O. or grabbed), skip aiming but keep AimlockTarget and MousePressed
         end
     end
-)
+end)
  
 -- IK THIS IS SHITTY BRUH
  
@@ -818,3 +3491,116 @@ PingLabel:GetPropertyChangedSignal("Text"):Connect(
         end
     end
 )
+  tôi muốn sửa lại loopbring đơn giản,khi bật thì liên tục mang đối thủ về trước mặt 2 stud và dropdown không cập nhật người chơi,và tôi muốn sửa lại hệ thống mục tiêu aim,thêm check wall,nếu họ bị vật cản che thì dừng aim chứ không bỏ target người ta,và ở dưới loopbring add button set target thì sẽ set target người đó và nếu bấm lại set target thì là bỏ aim,nghĩa là bây giờ có thể chọn nhiều target, vậy thì cần tạo hàm để ai gần nhất và không bị che tường và check thêm isalive và hàm này sẽ cho vào chỗ aimlock để check,hãy chuyển các logic aim ở dưới lên đầu chỗ nào đó hoặc trang combat và nút để đổi keybind set target không thực sự đổi được nút vì nó không lấy trong biến aimlock ở dưới để đổi,và tôi thấy cái mà để set target nó không nhạy lắm,ví dụ nút set target là q dùng để set aimlocktarget= getnear gì đó thì nhiều khi tôi bấm phím để set aimlocktarget thì nó không dính,làm lại là nếu pc thì khi bấm phím ví dụ q thì nếu ở pc thì sẽ chọn ra mục tiêu gần chuột nhất và nếu họ đã được set target rồi mà bấm lại thì hủy target và nếu ở mobile thì sẽ lấy mục tiêu gần giữa màn hình nhất để chọn,có thể chọn kể cả khi họ không bị che và tạo một hàm thông báo đẹp ví dụ
+local Notifications = {} -- Danh sách để theo dõi các thông báo hiện tại
+
+local function sendNotification(title, text, duration)
+    -- Tạo ScreenGui mới cho thông báo
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "DhuyxNotification_" .. tostring(tick())
+    notifGui.Parent = game:GetService("CoreGui")
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    notifGui.DisplayOrder = 999999 - #Notifications -- Giảm DisplayOrder cho thông báo mới
+    notifGui.IgnoreGuiInset = true
+    notifGui.ResetOnSpawn = false
+
+    -- Tính toán vị trí dựa trên số lượng thông báo hiện tại
+    local offsetY = 20 + (#Notifications * 80) -- Mỗi thông báo cách nhau 80 pixel (70 pixel chiều cao + 10 pixel khoảng cách)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 280, 0, 70)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 0
+    frame.AnchorPoint = Vector2.new(1, 1)
+    frame.Position = UDim2.new(1, -20, 1, -offsetY) -- Đặt vị trí, thông báo mới ở dưới
+    frame.Transparency = 1 -- Ban đầu trong suốt cho hiệu ứng fade-in
+    frame.Parent = notifGui
+
+    -- Bo góc
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    -- Gradient
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+    }
+    gradient.Rotation = 90
+    gradient.Parent = frame
+
+    -- Shadow
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0, -10, 0, -10)
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.6
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.ZIndex = -1
+    shadow.BackgroundTransparency = 1
+    shadow.Parent = frame
+
+    -- Title
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -10, 0, 25)
+    titleLabel.Position = UDim2.new(0, 5, 0, 5)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title or "DhuyxDtuyen"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    titleLabel.Parent = frame
+
+    -- Text
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -10, 1, -35)
+    textLabel.Position = UDim2.new(0, 5, 0, 30)
+    titleLabel.BackgroundTransparency = 1
+    textLabel.Text = text or "Notification"
+    textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    textLabel.Font = Enum.Font.Gotham
+    textLabel.TextSize = 14
+    textLabel.TextWrapped = true
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    textLabel.Parent = frame
+
+    -- Thêm thông báo vào danh sách
+    table.insert(Notifications, notifGui)
+
+    -- Fade in animation
+    local fadeIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
+    fadeIn:Play()
+
+    -- Fade out và xóa
+    task.spawn(function()
+        task.wait(duration or 3)
+        local fadeOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1})
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            -- Xóa thông báo khỏi danh sách và hủy nó
+            for i, gui in ipairs(Notifications) do
+                if gui == notifGui then
+                    table.remove(Notifications, i)
+                    break
+                end
+            end
+            notifGui:Destroy()
+
+            -- Cập nhật lại vị trí của các thông báo còn lại
+            for i, gui in ipairs(Notifications) do
+                local frame = gui:FindFirstChildOfClass("Frame")
+                if frame then
+                    local newOffsetY = 20 + ((i - 1) * 80) -- Cập nhật vị trí
+                    local tween = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -newOffsetY)})
+                    tween:Play()
+                end
+            end
+        end)
+    end)
+end hãy dùng hàm thông báo riêng và làm có glow hồng cho giống gui và hiệu ứng glow có thể tìm trong url venyx,và đoạn code tôi vừa gửi để dùng cho các thông báo trừ việc chọn mục tiêu,chọn mục tiêu giờ đổi aimlocktarget thành {} bên trong chứa những người mỗi khi chọn ,và hàm thông báo sẽ tạo khác để cho script tôi xịn ,khi chọn ai đó thì thông báo hiện bên trái màn hình và ở tầm giữa hoặc chỗ nào đó phù hợp cho cả pc và mobile,nó sẽ hiện target sau đó ở dưới hiện ảnh avatar của người đó và ở dưới hiện tên displayname lẫn name trong ngoặc và hiện cả age nghĩa là số tuổi ngày của acc này và hiện trạng thái là alive hay đang bị k.o hay bị grab và số máu,hãy làm nó đẹp và có glow hồng phù hợp với gui,và hiện 3 giây rồi sau đó từ từ kéo luôn ra ngoài màn hình để không thấy nữa,kiểu hiệu ứng biến mất biến mất từ từ kéo cả bảng thông báo người dùng đó sang bên trái và dropdown chọn player giờ sẽ thêm là nếu ai được chọn thì ví dụ tên(@tên)(thêm dấu tích để biết được mình đã chọn ai và thêm nút autobuygun ở trang misc sau nút autoarmor,khi bấm thì đầu tiên sẽ check trong người có tool gì tên revolver và double-barrel và tacticalshotgun, 3 tên này không phân biệt viết hoa và không cần biết nó đi cùng chữ gì nhưng cứ thấy có chữ giống vậy là cũng tính,nếu trong người không có 1 trong 3 khẩu revolver 
+hoặc double-barrel hoặc tacticalshotgun thì tp đến theo toạ độ revolver:-635.03, 21.75, -124.16 double-barrel:-1045.20, 21.75, -265.21 tacticalshotgun471.34, 48.07, -622.77 tacticalshotgunammo:492.86, 48.07, -622.48,nếu không có khẩu revolver thì tp đến toạ độ revolver đợi 0.25 và tìm các folder chứa shop giống armor và tìm model tên tương ứng với gun bị thiếu và sau đó tìm phạm vi trong 10 stud giống armor và fireclickdetector giống armor sau đó đợi 0.25 giây thì tìm model trong folder shop tên súng bị thiếu +ammo không phân biệt viết hoa và không phân biệt tên chuẩn miễn là có tên ammo và có tên súng bị thiếu là được ví dụ revolverjdbdjammo hoặc ammojehrevolver và sau đó tìm thấy trong 10stud rồi thì fireclickdetector 5 lần mỗi lần đợi0.1 giây rồi bấm tiếp sau khi xong thì về chỗ cũvà double-barrel mua giống revolver còn tacticalshotgun thì mua súng xong dịch chuyển sang toạ độ ammo rồi mua,đó là nếu thiếu 1 trong 3 khẩu còn nếu thiếu 2 khẩu hay 3 khẩu thì sẽ mua theo thứ tự revolver -> double-barrel -> tacticalshotgun ví dụ thiếu revolver và tacticalshotgun thì mua revolver xog về chỗ cũ rồi đợi 0.25 giây dịch chuyển ra mua tacticalshotgun rồi về chỗ cũ và thêm ô keybind sorter inventory không cần nút toggle chỉ cần bấm đúng keybind thì sẽ kích hoạt và keybind mặc định là t,nếu có 3 tool súng giống autobuy trong người không phân biệt hoa,kiểu không còn hiển thị ở ô 1 2 3... nữa mà cho lên ô 30 hay 20 gì đó và sau khi xong thì check xem có 3 tool kia trong người không ,thiếu tool nào thì kệ ,sẽ xếp theo thứ tự ô 1 để double-barrel ô 2 để revolver ô 3 để tacticalshotgun
