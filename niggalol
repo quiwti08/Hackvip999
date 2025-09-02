@@ -1297,6 +1297,41 @@ miscSection:addToggle("Custom Time", false, function(value)
     end
 end)
 
+local sorterKey = Enum.KeyCode.T
+miscSection:addKeybind("Sorter Inventory Key", Enum.KeyCode.T, function()
+    local backpack = LocalPlayer.Backpack
+    local char = LocalPlayer.Character
+    if not backpack or not char then return end
+
+    -- Cho hết tool vào backpack (không hiển thị ở hotbar)
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            tool.Parent = backpack
+        end
+    end
+
+    -- Tìm 3 tool
+    local doubleBarrel = nil
+    local revolver = nil
+    local tacticalShotgun = nil
+
+    for _, tool in ipairs(backpack:GetChildren()) do
+        local nameLower = tool.Name:lower()
+        if nameLower:find("double-barrel") or nameLower:find("double barrel") then doubleBarrel = tool end
+        if nameLower:find("revolver") then revolver = tool end
+        if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then tacticalShotgun = tool end
+    end
+
+    -- Xếp thứ tự
+    if doubleBarrel then doubleBarrel.Parent = char end  -- Ô 1
+    if revolver then revolver.Parent = char end  -- Ô 2
+    if tacticalShotgun then tacticalShotgun.Parent = char end  -- Ô 3
+
+    sendNotification("Sorter Inventory", "Inventory sorted!")
+end, function(key)
+    sorterKey = key
+end)
+
 miscSection:addButton("AutoBuyGun", function()
     local player = game.Players.LocalPlayer
     local char = player.Character
