@@ -3,11 +3,11 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 -- Create Rayfield Window
 local Window = Rayfield:CreateWindow({
-    Name = "MM2 & Aura GUI (vhuydeptraivl)",
+    Name = "MM2 NIGGALOL (anhchangm52)",
     Icon = 0, -- No icon
     LoadingTitle = "MM2 NIGGALOL",
-    LoadingSubtitle = "by vhuydeptraivl",
-    ShowText = "MM2AuraGUI", -- Text for mobile users to unhide GUI
+    LoadingSubtitle = "by anhchangm52",
+    ShowText = "MM2NIGGALOL", -- Text for mobile users to unhide GUI
     Theme = "Default",
     ToggleUIKeybind = "Z", -- Toggle GUI with Q key
     DisableRayfieldPrompts = false,
