@@ -43,6 +43,9 @@ local UPDATE_INTERVAL = 0.5
 local RANDOM_DELAY = 0.1
 local MAX_COIN_DISTANCE = 100
 local ANTI_CHEAT_DELAY = 0.05
+getgenv().HitboxEnabled = false
+getgenv().HitboxTransparency = 0.9
+getgenv().HitboxSize = 15
 
 -- Variables
 local playerData = {}
@@ -401,6 +404,34 @@ RunService.Heartbeat:Connect(function()
             end
         end
         Rayfield:Notify({Title = "Action", Content = "Auto Kill All executed.", Duration = 3})
+    end
+end)
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if getgenv().HitboxEnabled then
+        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
+            if player.Name ~= game:GetService('Players').LocalPlayer.Name then
+                pcall(function()
+                    player.Character.HumanoidRootPart.Size = Vector3.new(getgenv().HitboxSize, getgenv().HitboxSize, getgenv().HitboxSize)
+                    player.Character.HumanoidRootPart.Transparency = getgenv().HitboxTransparency
+                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really black")
+                    player.Character.HumanoidRootPart.Material = "Neon"
+                    player.Character.HumanoidRootPart.CanCollide = false
+                end)
+            end
+        end
+    else
+        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
+            if player.Name ~= game:GetService('Players').LocalPlayer.Name then
+                pcall(function()
+                    player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+                    player.Character.HumanoidRootPart.Transparency = 1
+                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Medium stone grey")
+                    player.Character.HumanoidRootPart.Material = "Plastic"
+                    player.Character.HumanoidRootPart.CanCollide = false
+                end)
+            end
+        end
     end
 end)
 
@@ -798,6 +829,58 @@ MM2Tab:CreateButton({
     Name = "TP Lobby",
     Callback = function()
         task.spawn(tpToLobby)
+    end
+})
+
+-- Hitbox Toggle
+MM2Tab:CreateToggle({
+    Name = "Hitbox",
+    CurrentValue = false,
+    Flag = "HitboxToggle",
+    Callback = function(Value)
+        getgenv().HitboxEnabled = Value
+        Rayfield:Notify({
+            Title = "Hitbox",
+            Content = Value and "ON" or "OFF",
+            Duration = 3,
+            Image = 4483362458
+        })
+    end
+})
+
+-- Hitbox Transparency Slider
+MM2Tab:CreateSlider({
+    Name = "Hitbox Transparency",
+    Range = {0, 1},
+    Increment = 0.1,
+    CurrentValue = 0.9,
+    Flag = "HitboxTransparencySlider",
+    Callback = function(Value)
+        getgenv().HitboxTransparency = Value
+        Rayfield:Notify({
+            Title = "Hitbox Transparency",
+            Content = "Set to " .. Value,
+            Duration = 3,
+            Image = 4483362458
+        })
+    end
+})
+
+-- Hitbox Size Slider
+MM2Tab:CreateSlider({
+    Name = "Hitbox Size",
+    Range = {5, 50},
+    Increment = 1,
+    CurrentValue = 15,
+    Flag = "HitboxSizeSlider",
+    Callback = function(Value)
+        getgenv().HitboxSize = Value
+        Rayfield:Notify({
+            Title = "Hitbox Size",
+            Content = "Set to " .. Value,
+            Duration = 3,
+            Image = 4483362458
+        })
     end
 })
 
@@ -1403,6 +1486,25 @@ if initialChar then
         applySelectedAnimation(animType)
     end
 end
+
+local ThemeTab = Window:CreateTab("Settings", 4483362458) -- Tạo tab mới cho cài đặt
+
+ThemeTab:CreateDropdown({
+    Name = "Select Theme",
+    Options = {"Default", "Dark", "Light", "Aqua", "Jester", "Vape", "Rose", "Midnight"},
+    CurrentOption = {"Default"},
+    MultipleOptions = false,
+    Flag = "ThemeSelector",
+    Callback = function(Option)
+        Rayfield:SetTheme(Option[1]) -- Cập nhật theme
+        Rayfield:Notify({
+            Title = "Theme Changed",
+            Content = "Switched to " .. Option[1] .. " theme.",
+            Duration = 3,
+            Image = 4483362458
+        })
+    end
+})
 
 -- Input Bindings
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
