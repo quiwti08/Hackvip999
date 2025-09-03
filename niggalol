@@ -25,15 +25,25 @@ applyThemeNow()
 local combatPage = venyx:addPage("Combat", 5012540623)
 local combatSection = combatPage:addSection("Combat Features")
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+-- Services
+local Players       = game:GetService("Players")
+local UIS           = game:GetService("UserInputService")
+local Uis           = UIS  
+local RunService    = game:GetService("RunService")
+local TweenService  = game:GetService("TweenService")
+local Lighting      = game:GetService("Lighting")
+local TextChatService = game:GetService("TextChatService")
+local GuiService    = game:GetService("GuiService")
 
--- Biến AimlockTargets là table chứa nhiều target
-local AimlockTargets = {}  -- Bảng chứa các target đã chọn
+-- Camera / Inset / Mouse
+local Camera        = workspace.CurrentCamera
+local Inset         = GuiService:GetGuiInset().Y
+local LocalPlayer   = Players.LocalPlayer
+local localplayer   = LocalPlayer -- alias cho những đoạn dùng chữ thường
+local Mouse         = LocalPlayer:GetMouse()
+
+-- Bảng target dùng chung
+local AimlockTargets = {}  -- nếu biến này đã có chỗ khác, hãy xoá ở dưới và giữ ở đây
 
 -- Hàm check wall
 local function WallCheck(targetPart)
@@ -560,11 +570,6 @@ end)
 local visualPage = venyx:addPage("Visual", 5012541386)
 local visualSection = visualPage:addSection("Visual Features")
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
-
 -- Config lấy từ UI toggle của bạn
 local Config = {
     RainbowHitEffectEnabled = true,
@@ -572,8 +577,6 @@ local Config = {
 }
 
 local lastHealth = {}
-
-local TweenService = game:GetService("TweenService")
 
 local function getRainbowColor()
     local timeVal = tick() * 2
@@ -1528,17 +1531,15 @@ local CurrentFOV = 70
 
 miscSection:addSlider("FOV", 70, 70, 120, function(value)
     CurrentFOV = value
-    workspace.CurrentCamera.FieldOfView = value
+    Camera.FieldOfView = value
 end)
 
 -- khi nhân vật respawn → giữ FOV cũ
 game.Players.LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.5) -- chờ camera load
-    workspace.CurrentCamera.FieldOfView = CurrentFOV
+    Camera.FieldOfView = CurrentFOV
 end)
 
--- Time Control
-local Lighting = game:GetService("Lighting")
 local timeEnabled = false
 local currentTime = Lighting.ClockTime
 
@@ -1552,6 +1553,12 @@ miscSection:addToggle("Custom Time", false, function(value)
         venyx:Notify("Custom Time", "OFF")
         -- Khi tắt trả lại đồng hồ thật (optional, bạn có thể bỏ)
         Lighting.ClockTime = os.date("*t").hour + (os.date("*t").min / 60)
+    end
+end)
+miscSection:addSlider("Set Time", 12, 0, 24, function(value)
+    currentTime = value
+    if timeEnabled then
+        Lighting.ClockTime = value
     end
 end)
 
@@ -1642,27 +1649,21 @@ miscSection:addButton("AutoBuyGun", function()
     end
 end)
 
--- Slider chỉnh thời gian (0h - 24h)
-miscSection:addSlider("Set Time", 12, 0, 24, function(value)
-    currentTime = value
-    if timeEnabled then
-        Lighting.ClockTime = value
-    end
-end)
-
 miscSection:addSlider("Fog End", 500, 5000, Lighting.FogEnd, function(val)
     Lighting.FogEnd = val
 end)
 
-miscSection:addColorPicker("Fog Color", Color3.fromRGB(255, 179, 186), function(color)
-    -- Không làm gì ở đây, chỉ để chọn trước
+miscSection:addToggle("Use Fog Color", false, function(state)
+    if state then
+        Lighting.FogColor = miscSection:getModule("Fog Color").Color
+    else
+        Lighting.FogColor = game:GetService("Lighting").FogColor
+    end
 end)
 
-miscSection:addButton("Apply Fog Color", function()
-    local picker = miscSection:getModule("Fog Color") -- lấy colorpicker ra
-    if picker and picker.Color then
-        Lighting.FogColor = picker.Color
-        venyx:Notify("Fog Color", "Đã áp dụng màu Fog")
+miscSection:addColorPicker("Fog Color", Color3.fromRGB(255, 179, 186), function(color)
+    if miscSection:getModule("Use Fog Color").Value then
+        Lighting.FogColor = color
     end
 end)
 
@@ -1754,8 +1755,6 @@ miscSection:addButton("Teleport", function()
     end
 end)
 
--- 🗨️ Show Chat Toggle
-local TextChatService = game:GetService("TextChatService")
 local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
 
 -- Mặc định bật
@@ -1770,11 +1769,6 @@ miscSection:addToggle("Show Chat", ChatEnabled, function(state)
         chatWindow.Enabled = state
     end
 end)
-
--- Jump Happier Animation Logic
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 local currentTrack = nil
