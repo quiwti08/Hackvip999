@@ -470,7 +470,7 @@ local function CreateScriptItem(name, url)
 end
 
 CreateScriptItem("Evade", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/evade")
-CreateScriptItem("Murder Mystery 2", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/mm2")
+CreateScriptItem("Murder Mystery 2", "https://raw.githubusercontent.com/quiwti08/Hackvip999/refs/heads/main/rayfield")
 CreateScriptItem("Blade Ball", "https://raw.githubusercontent.com/dadada-rgb/VhuyHub/refs/heads/main/Bladeball")
 CreateScriptItem("Doors", "https://raw.githubusercontent.com/DarkDoorsKing/Project/main/Doors.lua")
 CreateScriptItem("free all animation", "https://yarhm.mhi.im/scr?channel=afemmax")
