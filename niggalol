@@ -1555,41 +1555,6 @@ miscSection:addToggle("Custom Time", false, function(value)
     end
 end)
 
-local sorterKey = Enum.KeyCode.T
-miscSection:addKeybind("Sorter Inventory Key", Enum.KeyCode.T, function()
-    local backpack = LocalPlayer.Backpack
-    local char = LocalPlayer.Character
-    if not backpack or not char then return end
-
-    -- Cho hết tool vào backpack (không hiển thị ở hotbar)
-    for _, tool in ipairs(char:GetChildren()) do
-        if tool:IsA("Tool") then
-            tool.Parent = backpack
-        end
-    end
-
-    -- Tìm 3 tool
-    local doubleBarrel = nil
-    local revolver = nil
-    local tacticalShotgun = nil
-
-    for _, tool in ipairs(backpack:GetChildren()) do
-        local nameLower = tool.Name:lower()
-        if nameLower:find("double-barrel") or nameLower:find("double barrel") then doubleBarrel = tool end
-        if nameLower:find("revolver") then revolver = tool end
-        if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then tacticalShotgun = tool end
-    end
-
-    -- Xếp thứ tự
-    if doubleBarrel then doubleBarrel.Parent = char end  -- Ô 1
-    if revolver then revolver.Parent = char end  -- Ô 2
-    if tacticalShotgun then tacticalShotgun.Parent = char end  -- Ô 3
-
-    sendNotification("Sorter Inventory", "Inventory sorted!")
-end, function(key)
-    sorterKey = key
-end)
-
 miscSection:addButton("AutoBuyGun", function()
     local player = game.Players.LocalPlayer
     local char = player.Character
@@ -1612,14 +1577,14 @@ miscSection:addButton("AutoBuyGun", function()
     for _, tool in ipairs(player.Backpack:GetChildren()) do
         local nameLower = tool.Name:lower()
         if nameLower:find("revolver") then hasRevolver = true end
-        if nameLower:find("double-barrel") or nameLower:find("double barrel") then hasDoubleBarrel = true end
+        if nameLower:find("double-barrel sg") or nameLower:find("double barrel") then hasDoubleBarrel = true end
         if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then hasTacticalShotgun = true end
     end
     for _, tool in ipairs(char:GetChildren()) do
         if tool:IsA("Tool") then
             local nameLower = tool.Name:lower()
             if nameLower:find("revolver") then hasRevolver = true end
-            if nameLower:find("double-barrel") or nameLower:find("double barrel") then hasDoubleBarrel = true end
+            if nameLower:find("double-barrel sg") or nameLower:find("double barrel") then hasDoubleBarrel = true end
             if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then hasTacticalShotgun = true end
         end
     end
@@ -1633,7 +1598,7 @@ miscSection:addButton("AutoBuyGun", function()
             if nameLower:find(gunName:lower()) and not nameLower:find("ammo") and model:IsA("Model") then
                 local cd = model:FindFirstChildOfClass("ClickDetector")
                 local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
-                if cd and head and (head.Position - hrp.Position).Magnitude <= 10 then
+                if cd and head and (head.Position - hrp.Position).Magnitude <= 20 then
                     for i = 1, 5 do
                         pcall(function() fireclickdetector(cd) end)
                         task.wait(0.1)
@@ -1653,7 +1618,7 @@ miscSection:addButton("AutoBuyGun", function()
             if nameLower:find("ammo") and nameLower:find(gunName:lower()) and model:IsA("Model") then
                 local cd = model:FindFirstChildOfClass("ClickDetector")
                 local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
-                if cd and head and (head.Position - hrp.Position).Magnitude <= 10 then
+                if cd and head and (head.Position - hrp.Position).Magnitude <= 20 then
                     for i = 1, 5 do
                         pcall(function() fireclickdetector(cd) end)
                         task.wait(0.1)
@@ -1673,7 +1638,7 @@ miscSection:addButton("AutoBuyGun", function()
         buyGunAndAmmo("Double-Barrel", Vector3.new(-1045.20, 21.75, -265.21))
     end
     if not hasTacticalShotgun then
-        buyGunAndAmmo("TacticalShotgun", Vector3.new(471.34, 48.07, -622.77), Vector3.new(492.86, 48.07, -622.48))
+        buyGunAndAmmo("TacticalShotgun", Vector3.new(492.86, 48.07, -622.48), Vector3.new(471.34, 48.07, -622.77))
     end
 end)
 
@@ -1689,8 +1654,16 @@ miscSection:addSlider("Fog End", 500, 5000, Lighting.FogEnd, function(val)
     Lighting.FogEnd = val
 end)
 
-miscSection:addColorPicker("Fog Color", Lighting.FogColor, function(color)
-    Lighting.FogColor = color
+miscSection:addColorPicker("Fog Color", Color3.fromRGB(255, 179, 186), function(color)
+    -- Không làm gì ở đây, chỉ để chọn trước
+end)
+
+miscSection:addButton("Apply Fog Color", function()
+    local picker = miscSection:getModule("Fog Color") -- lấy colorpicker ra
+    if picker and picker.Color then
+        Lighting.FogColor = picker.Color
+        venyx:Notify("Fog Color", "Đã áp dụng màu Fog")
+    end
 end)
 
 -- Auto Armor Button (Da Hood Shop scan style)
@@ -1989,7 +1962,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- Toggle UI
-miscSection:addToggle("Korblox", true, function(state)
+miscSection:addToggle("Korblox and Animationpack auto", true, function(state)
     korbloxEnabled = state
     local char = LocalPlayer.Character
     if char then
@@ -2041,7 +2014,7 @@ Config.SpeedAmount = 20
 
 -- ⚡ Biến lưu trạng thái WalkSpeed
 local walkSpeedEnabled = false
-local walkSpeedValue = 140
+local walkSpeedValue = 250
 local defaultWalkSpeed = 16
 
 -- 🏃 Hàm toggle WalkSpeed (giữ nguyên logic "xxx" như script gốc)
@@ -2072,7 +2045,7 @@ movementSection:addToggle("WalkSpeed", false, function(value)
     venyx:Notify("WalkSpeed", value and "ON ("..walkSpeedValue..")" or "OFF")
 end)
 
-movementSection:addSlider("WalkSpeed Value", 140, 16, 300, function(value)
+movementSection:addSlider("WalkSpeed Value", 250, 16, 1000, function(value)
     walkSpeedValue = value
     if walkSpeedEnabled then
         toggleWalkSpeed(true)
