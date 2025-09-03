@@ -26,7 +26,6 @@ local combatPage = venyx:addPage("Combat", 5012540623)
 local combatSection = combatPage:addSection("Combat Features")
 
 local Players = game:GetService("Players")
-local localplayer = Players.LocalPlayer
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
@@ -67,7 +66,7 @@ local function GetNearestValidTarget()
     return nearestTarget
 end
 
--- Hàm isAlive (đã có, nhưng thêm nếu chưa)
+-- Hàm isAlive
 local function isAlive(plr)
     if not plr or not plr.Character then return false end
     local hum = plr.Character:FindFirstChildOfClass("Humanoid")
@@ -704,10 +703,6 @@ Players.PlayerAdded:Connect(setupHitEffect)
 _G.FriendColor = Color3.fromRGB(0, 0, 255)
 _G.EnemyColor = Color3.fromRGB(255, 0, 0)
 _G.UseTeamColor = true
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 
 local ESPEnabled = false
 local SkeletonEnabled = false
@@ -3065,31 +3060,6 @@ end
  
 -- // Main Functions. RunService HeartBeat.
  
-task.spawn(
-    function()
-        while task.wait() do
-            if MousePressed == true and getgenv().Settings.Main.Enable == true then
-                if AimlockTarget and AimlockTarget.Character then
-                    if getgenv().Settings.Part.GetClosestPart == true then
-                        getgenv().Settings.Part.AimPart = tostring(GetClosestBodyPart(AimlockTarget.Character))
-                    end
-                end
-                if getgenv().Settings.Main.DisableOutSideCircle == true and AimlockTarget and AimlockTarget.Character then
-                    if
-                        Circle.Radius <
-                            (Vec2(
-                                Camera:WorldToScreenPoint(AimlockTarget.Character.HumanoidRootPart.Position).X,
-                                Camera:WorldToScreenPoint(AimlockTarget.Character.HumanoidRootPart.Position).Y
-                            ) - Vec2(Mouse.X, Mouse.Y)).Magnitude
-                     then
-                        AimlockTarget = nil
-                    end
-                end
-            end
-        end
-    end
-)
-
 RService.Heartbeat:Connect(function()
     if getgenv().Settings.Main.Enable == true then
         local currentTarget = GetNearestValidTarget()  -- Chọn target gần nhất valid
@@ -3179,10 +3149,9 @@ RService.Heartbeat:Connect(function()
                     AimlockTarget = nil
                 end
             end
-            if getgenv().Settings.Check.DisableOnPlayerDeath == true and Client.Character and
-                Client.Character:FindFirstChild("Humanoid") and Client.Character.Humanoid.Health < 1 then
-                    AimlockTarget = nil
-                end
+            if getgenv().Settings.Check.DisableOnPlayerDeath == true and LocalPlayer.Character and
+                LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.Health < 1 then
+                AimlockTarget = nil
             end
             if getgenv().Settings.Part.CheckIfJumped == true and getgenv().Settings.Part.GetClosestPart == false then
                 if AimlockTarget and AimlockTarget.Character then
