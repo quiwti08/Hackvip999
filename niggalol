@@ -376,21 +376,14 @@ combatSection:addToggle("View Player", false, function(state)
     end
 end)
 
--- ===================== ⚡ GO TO (1 lần) =====================
-combatSection:addToggle("Go To Player", false, function(state, toggleObj)
-    if state then
-        if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local targetHRP = selectedPlayer.Character.HumanoidRootPart
-            if myHRP and targetHRP then
-                myHRP.CFrame = targetHRP.CFrame + Vector3.new(0, 3, 0)
-                venyx:Notify("Go To", "Đã dịch chuyển tới " .. selectedPlayer.DisplayName)
-            end
+combatSection:addButton("Go To Player", function()
+    if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local targetHRP = selectedPlayer.Character.HumanoidRootPart
+        if myHRP and targetHRP then
+            myHRP.CFrame = targetHRP.CFrame + Vector3.new(0, 3, 0)
+            venyx:Notify("Go To", "Đã dịch chuyển tới " .. selectedPlayer.DisplayName)
         end
-        -- 🔄 Tắt toggle ngay sau khi dịch chuyển
-        task.delay(0.1, function()
-            toggleObj:Set(false)
-        end)
     end
 end)
 
