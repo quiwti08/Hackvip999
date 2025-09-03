@@ -1,6 +1,38 @@
 -- Load the Venyx UI library
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
 
+local themes = {
+    Background = Color3.fromRGB(24, 24, 24),
+    Glow = Color3.fromRGB(255, 179, 186),
+    Accent = Color3.fromRGB(10, 10, 10),
+    LightContrast = Color3.fromRGB(20, 20, 20),
+    DarkContrast = Color3.fromRGB(14, 14, 14),
+    TextColor = Color3.fromRGB(255, 179, 186)
+}
+
+local venyx = library.new("nigga.lol(vhuydeptraivl)")
+
+local function applyThemeNow()
+    for k, c in pairs(themes) do
+        pcall(function() venyx:setTheme(k, c) end)
+        pcall(function() library:setTheme(k, c) end)
+    end
+end
+
+-- 1) Apply ngay sau khi tạo venyx
+applyThemeNow()
+
+local combatPage = venyx:addPage("Combat", 5012540623)
+local combatSection = combatPage:addSection("Combat Features")
+
+local Players = game:GetService("Players")
+local localplayer = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
 -- Biến AimlockTargets là table chứa nhiều target
 local AimlockTargets = {}  -- Bảng chứa các target đã chọn
 
@@ -52,30 +84,6 @@ local function isAlive(plr)
     end
     return true
 end
-
-local themes = {
-    Background = Color3.fromRGB(24, 24, 24),
-    Glow = Color3.fromRGB(255, 179, 186),
-    Accent = Color3.fromRGB(10, 10, 10),
-    LightContrast = Color3.fromRGB(20, 20, 20),
-    DarkContrast = Color3.fromRGB(14, 14, 14),
-    TextColor = Color3.fromRGB(255, 179, 186)
-}
-
-local venyx = library.new("nigga.lol(vhuydeptraivl)")
-
-local function applyThemeNow()
-    for k, c in pairs(themes) do
-        pcall(function() venyx:setTheme(k, c) end)
-        pcall(function() library:setTheme(k, c) end)
-    end
-end
-
--- 1) Apply ngay sau khi tạo venyx
-applyThemeNow()
-
-local combatPage = venyx:addPage("Combat", 5012540623)
-local combatSection = combatPage:addSection("Combat Features")
 
 local Notifications = {} -- Danh sách để theo dõi các thông báo hiện tại
 
@@ -319,13 +327,6 @@ local function sendTargetNotification(plr)
         end)
     end)
 end
-
-local Players = game:GetService("Players")
-local localplayer = Players.LocalPlayer
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 
 local selectedPlayer = nil
 local playerDropdown -- giữ reference dropdown
@@ -3088,23 +3089,6 @@ task.spawn(
         end
     end
 )
-
-local function isAlive(plr)
-    if not plr or not plr.Character then return false end
-    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then
-        return false
-    end
-    local be = plr.Character:FindFirstChild("BodyEffects")
-    if be then
-        local ko = be:FindFirstChild("K.O")
-        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
-        if (ko and ko.Value) or (grabbed and grabbed.Value) then
-            return false
-        end
-    end
-    return true
-end
 
 RService.Heartbeat:Connect(function()
     if getgenv().Settings.Main.Enable == true then
