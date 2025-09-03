@@ -10,7 +10,7 @@ local themes = {
     TextColor = Color3.fromRGB(255, 179, 186)
 }
 
-local venyx = library.new("nigga.lol(vhuydeptraivl)")
+local venyx = library.new("nigga.lol | vhuy-anhchangm52")
 
 local function applyThemeNow()
     for k, c in pairs(themes) do
@@ -26,21 +26,19 @@ local combatPage = venyx:addPage("Combat", 5012540623)
 local combatSection = combatPage:addSection("Combat Features")
 
 -- Services
-local Players       = game:GetService("Players")
-local UIS           = game:GetService("UserInputService")
-local Uis           = UIS  
-local RunService    = game:GetService("RunService")
-local TweenService  = game:GetService("TweenService")
-local Lighting      = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
 local TextChatService = game:GetService("TextChatService")
-local GuiService    = game:GetService("GuiService")
+local GuiService = game:GetService("GuiService")
 
 -- Camera / Inset / Mouse
-local Camera        = workspace.CurrentCamera
-local Inset         = GuiService:GetGuiInset().Y
-local LocalPlayer   = Players.LocalPlayer
-local localplayer   = LocalPlayer -- alias cho những đoạn dùng chữ thường
-local Mouse         = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+local Inset = GuiService:GetGuiInset().Y
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
 -- Bảng target dùng chung
 local AimlockTargets = {}  -- nếu biến này đã có chỗ khác, hãy xoá ở dưới và giữ ở đây
@@ -340,12 +338,13 @@ end
 local selectedPlayer = nil
 local playerDropdown -- giữ reference dropdown
 
--- ⚡ Tạo danh sách player (DisplayName + Name)
+-- ⚡ Tạo danh sách player (DisplayName + Name) với dấu tích nếu trong AimlockTargets
 local function getPlayerList()
     local list = {}
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then
-            table.insert(list, plr.DisplayName .. " (@" .. plr.Name .. ")")
+            local tickMark = table.find(AimlockTargets, plr) and " ✓" or ""
+            table.insert(list, plr.DisplayName .. " (@" .. plr.Name .. ")" .. tickMark)
         end
     end
     return list
@@ -356,7 +355,8 @@ local function findPlayerByDisplay(display)
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then
             local displayFull = plr.DisplayName .. " (@" .. plr.Name .. ")"
-            if displayFull == display then
+            local displayWithTick = displayFull .. " ✓"
+            if display == displayFull or display == displayWithTick then
                 return plr
             end
         end
@@ -379,10 +379,10 @@ combatSection:addToggle("View Player", false, function(state)
     if state then
         lastSubject = Camera.CameraSubject
         Camera.CameraSubject = selectedPlayer.Character.Head
-        venyx:Notify("View", "Đang xem " .. selectedPlayer.DisplayName)
+        sendNotification("View", "Đang xem " .. selectedPlayer.DisplayName)
     else
         Camera.CameraSubject = lastSubject or LocalPlayer.Character:FindFirstChild("Humanoid")
-        venyx:Notify("View", "Tắt view")
+        sendNotification("View", "Tắt view")
     end
 end)
 
@@ -392,7 +392,7 @@ combatSection:addButton("Go To Player", function()
         local targetHRP = selectedPlayer.Character.HumanoidRootPart
         if myHRP and targetHRP then
             myHRP.CFrame = targetHRP.CFrame + Vector3.new(0, 3, 0)
-            venyx:Notify("Go To", "Đã dịch chuyển tới " .. selectedPlayer.DisplayName)
+            sendNotification("Go To", "Đã dịch chuyển tới " .. selectedPlayer.DisplayName)
         end
     end
 end)
@@ -402,7 +402,7 @@ local loopBring = false
 
 combatSection:addToggle("Loop Bring", false, function(state)
     loopBring = state
-    venyx:Notify("Loop Bring", loopBring and "ON" or "OFF")
+    sendNotification("Loop Bring", loopBring and "ON" or "OFF")
 end)
 
 -- Hàm đơn giản: Liên tục mang về trước mặt 2 stud
@@ -424,20 +424,13 @@ combatSection:addButton("Set Target", function()
         local index = table.find(AimlockTargets, selectedPlayer)
         if index then
             table.remove(AimlockTargets, index)
-            sendNotification("Target Removed", selectedPlayer.DisplayName .. " removed from targets")
+            sendNotification("Untarget", selectedPlayer.DisplayName .. " removed from targets")
         else
             table.insert(AimlockTargets, selectedPlayer)
             sendTargetNotification(selectedPlayer)
         end
         -- Cập nhật dropdown với dấu tích
-        local list = {}
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer then
-                local tickMark = table.find(AimlockTargets, plr) and " ✓" or ""
-                table.insert(list, plr.DisplayName .. " (@" .. plr.Name .. ")" .. tickMark)
-            end
-        end
-        playerDropdown:Update(list)
+        playerDropdown:Update(getPlayerList())
     end
 end)
 
@@ -456,7 +449,7 @@ getgenv().HitboxTransparency = 0.9
 getgenv().HitboxSize = 15
 combatSection:addToggle("Hitbox", false, function(value)
     getgenv().HitboxEnabled = value
-    venyx:Notify("Hitbox", value and "ON" or "OFF")
+    sendNotification("Hitbox", value and "ON" or "OFF")
 end)
 combatSection:addSlider("Hitbox Transparency", 0.9, 0, 1, function(value)
     getgenv().HitboxTransparency = value
@@ -495,7 +488,7 @@ end)
 
 combatSection:addToggle("Aimlock", true, function(value)
     getgenv().Settings.Main.Enable = value
-    venyx:Notify("Aimlock", value and "ON" or "OFF")
+    sendNotification("Aimlock", value and "ON" or "OFF")
 end)
 
 -- Hàm get nearest to mouse (PC) or center (Mobile)
@@ -525,31 +518,24 @@ combatSection:addKeybind("Set Target Key", Enum.KeyCode.Q, function()
         local index = table.find(AimlockTargets, target)
         if index then
             table.remove(AimlockTargets, index)
-            sendNotification("Target Removed", target.DisplayName .. " removed from targets")
+            sendNotification("Untarget", target.DisplayName .. " removed from targets")
         else
             table.insert(AimlockTargets, target)
             sendTargetNotification(target)
         end
         -- Cập nhật dropdown với dấu tích
-        local list = {}
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer then
-                local tickMark = table.find(AimlockTargets, plr) and " ✓" or ""
-                table.insert(list, plr.DisplayName .. " (@" .. plr.Name .. ")" .. tickMark)
-            end
-        end
-        playerDropdown:Update(list)
+        playerDropdown:Update(getPlayerList())
     end
 end, function(key)
     setTargetKey = key
 end)
 combatSection:addToggle("Desync Resolver", false, function(value)
     getgenv().Settings.Resolver.UnderGround = value
-    venyx:Notify("UnderGround Resolver", value and "ON" or "OFF")
+    sendNotification("UnderGround Resolver", value and "ON" or "OFF")
 end)
 combatSection:addToggle("DetectDesync Resolver", true, function(value)
     getgenv().Settings.Resolver.DetectDesync = value
-    venyx:Notify("DetectDesync Resolver", value and "ON" or "OFF")
+    sendNotification("DetectDesync Resolver", value and "ON" or "OFF")
 end)
 combatSection:addDropdown("Aim Part", {"Head", "HumanoidRootPart", "UpperTorso"}, function(value)
     getgenv().Settings.Part.AimPart = value
@@ -557,7 +543,7 @@ end)
 combatSection:addToggle("Use FOV Circle", false, function(value)
     getgenv().Settings.Visual.Fov = value
     getgenv().Settings.Visual.UseCircleRadius = value -- đồng bộ với FOV Circle
-    venyx:Notify("FOV Circle", value and "ON" or "OFF")
+    sendNotification("FOV Circle", value and "ON" or "OFF")
 end)
 combatSection:addSlider("FOV Radius", 200, 0, 1000, function(value)
     getgenv().Settings.Visual.FovRadius = value
@@ -900,7 +886,7 @@ end)
 -- === UI Buttons ===
 visualSection:addToggle("ESP Highlight", false, function(value)
     ESPEnabled = value
-    venyx:Notify("ESP Highlight", value and "ON" or "OFF")
+    sendNotification("ESP Highlight", value and "ON" or "OFF")
     if not value then
         for _, v in ipairs(Players:GetPlayers()) do
             if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("GetReal") then
@@ -915,7 +901,7 @@ end)
 
 visualSection:addToggle("ESP Name", false, function(value)
     NameEnabled = value
-    venyx:Notify("ESP Name", value and "ON" or "OFF")
+    sendNotification("ESP Name", value and "ON" or "OFF")
     if not value then
         for _, v in ipairs(Players:GetPlayers()) do
             if v ~= LocalPlayer and v.Character and v.Character.Head:FindFirstChild("ESPName") then
@@ -930,7 +916,7 @@ end)
 
 visualSection:addToggle("Skeleton ESP", false, function(value)
     SkeletonEnabled = value
-    venyx:Notify("Skeleton ESP", value and "ON" or "OFF")
+    sendNotification("Skeleton ESP", value and "ON" or "OFF")
     if not value then
         for _, line in pairs(skeletonLines) do line:Remove() end
         skeletonLines = {}
@@ -979,7 +965,7 @@ RunService.RenderStepped:Connect(UpdateTracers)
 -- UI for Tracer
 visualSection:addToggle("Tracer", false, function(value)
     tracerEnabled = value
-    venyx:Notify("Tracer", value and "ON" or "OFF")
+    sendNotification("Tracer", value and "ON" or "OFF")
 end)
 visualSection:addColorPicker("Tracer Color", tracerColor, function(color)
     tracerColor = color
@@ -1379,7 +1365,7 @@ end
 -- UI controls for both effects
 auralistSection:addToggle("Angel Wings", false, function(value)
     awEnabled = value
-    venyx:Notify("Angel Wings", value and "ON" or "OFF")
+    sendNotification("Angel Wings", value and "ON" or "OFF")
     if value then
         createAw()
     else
@@ -1389,12 +1375,12 @@ end)
 
 auralistSection:addColorPicker("Angel Wings Color", Color3.new(1, 1, 1), function(color)
     updateAwColor(color)
-    venyx:Notify("Angel Wings Color", "Color changed")
+    sendNotification("Angel Wings Color", "Color changed")
 end)
 
 auralistSection:addToggle("Blueheat Aura", false, function(value)
     bhEnabled = value
-    venyx:Notify("Blueheat Aura", value and "ON" or "OFF")
+    sendNotification("Blueheat Aura", value and "ON" or "OFF")
     if value then
         createBh()
     else
@@ -1404,7 +1390,7 @@ end)
 
 auralistSection:addColorPicker("Blueheat Color", Color3.new(0.0588235, 0.0588235, 1), function(color)
     updateBhColor(color)
-    venyx:Notify("Blueheat Color", "Color changed")
+    sendNotification("Blueheat Color", "Color changed")
 end)
 
 -- Handle character respawn for both effects
@@ -1429,8 +1415,6 @@ if initialChar then
         createBh()
     end
 end
-
-local player = Players.LocalPlayer
 
 local animationBaseUrl = "http://www.roblox.com/asset/?id="
 
@@ -1494,7 +1478,7 @@ end
 
 -- Áp dụng theo lựa chọn
 local function applySelectedAnimation(animationType)
-    local char = player.Character
+    local char = LocalPlayer.Character
     if not char then return end
     local animate = char:FindFirstChild("Animate")
     if not animate then return end
@@ -1508,16 +1492,16 @@ for _, animType in ipairs(animationTypes) do
     local displayName = animType:sub(1,1):upper()..animType:sub(2)
     auralistSection:addDropdown(displayName.." Animation", animationPresetNames, function(value)
         currentAnimationPresets[animType] = value
-        venyx:Notify(displayName, "Selected: "..value)
+        sendNotification(displayName, "Selected: "..value)
     end)
     auralistSection:addButton("Apply "..displayName, function()
         applySelectedAnimation(animType)
-        venyx:Notify("Animation", displayName.." set to "..currentAnimationPresets[animType])
+        sendNotification("Animation", displayName.." set to "..currentAnimationPresets[animType])
     end)
 end
 
 -- Auto apply khi respawn
-player.CharacterAdded:Connect(function(char)
+LocalPlayer.CharacterAdded:Connect(function(char)
     char:WaitForChild("HumanoidRootPart", 5)
     for _, animType in ipairs(animationTypes) do
         applySelectedAnimation(animType)
@@ -1547,10 +1531,10 @@ local currentTime = Lighting.ClockTime
 miscSection:addToggle("Custom Time", false, function(value)
     timeEnabled = value
     if value then
-        venyx:Notify("Custom Time", "ON")
+        sendNotification("Custom Time", "ON")
         Lighting.ClockTime = currentTime
     else
-        venyx:Notify("Custom Time", "OFF")
+        sendNotification("Custom Time", "OFF")
         -- Khi tắt trả lại đồng hồ thật (optional, bạn có thể bỏ)
         Lighting.ClockTime = os.date("*t").hour + (os.date("*t").min / 60)
     end
@@ -1746,12 +1730,12 @@ miscSection:addButton("Teleport", function()
         local char = game.Players.LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             char.HumanoidRootPart.CFrame = TeleportLocations[SelectedTeleport]
-            venyx:Notify("Teleport", "Teleported to " .. SelectedTeleport)
+            sendNotification("Teleport", "Teleported to " .. SelectedTeleport)
         else
-            venyx:Notify("Teleport", "Character not found!")
+            sendNotification("Teleport", "Character not found!")
         end
     else
-        venyx:Notify("Teleport", "No location selected!")
+        sendNotification("Teleport", "No location selected!")
     end
 end)
 
@@ -1770,7 +1754,6 @@ miscSection:addToggle("Show Chat", ChatEnabled, function(state)
     end
 end)
 
-local LocalPlayer = Players.LocalPlayer
 local currentTrack = nil
 local jumpHappierKey = Enum.KeyCode.C
 local jumpHappierAnim = "http://www.roblox.com/asset/?id=15609995579"
@@ -1842,19 +1825,6 @@ miscSection:addKeybind("Jump Happier Key", jumpHappierKey, function()
     playAnimation(jumpHappierAnim)
 end)
 
--- Respawn
-game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
-    if auraEnabled then
-        task.wait(1)
-        attachAura(char)
-    end
-end)
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
--- Config
 getgenv().Time = 1
 getgenv().RightUpperLegAccessories = {
     {id = 18457575895}, 
@@ -2036,7 +2006,7 @@ end
 movementSection:addToggle("WalkSpeed", false, function(value)
     walkSpeedEnabled = value
     toggleWalkSpeed(value)
-    venyx:Notify("WalkSpeed", value and "ON ("..walkSpeedValue..")" or "OFF")
+    sendNotification("WalkSpeed", value and "ON ("..walkSpeedValue..")" or "OFF")
 end)
 
 movementSection:addSlider("WalkSpeed Value", 250, 16, 1000, function(value)
@@ -2058,7 +2028,7 @@ end)
 movementSection:addKeybind("WalkSpeed Key", Enum.KeyCode.H, function()
     walkSpeedEnabled = not walkSpeedEnabled
     toggleWalkSpeed(walkSpeedEnabled)
-    venyx:Notify("WalkSpeed", walkSpeedEnabled and "ON ("..walkSpeedValue..")" or "OFF")
+    sendNotification("WalkSpeed", walkSpeedEnabled and "ON ("..walkSpeedValue..")" or "OFF")
 end, function()
 end)
 
@@ -2136,11 +2106,11 @@ end
 game:GetService("RunService").RenderStepped:Connect(UpdateSpeed)
 movementSection:addToggle("Speed CFrame", false, function(value)
     Config.SpeedEnabled = value
-    venyx:Notify("Speed CFrame", value and "ON" or "OFF")
+    sendNotification("Speed CFrame", value and "ON" or "OFF")
 end)
 movementSection:addKeybind("Speed Key", Enum.KeyCode.Z, function()
     Config.SpeedEnabled = not Config.SpeedEnabled
-    venyx:Notify("Speed CFrame", Config.SpeedEnabled and "ON" or "OFF")
+    sendNotification("Speed CFrame", Config.SpeedEnabled and "ON" or "OFF")
 end, function()
 end)
 movementSection:addSlider("Speed CFrame Value", 20, 1, 100, function(value)
@@ -2162,11 +2132,11 @@ end
 game:GetService("RunService").RenderStepped:Connect(UpdateFly)
 movementSection:addToggle("Fly", false, function(value)
     Config.FlyEnabled = value
-    venyx:Notify("Fly", value and "ON" or "OFF")
+    sendNotification("Fly", value and "ON" or "OFF")
 end)
 movementSection:addKeybind("Fly Key", Enum.KeyCode.F, function()
     Config.FlyEnabled = not Config.FlyEnabled
-    venyx:Notify("Fly", Config.FlyEnabled and "ON" or "OFF")
+    sendNotification("Fly", Config.FlyEnabled and "ON" or "OFF")
 end, function()
 end)
 movementSection:addSlider("Fly Speed", 35, 1, 100, function(value)
@@ -2217,7 +2187,7 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
 end)
 movementSection:addToggle("No Slowdown", true, function(value)
     Config.NoSlowdownEnabled = value
-    venyx:Notify("No Slowdown", value and "ON" or "OFF")
+    sendNotification("No Slowdown", value and "ON" or "OFF")
 end)
 
 -- External Loaded Shoot Button
@@ -2319,7 +2289,7 @@ local espcontainer = {
             pcall(function()
                 data.highlight:Destroy()
                 if data.billboard then data.billboard:Destroy() end
-            end)
+            end
         end
         self.objects = {}
     end
@@ -2353,7 +2323,7 @@ local function findMurderer()
         end
     end
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= localplayer and plr.Character then
+        if plr ~= LocalPlayer and plr.Character then
             if plr.Backpack:FindFirstChild("Knife") or (plr.Character and plr.Character:FindFirstChild("Knife")) then
                 return plr
             end
@@ -2383,13 +2353,13 @@ end
 
 local function findSheriffThatsNotMe()
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= localplayer and plr.Character and (plr.Backpack:FindFirstChild("Gun") or (plr.Character and plr.Character:FindFirstChild("Gun"))) then
+        if plr ~= LocalPlayer and plr.Character and (plr.Backpack:FindFirstChild("Gun") or (plr.Character and plr.Character:FindFirstChild("Gun"))) then
             return plr
         end
     end
     if playerData then
         for player, data in pairs(playerData) do
-            if data.Role == "Sheriff" and Players:FindFirstChild(player) ~= localplayer then
+            if data.Role == "Sheriff" and Players:FindFirstChild(player) ~= LocalPlayer then
                 local plr = Players:FindFirstChild(player)
                 if plr and plr.Character then
                     return plr
@@ -2405,7 +2375,7 @@ local function reloadESP()
     if not espActive then return end
     espcontainer:RemoveGroup("players")
     for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character and player ~= localplayer then
+        if player.Character and player ~= LocalPlayer then
             task.spawn(function()
                 if player == findMurderer() then
                     espcontainer:Add(player.Character, {
@@ -2452,7 +2422,7 @@ local function getPredictedPosition(player, shootOffset)
         local velocity = playerHRP.AssemblyLinearVelocity
         local playerMoveDirection = playerHum.MoveDirection
         local predictedPosition = playerPosition + (velocity * Vector3.new(0, 0.5, 0)) * (shootOffset / 15) + playerMoveDirection * shootOffset
-        predictedPosition = predictedPosition * (((localplayer:GetNetworkPing() * 1000) * ((OFFSET_TO_PING_MULT - 1) * 0.01)) + 1)
+        predictedPosition = predictedPosition * (((LocalPlayer:GetNetworkPing() * 1000) * ((OFFSET_TO_PING_MULT - 1) * 0.01)) + 1)
         return predictedPosition
     end)
     if not success then
@@ -2465,33 +2435,33 @@ end
 local function shootMurderer()
     if tick() - lastShot < 0.5 then return end 
     lastShot = tick()
-    if findSheriff() ~= localplayer then
-        venyx:Notify("Shoot", "You are not the Sheriff!")
+    if findSheriff() ~= LocalPlayer then
+        sendNotification("Shoot", "You are not the Sheriff!")
         return
     end
     local murderer = findMurderer() or findSheriffThatsNotMe()
     if not murderer then
-        venyx:Notify("Shoot", "No target found!")
+        sendNotification("Shoot", "No target found!")
         return
     end
-    if not localplayer.Character:FindFirstChild("Gun") then
-        local hum = localplayer.Character:FindFirstChild("Humanoid")
-        if localplayer.Backpack:FindFirstChild("Gun") then
-            hum:EquipTool(localplayer.Backpack:FindFirstChild("Gun"))
+    if not LocalPlayer.Character:FindFirstChild("Gun") then
+        local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+        if LocalPlayer.Backpack:FindFirstChild("Gun") then
+            hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Gun"))
             task.wait(math.random(0.05, 0.1) + ANTI_CHEAT_DELAY)
         else
-            venyx:Notify("Shoot", "No gun found!")
+            sendNotification("Shoot", "No gun found!")
             return
         end
     end
     local murdererHRP = murderer.Character:FindFirstChild("HumanoidRootPart")
     if not murdererHRP then
-        venyx:Notify("Shoot", "Target has no HumanoidRootPart!")
+        sendNotification("Shoot", "Target has no HumanoidRootPart!")
         return
     end
     local predictedPosition = getPredictedPosition(murderer, SHOOT_OFFSET)
     if predictedPosition == Vector3.new(0, 0, 0) then 
-        venyx:Notify("Shoot", "Invalid predicted position!")
+        sendNotification("Shoot", "Invalid predicted position!")
         return 
     end
     local args = {
@@ -2500,10 +2470,10 @@ local function shootMurderer()
         [3] = "AH2"
     }
     pcall(function()
-        localplayer.Character.Gun.KnifeLocal.CreateBeam.RemoteFunction:InvokeServer(unpack(args))
+        LocalPlayer.Character.Gun.KnifeLocal.CreateBeam.RemoteFunction:InvokeServer(unpack(args))
     end)
     task.wait(math.random(0, ANTI_CHEAT_DELAY))
-    venyx:Notify("Shoot", "Shot fired at target!")
+    sendNotification("Shoot", "Shot fired at target!")
 end
 
 -- AutoFarm Coins
@@ -2514,7 +2484,7 @@ local function autoFarmCoins()
     local A = r:WaitForChild("HumanoidRootPart", 5)
     local a = r:WaitForChild("Humanoid", 5)
     if not A or not a then
-        venyx:Notify("AutoFarm", "No valid character found!")
+        sendNotification("AutoFarm", "No valid character found!")
         return
     end
     local function findMap()
@@ -2572,7 +2542,7 @@ end
 -- Check Line of Sight
 local function checkLineOfSight(startPos, endPos)
     local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = {localplayer.Character, Workspace:FindFirstChild("CoinContainer")}
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Workspace:FindFirstChild("CoinContainer")}
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
     raycastParams.IgnoreWater = true
     local raycastResult = Workspace:Raycast(startPos, (endPos - startPos).Unit * (endPos - startPos).Magnitude, raycastParams)
@@ -2581,7 +2551,7 @@ end
 
 -- Mini Fling
 local function miniFling(playerToFling)
-    local Character = localplayer.Character
+    local Character = LocalPlayer.Character
     local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
     local RootPart = Humanoid and Humanoid.RootPart
     local TCharacter = playerToFling.Character
@@ -2591,15 +2561,15 @@ local function miniFling(playerToFling)
     local Accessory = TCharacter and TCharacter:FindFirstChildOfClass("Accessory")
     local Handle = Accessory and Accessory:FindFirstChild("Handle")
     if not Character or not Humanoid or not RootPart or not TCharacter then
-        venyx:Notify("Fling", "Invalid character or target!")
+        sendNotification("Fling", "Invalid character or target!")
         return
     end
     if not TRootPart and not THead and not Handle then
-        venyx:Notify("Fling", "No valid parts to fling!")
+        sendNotification("Fling", "No valid parts to fling!")
         return
     end
     if THumanoid and THumanoid.Sit then
-        venyx:Notify("Fling", "Target is sitting, cannot fling!")
+        sendNotification("Fling", "Target is sitting, cannot fling!")
         return
     end
     if RootPart.Velocity.Magnitude < 50 then
@@ -2610,59 +2580,59 @@ local function miniFling(playerToFling)
     elseif Handle then
         workspace.CurrentCamera.CameraSubject = Handle
     end
-    venyx:Notify("Fling", "Fling executed on " .. playerToFling.Name)
+    sendNotification("Fling", "Fling executed on " .. playerToFling.Name)
 end
 
 -- Kill All
 local lastKillAll = tick()
 local function killAll()
-    if findMurderer() ~= localplayer then
-        venyx:Notify("Kill All", "You are not the Murderer!")
+    if findMurderer() ~= LocalPlayer then
+        sendNotification("Kill All", "You are not the Murderer!")
         return
     end
-    if not localplayer.Character:FindFirstChild("Knife") then
-        local hum = localplayer.Character:FindFirstChild("Humanoid")
-        if localplayer.Backpack:FindFirstChild("Knife") then
-            hum:EquipTool(localplayer.Backpack:FindFirstChild("Knife"))
+    if not LocalPlayer.Character:FindFirstChild("Knife") then
+        local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+        if LocalPlayer.Backpack:FindFirstChild("Knife") then
+            hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Knife"))
             task.wait(0.1)
         else
-            venyx:Notify("Kill All", "No knife found!")
+            sendNotification("Kill All", "No knife found!")
             return
         end
     end
     for _, player in ipairs(game.Players:GetPlayers()) do
-        if player ~= localplayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local targetPart = player.Character:FindFirstChild("HumanoidRootPart")
             targetPart.Anchored = true
-            targetPart.CFrame = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame + localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 1
+            targetPart.CFrame = LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame + LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 1
             task.wait(0.05)
         end
     end
     local args = { [1] = "Slash" }
-    localplayer.Character.Knife.Stab:FireServer(unpack(args))
+    LocalPlayer.Character.Knife.Stab:FireServer(unpack(args))
     task.wait(0.1)
     for _, player in ipairs(game.Players:GetPlayers()) do
-        if player ~= localplayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             player.Character:FindFirstChild("HumanoidRootPart").Anchored = false
         end
     end
-    venyx:Notify("Kill All", "Auto Kill All executed.")
+    sendNotification("Kill All", "Auto Kill All executed.")
 end
 
 -- Auto-Shoot and Auto-Kill in AutoFarm
 RunService.Heartbeat:Connect(function()
     if not autoFarm or not isScriptRunning then return end
-    if findSheriff() == localplayer then
+    if findSheriff() == LocalPlayer then
         local murderer = findMurderer()
-        if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") and localplayer.Character and localplayer.Character:FindFirstChild("HumanoidRootPart") then
-            local startPos = localplayer.Character.HumanoidRootPart.Position
+        if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local startPos = LocalPlayer.Character.HumanoidRootPart.Position
             local endPos = murderer.Character.HumanoidRootPart.Position
             if checkLineOfSight(startPos, endPos) then
                 task.spawn(shootMurderer)
             end
         end
     end
-    if findMurderer() == localplayer and tick() - lastKillAll >= 1 then
+    if findMurderer() == LocalPlayer and tick() - lastKillAll >= 1 then
         lastKillAll = tick()
         task.spawn(killAll)
     end
@@ -2672,29 +2642,29 @@ end)
 local function autoGun()
     local map = getMap()
     if not map or not map:FindFirstChild("GunDrop") then
-        venyx:Notify("AutoGun", "No dropped gun to teleport to!")
+        sendNotification("AutoGun", "No dropped gun to teleport to!")
         return
     end
-    local hrp = localplayer.Character and localplayer.Character:FindFirstChild("HumanoidRootPart")
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if hrp then
         local previousPosition = hrp.CFrame
         hrp.CFrame = map:FindFirstChild("GunDrop"):GetPivot() + Vector3.new(0, 2, 0)
-        localplayer.Backpack.ChildAdded:Wait()
+        LocalPlayer.Backpack.ChildAdded:Wait()
         hrp.CFrame = previousPosition
-        venyx:Notify("AutoGun", "Gun picked up!")
+        sendNotification("AutoGun", "Gun picked up!")
     else
-        venyx:Notify("AutoGun", "No valid character to teleport!")
+        sendNotification("AutoGun", "No valid character to teleport!")
     end
 end
 
 -- Initialize
 local function initialize()
     local success = pcall(function()
-        localplayer:WaitForChild("PlayerGui", 10)
+        LocalPlayer:WaitForChild("PlayerGui", 10)
         ReplicatedStorage:WaitForChild("Remotes", 10):WaitForChild("Gameplay", 10):WaitForChild("PlayerDataChanged", 10)
     end)
     if not success or not isMurderMystery2() then
-        venyx:Notify("Initialization", "Failed to initialize or not in Murder Mystery 2!")
+        sendNotification("Initialization", "Failed to initialize or not in Murder Mystery 2!")
         return
     end
     isScriptRunning = true
@@ -2725,7 +2695,7 @@ mm2Section:addButton("Shoot Loaded", function()
         -- Nếu đã tồn tại, toggle visibility
         local gui = game.CoreGui:FindFirstChild("ShootQuickToggle")
         gui.Enabled = not gui.Enabled
-        venyx:Notify("Shoot Loaded", gui.Enabled and "Visible" or "Hidden")
+        sendNotification("Shoot Loaded", gui.Enabled and "Visible" or "Hidden")
     else
         -- Tạo mới nếu chưa có
         local gui = Instance.new("ScreenGui")
@@ -2776,7 +2746,7 @@ mm2Section:addButton("Shoot Loaded", function()
             task.spawn(shootMurderer)  -- Gọi function shootMurderer khi bấm
         end)
 
-        venyx:Notify("Shoot Loaded", "Button created and visible!")
+        sendNotification("Shoot Loaded", "Button created and visible!")
     end
 end)
 
@@ -2786,7 +2756,7 @@ end)
 mm2Section:addKeybind("Shoot Keybind", Enum.KeyCode.J, function()
     task.spawn(shootMurderer)
 end, function()
-    venyx:Notify("Shoot Keybind", "Keybind changed!")
+    sendNotification("Shoot Keybind", "Keybind changed!")
 end)
 
 -- ESP MM2 Toggle
@@ -2794,10 +2764,10 @@ mm2Section:addToggle("ESP MM2", false, function(value)
     espActive = value
     if espActive then
         reloadESP()
-        venyx:Notify("ESP MM2", "ON")
+        sendNotification("ESP MM2", "ON")
     else
         espcontainer:ClearAllGroups()
-        venyx:Notify("ESP MM2", "OFF")
+        sendNotification("ESP MM2", "OFF")
     end
 end)
 
@@ -2806,9 +2776,9 @@ mm2Section:addToggle("AutoFarm", false, function(value)
     autoFarm = value
     if autoFarm then
         task.spawn(autoFarmCoins)
-        venyx:Notify("AutoFarm", "ON")
+        sendNotification("AutoFarm", "ON")
     else
-        venyx:Notify("AutoFarm", "OFF")
+        sendNotification("AutoFarm", "OFF")
     end
 end)
 
@@ -2818,7 +2788,7 @@ mm2Section:addButton("Fling Murderer", function()
     if target then
         miniFling(target)
     else
-        venyx:Notify("Fling Murderer", "No murderer found!")
+        sendNotification("Fling Murderer", "No murderer found!")
     end
 end)
 
@@ -2828,7 +2798,7 @@ mm2Section:addButton("Fling Sheriff", function()
     if target then
         miniFling(target)
     else
-        venyx:Notify("Fling Sheriff", "No sheriff found!")
+        sendNotification("Fling Sheriff", "No sheriff found!")
     end
 end)
 
@@ -2877,10 +2847,8 @@ getgenv().Settings = {
         UseShake = true,
         ShakePower = 1,
  
-        CheckForWalls = true
     },
     Check = {
-        CheckIfKo = true, -- This Is For Da Hood
         DisableOnTargetDeath = true,
         DisableOnPlayerDeath = true
     },
@@ -2903,12 +2871,10 @@ getgenv().Settings = {
     Resolver = {
         UnderGround = false,
         UseUnderGroundKeybind = true,
-        UnderGroundKey = Enum.KeyCode.C,
         DetectDesync = true,
         Detection = 75,
  
         UseDetectDesyncKeybind = true,
-        DetectDesyncKey = Enum.KeyCode.V,
         SendNotification = true
     },
     Visual = {
@@ -2922,20 +2888,12 @@ getgenv().Settings = {
  
 -- // Locals
  
-local Players, Uis, RService, Inset, CurrentCamera = 
-game:GetService("Players"), 
-game:GetService("UserInputService"), 
-game:GetService("RunService"),
-game:GetService("GuiService"):GetGuiInset().Y,
-game:GetService("Workspace").CurrentCamera
+local RService = game:GetService("RunService")
+local CF, RNew, Vec3, Vec2 = CFrame.new, Ray.new, Vector3.new, Vector2.new
  
-local Client = Players.LocalPlayer;
- 
-local Mouse, Camera = Client:GetMouse(), workspace.CurrentCamera
+local Client = LocalPlayer
  
 local Circle = Drawing.new("Circle")
- 
-local CF, RNew, Vec3, Vec2 = CFrame.new, Ray.new, Vector3.new, Vector2.new
  
 local OldAimPart = getgenv().Settings.Part.AimPart
  
@@ -2956,23 +2914,6 @@ end
 RService.Heartbeat:Connect(UpdateFOV)
  
 -- // Functions
- 
-getgenv().WallCheck = function(destination, ignore)
-    local Origin = Camera.CFrame.p
-    local CheckRay = RNew(Origin, destination - Origin)
-    local Hit = game.workspace:FindPartOnRayWithIgnoreList(CheckRay, ignore)
-    return Hit == nil
-end
- 
-getgenv().WTS = function(Object)
-    local ObjectVector = Camera:WorldToScreenPoint(Object.Position)
-    return Vec2(ObjectVector.X, ObjectVector.Y)
-end
- 
-getgenv().IsOnScreen = function(Object)
-    local IsOnScreen = Camera:WorldToScreenPoint(Object.Position)
-    return IsOnScreen
-end
  
 getgenv().FilterObjs = function(Object)
     if string.find(Object.Name, "Gun") then
