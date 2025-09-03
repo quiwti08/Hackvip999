@@ -1,6 +1,58 @@
 -- Load the Venyx UI library
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
 
+-- Biến AimlockTargets là table chứa nhiều target
+local AimlockTargets = {}  -- Bảng chứa các target đã chọn
+
+-- Hàm check wall
+local function WallCheck(targetPart)
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin).Unit * (targetPart.Position - origin).Magnitude
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+    return not raycastResult
+end
+
+-- Hàm chọn target gần nhất không bị che tường và alive
+local function GetNearestValidTarget()
+    local nearestTarget = nil
+    local nearestDistance = math.huge
+    for _, target in ipairs(AimlockTargets) do
+        if target and target.Character and isAlive(target) then
+            local aimPart = target.Character:FindFirstChild(getgenv().Settings.Part.AimPart)
+            if aimPart then
+                local screenPos = Camera:WorldToScreenPoint(aimPart.Position)
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                if WallCheck(aimPart) and distance < nearestDistance then
+                    nearestDistance = distance
+                    nearestTarget = target
+                end
+            end
+        end
+    end
+    return nearestTarget
+end
+
+-- Hàm isAlive (đã có, nhưng thêm nếu chưa)
+local function isAlive(plr)
+    if not plr or not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then
+        return false
+    end
+    local be = plr.Character:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
+        if (ko and ko.Value) or (grabbed and grabbed.Value) then
+            return false
+        end
+    end
+    return true
+end
+
 local themes = {
     Background = Color3.fromRGB(24, 24, 24),
     Glow = Color3.fromRGB(255, 179, 186),
@@ -25,10 +77,255 @@ applyThemeNow()
 local combatPage = venyx:addPage("Combat", 5012540623)
 local combatSection = combatPage:addSection("Combat Features")
 
+local Notifications = {} -- Danh sách để theo dõi các thông báo hiện tại
+
+local function sendNotification(title, text, duration)
+    -- Tạo ScreenGui mới cho thông báo
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "DhuyxNotification_" .. tostring(tick())
+    notifGui.Parent = game:GetService("CoreGui")
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    notifGui.DisplayOrder = 999999 - #Notifications -- Giảm DisplayOrder cho thông báo mới
+    notifGui.IgnoreGuiInset = true
+    notifGui.ResetOnSpawn = false
+
+    -- Tính toán vị trí dựa trên số lượng thông báo hiện tại
+    local offsetY = 20 + (#Notifications * 80) -- Mỗi thông báo cách nhau 80 pixel (70 pixel chiều cao + 10 pixel khoảng cách)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 280, 0, 70)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 0
+    frame.AnchorPoint = Vector2.new(1, 1)
+    frame.Position = UDim2.new(1, -20, 1, -offsetY) -- Đặt vị trí, thông báo mới ở dưới
+    frame.Transparency = 1 -- Ban đầu trong suốt cho hiệu ứng fade-in
+    frame.Parent = notifGui
+
+    -- Bo góc
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    -- Gradient
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+    }
+    gradient.Rotation = 90
+    gradient.Parent = frame
+
+    -- Glow (UIStroke màu hồng)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 179, 186)  -- Màu hồng glow
+    stroke.Thickness = 2
+    stroke.Transparency = 0.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = frame
+
+    -- Shadow
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0, -10, 0, -10)
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.6
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.ZIndex = -1
+    shadow.BackgroundTransparency = 1
+    shadow.Parent = frame
+
+    -- Title
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -10, 0, 25)
+    titleLabel.Position = UDim2.new(0, 5, 0, 5)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title or "DhuyxDtuyen"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    titleLabel.Parent = frame
+
+    -- Text
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -10, 1, -35)
+    textLabel.Position = UDim2.new(0, 5, 0, 30)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = text or "Notification"
+    textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    textLabel.Font = Enum.Font.Gotham
+    textLabel.TextSize = 14
+    textLabel.TextWrapped = true
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    textLabel.Parent = frame
+
+    -- Thêm thông báo vào danh sách
+    table.insert(Notifications, notifGui)
+
+    -- Fade in animation
+    local fadeIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
+    fadeIn:Play()
+
+    -- Fade out và xóa
+    task.spawn(function()
+        task.wait(duration or 3)
+        local fadeOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1})
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            -- Xóa thông báo khỏi danh sách và hủy nó
+            for i, gui in ipairs(Notifications) do
+                if gui == notifGui then
+                    table.remove(Notifications, i)
+                    break
+                end
+            end
+            notifGui:Destroy()
+
+            -- Cập nhật lại vị trí của các thông báo còn lại
+            for i, gui in ipairs(Notifications) do
+                local frame = gui:FindFirstChildOfClass("Frame")
+                if frame then
+                    local newOffsetY = 20 + ((i - 1) * 80) -- Cập nhật vị trí
+                    local tween = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -newOffsetY)})
+                    tween:Play()
+                end
+            end
+        end)
+    end)
+end
+
+local TargetNotifications = {}  -- Danh sách thông báo target
+
+local function sendTargetNotification(plr)
+    if not plr then return end
+
+    -- Tạo ScreenGui
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "TargetNotification_" .. plr.Name
+    notifGui.Parent = game:GetService("CoreGui")
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    notifGui.IgnoreGuiInset = true
+    notifGui.ResetOnSpawn = false
+
+    -- Frame
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 250, 0, 150)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 0
+    frame.Position = UDim2.new(0, 20, 0.5, -75)  -- Bên trái giữa màn hình
+    frame.Transparency = 0
+    frame.Parent = notifGui
+
+    -- Bo góc
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    -- Gradient
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+    }
+    gradient.Rotation = 90
+    gradient.Parent = frame
+
+    -- Glow (sử dụng UIStroke cho glow hồng)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 179, 186)  -- Màu hồng glow
+    stroke.Thickness = 2
+    stroke.Transparency = 0.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = frame
+
+    -- Avatar
+    local avatar = Instance.new("ImageLabel")
+    avatar.Size = UDim2.new(0, 50, 0, 50)
+    avatar.Position = UDim2.new(0, 10, 0, 10)
+    avatar.BackgroundTransparency = 1
+    avatar.Image = Players:GetUserThumbnailAsync(plr.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+    avatar.Parent = frame
+
+    -- Title "Target"
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -70, 0, 25)
+    titleLabel.Position = UDim2.new(0, 70, 0, 10)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Target"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = frame
+
+    -- Name
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, -10, 0, 20)
+    nameLabel.Position = UDim2.new(0, 10, 0, 60)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
+    nameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    nameLabel.Font = Enum.Font.Gotham
+    nameLabel.TextSize = 14
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = frame
+
+    -- Age
+    local ageLabel = Instance.new("TextLabel")
+    ageLabel.Size = UDim2.new(1, -10, 0, 20)
+    ageLabel.Position = UDim2.new(0, 10, 0, 80)
+    ageLabel.BackgroundTransparency = 1
+    ageLabel.Text = "Age: " .. plr.AccountAge .. " days"
+    ageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    ageLabel.Font = Enum.Font.Gotham
+    ageLabel.TextSize = 14
+    ageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ageLabel.Parent = frame
+
+    -- Status
+    local status = isAlive(plr) and "Alive" or "K.O./Grabbed"
+    local health = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health or 0
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, -10, 0, 20)
+    statusLabel.Position = UDim2.new(0, 10, 0, 100)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "Status: " .. status .. " | Health: " .. math.floor(health)
+    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.TextSize = 14
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = frame
+
+    -- Thêm vào danh sách
+    table.insert(TargetNotifications, notifGui)
+
+    -- Hiệu ứng fade in (đã có sẵn ở vị trí)
+    task.spawn(function()
+        task.wait(3)  -- Hiện 3 giây
+        -- Kéo sang trái biến mất
+        local slideOut = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0, -300, 0.5, -75)})
+        slideOut:Play()
+        slideOut.Completed:Connect(function()
+            notifGui:Destroy()
+            for i, gui in ipairs(TargetNotifications) do
+                if gui == notifGui then
+                    table.remove(TargetNotifications, i)
+                    break
+                end
+            end
+        end)
+    end)
+end
+
 local Players = game:GetService("Players")
+local localplayer = Players.LocalPlayer
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
 
 local selectedPlayer = nil
 local playerDropdown -- giữ reference dropdown
@@ -105,70 +402,39 @@ combatSection:addToggle("Loop Bring", false, function(state)
     venyx:Notify("Loop Bring", loopBring and "ON" or "OFF")
 end)
 
--- Hàm nhấn phím G
-local function pressKeyG()
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
-    task.wait()
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
-end
-
--- Check KO
-local function isKO(character)
-    if not character then return false end
-    local hum = character:FindFirstChildOfClass("Humanoid")
-    if hum and hum.Health <= 0 then
-        return true
-    end
-    local be = character:FindFirstChild("BodyEffects")
-    if be and be:FindFirstChild("K.O") and be["K.O"].Value == true then
-        return true
-    end
-    return false
-end
-
--- Check đang Grab (GRABBING_CONSTRAINT tồn tại)
-local function isGrabbed(character)
-    return character and character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
-end
-
-local grabbingInProgress = false
-
+-- Hàm đơn giản: Liên tục mang về trước mặt 2 stud
 RunService.Heartbeat:Connect(function()
     if loopBring and selectedPlayer and selectedPlayer.Character then
         local targetChar = selectedPlayer.Character
-        local targetHRP = targetChar:FindFirstChild("UpperTorso")
+        local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
         local myChar = LocalPlayer.Character
         local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
 
         if targetHRP and myHRP then
-            if isKO(targetChar) and not grabbingInProgress then
-                -- Target KO → TP mình đến họ 1 lần
-                grabbingInProgress = true
-                local originalCFrame = myHRP.CFrame
+            targetHRP.CFrame = myHRP.CFrame * CFrame.new(0, 0, -2)
+        end
+    end
+end)
 
-                myHRP.CFrame = targetHRP.CFrame + Vector3.new(0, 2, 0)
-                task.wait(0.25)
-                pressKeyG()
-
-                -- Chờ đến khi mình grab được target
-                task.spawn(function()
-                    local timeout = tick() + 3
-                    while loopBring and not isGrabbed(myChar) and tick() < timeout do
-                        task.wait(0.05)
-                    end
-                    -- Trở về chỗ cũ nếu vẫn tồn tại
-                    if myChar and myChar:FindFirstChild("HumanoidRootPart") then
-                        myHRP.CFrame = originalCFrame
-                    end
-                    grabbingInProgress = false
-                end)
-            else
-                -- Nếu target chưa KO → cứ kéo target đứng trước mặt mình
-                if not grabbingInProgress then
-                    targetHRP.CFrame = myHRP.CFrame * CFrame.new(0, 0, -2)
-                end
+combatSection:addButton("Set Target", function()
+    if selectedPlayer then
+        local index = table.find(AimlockTargets, selectedPlayer)
+        if index then
+            table.remove(AimlockTargets, index)
+            sendNotification("Target Removed", selectedPlayer.DisplayName .. " removed from targets")
+        else
+            table.insert(AimlockTargets, selectedPlayer)
+            sendTargetNotification(selectedPlayer)
+        end
+        -- Cập nhật dropdown với dấu tích
+        local list = {}
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                local tickMark = table.find(AimlockTargets, plr) and " ✓" or ""
+                table.insert(list, plr.DisplayName .. " (@" .. plr.Name .. ")" .. tickMark)
             end
         end
+        playerDropdown:Update(list)
     end
 end)
 
@@ -229,10 +495,50 @@ combatSection:addToggle("Aimlock", true, function(value)
     venyx:Notify("Aimlock", value and "ON" or "OFF")
 end)
 
-combatSection:addKeybind("Target Lock", Enum.KeyCode.Q, function()
-    -- the input began for Q
-end, function()
-    print("Target Lock key changed")
+-- Hàm get nearest to mouse (PC) or center (Mobile)
+local function GetNearestToCursorOrCenter()
+    local isMobile = UIS.TouchEnabled and not UIS.MouseEnabled
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local pos = isMobile and center or Vector2.new(Mouse.X, Mouse.Y)
+    local nearest = nil
+    local nearestDist = math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local screenPos = Camera:WorldToScreenPoint(plr.Character.HumanoidRootPart.Position)
+            local dist = (Vector2.new(screenPos.X, screenPos.Y) - pos).Magnitude
+            if dist < nearestDist then
+                nearestDist = dist
+                nearest = plr
+            end
+        end
+    end
+    return nearest
+end
+
+local setTargetKey = Enum.KeyCode.Q
+combatSection:addKeybind("Set Target Key", Enum.KeyCode.Q, function()
+    local target = GetNearestToCursorOrCenter()
+    if target then
+        local index = table.find(AimlockTargets, target)
+        if index then
+            table.remove(AimlockTargets, index)
+            sendNotification("Target Removed", target.DisplayName .. " removed from targets")
+        else
+            table.insert(AimlockTargets, target)
+            sendTargetNotification(target)
+        end
+        -- Cập nhật dropdown với dấu tích
+        local list = {}
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                local tickMark = table.find(AimlockTargets, plr) and " ✓" or ""
+                table.insert(list, plr.DisplayName .. " (@" .. plr.Name .. ")" .. tickMark)
+            end
+        end
+        playerDropdown:Update(list)
+    end
+end, function(key)
+    setTargetKey = key
 end)
 combatSection:addToggle("Desync Resolver", false, function(value)
     getgenv().Settings.Resolver.UnderGround = value
@@ -2604,13 +2910,6 @@ getgenv().Settings = {
     Main = {
         Enable = true,
  
-        HoldKey = false,
-        ToggleKey = true,
- 
-        UseKeyBoardKey = true,
-        KeyBoardKey = Enum.KeyCode.Q,
- 
-        UseMouseKey = false,
         ThirdPerson = true,
         FirstPerson = true,
  
@@ -2763,155 +3062,6 @@ getgenv().GetObscuringObjects = function(T)
     end
 end
  
-getgenv().GetNearestTarget = function()
-    local AimlockTarget, Closest = nil, 1 / 0
- 
-    for _, v in pairs(game:GetService("Players"):GetPlayers()) do
-        if (v.Character and v ~= Client and v.Character:FindFirstChild("HumanoidRootPart")) then
-            local Position, OnScreen = Camera:WorldToScreenPoint(v.Character.HumanoidRootPart.Position)
-            local Distance = (Vec2(Position.X, Position.Y) - Vec2(Mouse.X, Mouse.Y)).Magnitude
-            if Settings.Main.CheckForWalls then
-                if
-                    (Circle.Radius > Distance and Distance < Closest and OnScreen and
-                        getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {Client, v.Character}))
-                 then
-                    Closest = Distance
-                    AimlockTarget = v
-                end
-            elseif Settings.Main.UseCircleRadius then
-                if
-                    (Circle.Radius > Distance and Distance < Closest and OnScreen and
-                        getgenv().WallCheck(v.Character.HumanoidRootPart.Position, {Client, v.Character}))
-                 then
-                    Closest = Distance
-                    AimlockTarget = v
-                end
-            else
-                if (Circle.Radius > Distance and Distance < Closest and OnScreen) then
-                    Closest = Distance
-                    AimlockTarget = v
-                end
-            end
-        end
-    end
-    return AimlockTarget
-end
- 
--- // Use KeyBoardKey Function
- 
-Uis.InputBegan:connect(
-    function(input)
-        if
-            input.KeyCode == Settings.Main.KeyBoardKey and Settings.Main.UseKeyBoardKey == true and
-                getgenv().Settings.Main.Enable == true and
-                AimlockTarget == nil and
-                getgenv().Settings.Main.HoldKey == true
-         then
-            pcall(
-                function()
-                    MousePressed = true
-                    AimlockTarget = GetNearestTarget()
-                end
-            )
-        end
-    end
-)Uis.InputEnded:connect(
-    function(input)
-        if
-            input.KeyCode == Settings.Main.KeyBoardKey and getgenv().Settings.Main.HoldKey == true and
-                Settings.Main.UseKeyBoardKey == true and
-                getgenv().Settings.Main.Enable == true and
-                AimlockTarget ~= nil
-         then
-            AimlockTarget = nil
-            MousePressed = false
-        end
-    end
-)
-
- 
-Uis.InputBegan:Connect(
-    function(keyinput, stupid)
-        if
-            keyinput.KeyCode == Settings.Main.KeyBoardKey and Settings.Main.UseKeyBoardKey == true and
-                getgenv().Settings.Main.Enable == true and
-                AimlockTarget == nil and
-                getgenv().Settings.Main.ToggleKey == true
-         then
-            pcall(
-                function()
-                    MousePressed = true
-                    AimlockTarget = GetNearestTarget()
-                end
-            )
-        elseif
-            keyinput.KeyCode == Settings.Main.KeyBoardKey and Settings.Main.UseKeyBoardKey == true and
-                getgenv().Settings.Main.Enable == true and
-                AimlockTarget ~= nil
-         then
-            AimlockTarget = nil
-            MousePressed = false
-        end
-    end
-)
- 
--- // Use MouseKey Function
- 
-Uis.InputBegan:connect(
-    function(input)
-        if
-            input.UserInputType == Settings.Main.MouseKey and Settings.Main.UseMouseKey == true and
-                getgenv().Settings.Main.Enable == true and
-                AimlockTarget == nil and
-                getgenv().Settings.Main.HoldKey == true
-         then
-            pcall(
-                function()
-                    MousePressed = true
-                    AimlockTarget = GetNearestTarget()
-                end
-            )
-        end
-    end
-)Uis.InputEnded:connect(
-    function(input)
-        if
-            input.UserInputType == Settings.Main.MouseKey and getgenv().Settings.Main.HoldKey == true and
-                Settings.Main.UseMouseKey == true and
-                getgenv().Settings.Main.Enable == true and
-                AimlockTarget ~= nil
-         then
-            AimlockTarget = nil
-            MousePressed = false
-        end
-    end
-)
- 
-Uis.InputBegan:Connect(
-    function(keyinput, stupid)
-        if
-            keyinput.UserInputType == Settings.Main.MouseKey and Settings.Main.UseMouseKey == true and
-                getgenv().Settings.Main.Enable == true and
-                AimlockTarget == nil and
-                getgenv().Settings.Main.ToggleKey == true
-         then
-            pcall(
-                function()
-                    MousePressed = true
-                    AimlockTarget = GetNearestTarget()
-                end
-            )
-        elseif
-            keyinput.UserInputType == Settings.Main.MouseKey and Settings.Main.UseMouseKey == true and
-                getgenv().Settings.Main.Enable == true and
-                AimlockTarget ~= nil
-         then
-            AimlockTarget = nil
-            MousePressed = false
-        end
-    end
-)
- 
 -- // Main Functions. RunService HeartBeat.
  
 task.spawn(
@@ -2955,182 +3105,156 @@ local function isAlive(plr)
     end
     return true
 end
- 
+
 RService.Heartbeat:Connect(function()
-    if getgenv().Settings.Main.Enable == true and MousePressed == true then
-        if getgenv().Settings.Main.UseShake == true and AimlockTarget and AimlockTarget.Character then
-            pcall(function()
-                local TargetVelv1 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                TargetVelv1.Velocity = Vec3(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
-                    Vec3(
-                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
-                    ) * 0.1
-                TargetVelv1.AssemblyLinearVelocity = Vec3(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
-                    Vec3(
-                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                        math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
-                    ) * 0.1
-            end)
-        end
-        if getgenv().Settings.Resolver.UnderGround == true and AimlockTarget and AimlockTarget.Character then
-            pcall(function()
-                local TargetVelv2 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                TargetVelv2.Velocity = Vec3(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
-                TargetVelv2.AssemblyLinearVelocity = Vec3(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
-            end)
-        end
-        if getgenv().Settings.Resolver.DetectDesync == true and AimlockTarget and AimlockTarget.Character and
-            AimlockTarget.Character:WaitForChild("HumanoidRootPart").Velocity.magnitude >
-            getgenv().Settings.Resolver.Detection then
-            pcall(function()
-                local TargetVel = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                TargetVel.Velocity = Vec3(0, 0, 0)
-                TargetVel.AssemblyLinearVelocity = Vec3(0, 0, 0)
-            end)
-        end
-        if getgenv().Settings.Main.ThirdPerson == true and getgenv().Settings.Main.FirstPerson == true then
-            if (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude > 1 or
-                (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude <= 1 then
-                CanNotify = true
-            else
-                CanNotify = false
+    if getgenv().Settings.Main.Enable == true then
+        local currentTarget = GetNearestValidTarget()  -- Chọn target gần nhất valid
+        local AimlockTarget = currentTarget  -- Local variable for aiming
+
+        if AimlockTarget then  -- Chỉ aim nếu có target valid
+            if getgenv().Settings.Main.UseShake == true and AimlockTarget and AimlockTarget.Character then
+                pcall(function()
+                    local TargetVelv1 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
+                    TargetVelv1.Velocity = Vector3.new(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
+                        Vector3.new(
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
+                        ) * 0.1
+                    TargetVelv1.AssemblyLinearVelocity = Vector3.new(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
+                        Vector3.new(
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
+                        ) * 0.1
+                end)
             end
-        elseif getgenv().Settings.Main.ThirdPerson == true and getgenv().Settings.Main.FirstPerson == false then
-            if (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude > 1 then
-                CanNotify = true
-            else
-                CanNotify = false
+            if getgenv().Settings.Resolver.UnderGround == true and AimlockTarget and AimlockTarget.Character then
+                pcall(function()
+                    local TargetVelv2 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
+                    TargetVelv2.Velocity = Vector3.new(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
+                    TargetVelv2.AssemblyLinearVelocity = Vector3.new(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
+                end)
             end
-        elseif getgenv().Settings.Main.ThirdPerson == false and getgenv().Settings.Main.FirstPerson == true then
-            if (Camera.Focus.p - Camera.CoordinateFrame.p).Magnitude <= 1 then
-                CanNotify = true
-            else
-                CanNotify = false
+            if getgenv().Settings.Resolver.DetectDesync == true and AimlockTarget and AimlockTarget.Character and
+                AimlockTarget.Character:WaitForChild("HumanoidRootPart").Velocity.magnitude >
+                getgenv().Settings.Resolver.Detection then
+                pcall(function()
+                    local TargetVel = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
+                    TargetVel.Velocity = Vector3.new(0, 0, 0)
+                    TargetVel.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                end)
             end
-        end
-        if getgenv().Settings.Main.AutoPingSets == true and getgenv().Settings.Horizontal.PredictionVelocity then
-            local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
-            local split = string.split(pingvalue, "(")
-            local ping = tonumber(split[1])
-            if ping > 190 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.206547
-            elseif ping > 180 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.19284
-            elseif ping > 170 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.1923111
-            elseif ping > 160 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.1823111
-            elseif ping > 150 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.171
-            elseif ping > 140 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.165773
-            elseif ping > 130 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.1223333
-            elseif ping > 120 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.143765
-            elseif ping > 110 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.1455
-            elseif ping > 100 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.130340
-            elseif ping > 90 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.136
-            elseif ping > 80 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.1347
-            elseif ping > 70 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.119
-            elseif ping > 60 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.12731
-            elseif ping > 50 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.127668
-            elseif ping > 40 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.125
-            elseif ping > 30 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.11
-            elseif ping > 20 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.12588
-            elseif ping > 10 then
-                getgenv().Settings.Horizontal.PredictionVelocity = 0.9
+            if getgenv().Settings.Main.AutoPingSets == true and getgenv().Settings.Horizontal.PredictionVelocity then
+                local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
+                local split = string.split(pingvalue, "(")
+                local ping = tonumber(split[1])
+                if ping > 190 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.206547
+                elseif ping > 180 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.19284
+                elseif ping > 170 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1923111
+                elseif ping > 160 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1823111
+                elseif ping > 150 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.171
+                elseif ping > 140 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.165773
+                elseif ping > 130 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1223333
+                elseif ping > 120 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.143765
+                elseif ping > 110 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1455
+                elseif ping > 100 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.130340
+                elseif ping > 90 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.136
+                elseif ping > 80 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1347
+                elseif ping > 70 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.119
+                elseif ping > 60 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.12731
+                elseif ping > 50 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.127668
+                elseif ping > 40 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.125
+                elseif ping > 30 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.11
+                elseif ping > 20 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.12588
+                elseif ping > 10 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.9
+                end
             end
-        end
-        if getgenv().Settings.Check.DisableOnTargetDeath == true and AimlockTarget and
-            AimlockTarget.Character:FindFirstChild("Humanoid") then
-            if AimlockTarget.Character.Humanoid.health < 1 then
-                if MousePressed == true then
+            if getgenv().Settings.Check.DisableOnTargetDeath == true and AimlockTarget and
+                AimlockTarget.Character:FindFirstChild("Humanoid") then
+                if AimlockTarget.Character.Humanoid.Health < 1 then
                     AimlockTarget = nil
-                    MousePressed = false
                 end
             end
-        end
-        if getgenv().Settings.Check.DisableOnPlayerDeath == true and Client.Character and
-            Client.Character:FindFirstChild("Humanoid") and Client.Character.Humanoid.health < 1 then
-            if MousePressed == true then
-                AimlockTarget = nil
-                MousePressed = false
-            end
-        end
-        if getgenv().Settings.Part.CheckIfJumped == true and getgenv().Settings.Part.GetClosestPart == false then
-            if AimlockTarget and AimlockTarget.Character then
-                if AimlockTarget.Character.Humanoid.FloorMaterial == Enum.Material.Air then
-                    getgenv().Settings.Part.AimPart = getgenv().Settings.Part.CheckIfJumpedAimPart
-                else
-                    getgenv().Settings.Part.AimPart = OldAimPart
+            if getgenv().Settings.Check.DisableOnPlayerDeath == true and Client.Character and
+                Client.Character:FindFirstChild("Humanoid") and Client.Character.Humanoid.Health < 1 then
+                    AimlockTarget = nil
                 end
             end
-        end
-        -- Add isAlive check to skip aiming if target is K.O. or grabbed
-        if AimlockTarget and AimlockTarget.Character and
-            AimlockTarget.Character:FindFirstChild(getgenv().Settings.Part.AimPart) then
-            if isAlive(AimlockTarget) then -- Only aim if target is alive
+            if getgenv().Settings.Part.CheckIfJumped == true and getgenv().Settings.Part.GetClosestPart == false then
+                if AimlockTarget and AimlockTarget.Character then
+                    if AimlockTarget.Character.Humanoid.FloorMaterial == Enum.Material.Air then
+                        getgenv().Settings.Part.AimPart = getgenv().Settings.Part.CheckIfJumpedAimPart
+                    else
+                        getgenv().Settings.Part.AimPart = OldAimPart
+                    end
+                end
+            end
+            if AimlockTarget and AimlockTarget.Character and
+                AimlockTarget.Character:FindFirstChild(getgenv().Settings.Part.AimPart) then
                 if getgenv().Settings.Main.FirstPerson == true then
-                    if CanNotify == true then
-                        if getgenv().Settings.Horizontal.PredictMovement == true then
-                            if getgenv().Settings.Smooth.Smoothness == true then
-                                local Main = CF(
-                                    Camera.CFrame.p,
-                                    AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
-                                        AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
-                                        getgenv().Settings.Horizontal.PredictionVelocity
-                                )
-                                Camera.CFrame = Camera.CFrame:Lerp(
-                                    Main,
-                                    getgenv().Settings.Smooth.SmoothnessAmount,
-                                    Enum.EasingStyle.Elastic,
-                                    Enum.EasingDirection.InOut
-                                )
-                            else
-                                Camera.CFrame = CF(
-                                    Camera.CFrame.p,
-                                    AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
-                                        AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
-                                        getgenv().Settings.Horizontal.PredictionVelocity + Vector3
-                                )
-                            end
-                        elseif getgenv().Settings.Horizontal.PredictMovement == false then
-                            if getgenv().Settings.Smooth.Smoothness == true then
-                                local Main = CF(
-                                    Camera.CFrame.p,
-                                    AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
-                                )
-                                Camera.CFrame = Camera.CFrame:Lerp(
-                                    Main,
-                                    getgenv().Settings.Smooth.SmoothnessAmount,
-                                    getgenv().Settings.Smooth.SmoothMethod,
-                                    getgenv().Settings.Smooth.SmoothMethodV2
-                                )
-                            else
-                                Camera.CFrame = CF(
-                                    Camera.CFrame.p,
-                                    AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
-                                )
-                            end
+                    if getgenv().Settings.Horizontal.PredictMovement == true then
+                        if getgenv().Settings.Smooth.Smoothness == true then
+                            local Main = CFrame.new(
+                                Camera.CFrame.p,
+                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
+                                    AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
+                                    getgenv().Settings.Horizontal.PredictionVelocity
+                            )
+                            Camera.CFrame = Camera.CFrame:Lerp(
+                                Main,
+                                getgenv().Settings.Smooth.SmoothnessAmount,
+                                Enum.EasingStyle.Elastic,
+                                Enum.EasingDirection.InOut
+                            )
+                        else
+                            Camera.CFrame = CFrame.new(
+                                Camera.CFrame.p,
+                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
+                                    AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
+                                    getgenv().Settings.Horizontal.PredictionVelocity
+                            )
+                        end
+                    elseif getgenv().Settings.Horizontal.PredictMovement == false then
+                        if getgenv().Settings.Smooth.Smoothness == true then
+                            local Main = CFrame.new(
+                                Camera.CFrame.p,
+                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
+                            )
+                            Camera.CFrame = Camera.CFrame:Lerp(
+                                Main,
+                                getgenv().Settings.Smooth.SmoothnessAmount,
+                                getgenv().Settings.Smooth.SmoothMethod,
+                                getgenv().Settings.Smooth.SmoothMethodV2
+                            )
+                        else
+                            Camera.CFrame = CFrame.new(
+                                Camera.CFrame.p,
+                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
+                            )
                         end
                     end
                 end
             end
-            -- If target is not alive (K.O. or grabbed), skip aiming but keep AimlockTarget and MousePressed
         end
     end
 end)
