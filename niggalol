@@ -1458,12 +1458,6 @@ end)
 local movementPage = venyx:addPage("Movement", 12978070034)
 local movementSection = movementPage:addSection("Movement Features")
 
-movementSection:addToggle("WalkSpeed", false, function(value)
-    walkSpeedEnabled = value
-    toggleWalkSpeed(value)
-    sendNotification("WalkSpeed", value and "ON ("..walkSpeedValue..")" or "OFF")
-end)
-
 movementSection:addSlider("WalkSpeed Value", 250, 16, 1000, function(value)
     walkSpeedValue = value
     if walkSpeedEnabled then
