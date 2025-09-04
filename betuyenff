@@ -60,6 +60,9 @@ local Config = {
     RainbowHitEffectEnabled = true,
 }
 
+local AscendEnabled = false
+local AscendSpeed = 35  -- Mặc định
+
 getgenv().HitboxSize = 15
 getgenv().HitboxTransparency = 0.9
 getgenv().HitboxStatus = "OFF"  -- "OFF", "NoVisual", "Visual"
@@ -909,6 +912,24 @@ flyButton = CreateButton(ButtonFrame1, "Fly: OFF", function()
     sendNotification("FLY", Config.FlyEnabled and "ON" or "OFF")
 end)
 
+-- Thêm vào cuối script (trước phần kết thúc)
+-- Logic Boost Jump
+RunService.Heartbeat:Connect(function(dt)
+    if AscendEnabled then
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local step = AscendSpeed * dt
+            hrp.CFrame = hrp.CFrame + Vector3.new(0, step, 0)
+        end
+    end
+end)
+
+boostJumpButton = CreateButton(ButtonFrame1, "Boost Jump: OFF", function()
+    AscendEnabled = not AscendEnabled
+    boostJumpButton.Text = "Boost Jump: " .. (AscendEnabled and "ON" or "OFF")
+    sendNotification("Boost Jump", AscendEnabled and "ON" or "OFF")
+end)
+
 -- Danh sách mode AntiLock
 local antiLockModes = {
     "OFF",
@@ -976,6 +997,24 @@ _G.__vhuyhub_antilock_conn = RunService.Heartbeat:Connect(function()
     if hrp and hrp.Parent then
         hrp.Velocity = oldVel
     end
+end)
+
+-- Thêm vào cuối script (trước phần kết thúc)
+-- Logic Boost Jump
+RunService.Heartbeat:Connect(function(dt)
+    if AscendEnabled then
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local step = AscendSpeed * dt
+            hrp.CFrame = hrp.CFrame + Vector3.new(0, step, 0)
+        end
+    end
+end)
+
+boostJumpButton = CreateButton(ButtonFrame1, "Boost Jump: OFF", function()
+    AscendEnabled = not AscendEnabled
+    boostJumpButton.Text = "Boost Jump: " .. (AscendEnabled and "ON" or "OFF")
+    sendNotification("Boost Jump", AscendEnabled and "ON" or "OFF")
 end)
 
 triggerBotButton = CreateButton(ButtonFrame1, "TriggerBot: " .. (tbEnabled and "ON" or "OFF"), function()
