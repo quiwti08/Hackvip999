@@ -41,7 +41,7 @@ local TabMisc  = Window:CreateTab("Misc", 4483362458)
 
 -- // ==== State ==== //
 local State = {
-    BringEnabled = false
+    BringEnabled = false,
     AutoRespawn = false,
     InfJump = false,
     CFrameSpeedEnabled = false,
@@ -66,6 +66,19 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
+
+-- // ==== Utilities ==== //
+local function isDowned(char)
+    if not char then return false end
+    -- Prefer Attributes
+    if char:GetAttribute("Downed") == true then return true end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum and hum:GetAttribute("Downed") == true then return true end
+    -- Legacy BoolValue fallback
+    local b = char:FindFirstChild("Downed")
+    if b and b:IsA("BoolValue") and b.Value == true then return true end
+    return false
+end
 
 local function getHRP(char)
     char = char or GetChar()
