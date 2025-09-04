@@ -40,7 +40,19 @@ local HitboxSize = 15
 local RainbowHitEffectEnabled = true
 local AscendEnabled = false
 local AscendSpeed = 6 -- Giá trị mặc định
-local AscendKey = Enum.KeyCode.V -- Keybind mặc định
+local AscendKey = Enum.KeyCode.V 
+local AntiLockEnabled = false
+local AntiLockType = "Behind" -- Chế độ mặc định
+local AntiLockModes = {
+    "Behind",
+    "Down",
+    "Forward",
+    "Left",
+    "One",
+    "Right",
+    "Up",
+    "Zero"
+}
 local TracerColor = Color3.fromRGB(255, 0, 0)
 local lastHealth = {}
 local ESPEnabled = false
@@ -601,6 +613,46 @@ end)
 combatSection:addDropdown("Aim Part", {"Head", "HumanoidRootPart", "UpperTorso"}, function(value)
     getgenv().Settings.Part.AimPart = value
 end)
+combatSection:addToggle("AntiLock", false, function(value)
+    AntiLockEnabled = value
+    sendNotification("AntiLock", value and "ON (" .. AntiLockType .. ")" or "OFF")
+end)
+
+-- Dropdown cho các chế độ AntiLock
+combatSection:addDropdown("AntiLock Mode", AntiLockModes, function(mode)
+    AntiLockType = mode
+    if AntiLockEnabled then
+        sendNotification("AntiLock", "Mode set to: " .. mode)
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if AntiLockEnabled then
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dir = Vector3.new(0, 0, -1) -- Mặc định là Behind
+            local t = AntiLockType
+            if t == "Behind" then dir = Vector3.new(0, 0, -1)
+            elseif t == "Down" then dir = Vector3.new(0, -1, 0)
+            elseif t == "Forward" then dir = Vector3.new(0, 0, 1)
+            elseif t == "Left" then dir = Vector3.new(-1, 0, 0)
+            elseif t == "One" then dir = Vector3.new(1, 1, 1)
+            elseif t == "Right" then dir = Vector3.new(1, 0, 0)
+            elseif t == "Up" then dir = Vector3.new(0, 1, 0)
+            elseif t == "Zero" then dir = Vector3.new(0, 0, 0)
+            end
+
+            local oldVel = hrp.Velocity
+            hrp.Velocity = dir * (2^16)
+            RunService.RenderStepped:Wait()
+            if hrp and hrp.Parent then
+                hrp.Velocity = oldVel
+            end
+        end
+    end
+end)
+
 combatSection:addToggle("Use FOV Circle", false, function(value)
     getgenv().Settings.Visual.Fov = value
     getgenv().Settings.Visual.UseCircleRadius = value
