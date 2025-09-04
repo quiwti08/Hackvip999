@@ -47,7 +47,6 @@ local Config = {
     MacroLegitEnabled = false,
     AntiLockEnabled = false,
     AntiLockType = "Behind",
-    LookAtEnabled = false,
     CsyncRandomEnabled = false,
     CsyncOrbitEnabled = false,
     CsyncRadius = 10,
