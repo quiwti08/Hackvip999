@@ -62,6 +62,10 @@ local Config = {
 
 local AscendEnabled = false
 local AscendSpeed = 35  -- Mặc định
+local AngelWingEnabled = false
+local AngelWingInstances = {}
+local AngelWingHrp = nil
+local AngelWingColor = Color3.new(1, 1, 1) -- Màu mặc định trắng
 
 getgenv().HitboxSize = 15
 getgenv().HitboxTransparency = 0.9
@@ -1336,6 +1340,17 @@ hitboxBox:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 
+-- Nút Toggle Angel Wing
+angelWingButton = CreateButton(ButtonFrame2Left, "Angel Wing: OFF", function()
+    AngelWingEnabled = not AngelWingEnabled
+    angelWingButton.Text = "Angel Wing: " .. (AngelWingEnabled and "ON" or "OFF")
+    sendNotification("Angel Wing", AngelWingEnabled and "ON" or "OFF")
+    if AngelWingEnabled then
+        createAw()
+    else
+        destroyAw()
+    end
+end)
 
 -- HugR6
 local hugEnabled = false
@@ -2481,6 +2496,198 @@ local function IsPlayerKnockedOrGrabbed(player)
     return (ko and ko.Value) or (grabbed and grabbed.Value)
 end
 
+local function destroyAw()
+    for _, inst in pairs(AngelWingInstances) do
+        pcall(function() inst:Destroy() end)
+    end
+    AngelWingInstances = {}
+end
+
+local function createAw()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    AngelWingHrp = (humanoid.RigType == Enum.HumanoidRigType.R15 and character:FindFirstChild("UpperTorso")) or
+                   (humanoid.RigType == Enum.HumanoidRigType.R6 and character:FindFirstChild("Torso"))
+    if not AngelWingHrp then return end
+
+    destroyAw()
+
+    -- Attachment1 tại (0, 4.25, 0)
+    local att1 = Instance.new("Attachment")
+    att1.Name = "AngelAttachment1"
+    att1.CFrame = CFrame.new(0, 4.25, 0)
+    att1.Parent = AngelWingHrp
+    table.insert(AngelWingInstances, att1)
+
+    -- ParticleEmitter1 trong att1
+    local pe1 = Instance.new("ParticleEmitter")
+    pe1.Name = "AngelParticle1"
+    pe1.Acceleration = Vector3.new(0, -6, 0)
+    pe1.Brightness = 1
+    pe1.Color = ColorSequence.new(AngelWingColor)
+    pe1.Drag = 0
+    pe1.EmissionDirection = Enum.NormalId.Bottom
+    pe1.Enabled = true
+    pe1.Lifetime = NumberRange.new(1, 2)
+    pe1.LightEmission = 1
+    pe1.LightInfluence = 1
+    pe1.LockedToPart = true
+    pe1.Orientation = Enum.ParticleOrientation.FacingCamera
+    pe1.Rate = 50
+    pe1.RotSpeed = NumberRange.new(-100, 100)
+    pe1.Rotation = NumberRange.new(-360, 360)
+    pe1.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5, 0.3), NumberSequenceKeypoint.new(1, 0.5, 0.3)})
+    pe1.Speed = NumberRange.new(2.5, 2.5)
+    pe1.SpreadAngle = Vector2.new(0, 360)
+    pe1.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    pe1.Texture = "rbxassetid://7511321694"
+    pe1.TimeScale = 1
+    pe1.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.1, 0),
+        NumberSequenceKeypoint.new(0.3, 0),
+        NumberSequenceKeypoint.new(0.8, 0),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    pe1.VelocityInheritance = 0
+    pe1.WindAffectsDrag = false
+    pe1.ZOffset = 0
+    pe1.Parent = att1
+    table.insert(AngelWingInstances, pe1)
+
+    -- ParticleEmitter2 trong att1
+    local pe2 = Instance.new("ParticleEmitter")
+    pe2.Name = "AngelParticle2"
+    pe2.Acceleration = Vector3.new(0, -6, 0)
+    pe2.Brightness = 1
+    pe2.Color = ColorSequence.new(AngelWingColor)
+    pe2.Drag = 0
+    pe2.EmissionDirection = Enum.NormalId.Bottom
+    pe2.Enabled = true
+    pe2.Lifetime = NumberRange.new(1, 2)
+    pe2.LightEmission = 1
+    pe2.LightInfluence = 1
+    pe2.LockedToPart = true
+    pe2.Orientation = Enum.ParticleOrientation.FacingCamera
+    pe2.Rate = 100
+    pe2.RotSpeed = NumberRange.new(-100, 100)
+    pe2.Rotation = NumberRange.new(-360, 360)
+    pe2.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5, 0.3), NumberSequenceKeypoint.new(1, 0.5, 0.3)})
+    pe2.Speed = NumberRange.new(2.5, 2.5)
+    pe2.SpreadAngle = Vector2.new(0, 360)
+    pe2.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    pe2.Texture = "rbxassetid://1084976679"
+    pe2.TimeScale = 1
+    pe2.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.2, 0),
+        NumberSequenceKeypoint.new(0.8, 0),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    pe2.VelocityInheritance = 0
+    pe2.WindAffectsDrag = false
+    pe2.ZOffset = 0
+    pe2.Parent = att1
+    table.insert(AngelWingInstances, pe2)
+
+    -- Attachment2 tại (0, 0.75, 0.5)
+    local att2 = Instance.new("Attachment")
+    att2.Name = "AngelAttachment2"
+    att2.CFrame = CFrame.new(0, 0.75, 0.5)
+    att2.Parent = AngelWingHrp
+    table.insert(AngelWingInstances, att2)
+
+    -- Attachment3 tại (-5.25, 0, 2)
+    local att3 = Instance.new("Attachment")
+    att3.Name = "AngelAttachment3"
+    att3.CFrame = CFrame.new(-5.25, 0, 2) * CFrame.fromMatrix(Vector3.new(0,0,0), Vector3.new(0.866025388, 0, 0.5), Vector3.new(0,1,0), Vector3.new(-0.5, 0, 0.866025388))
+    att3.Parent = AngelWingHrp
+    table.insert(AngelWingInstances, att3)
+
+    -- Attachment4 tại (5.25, 0, 2)
+    local att4 = Instance.new("Attachment")
+    att4.Name = "AngelAttachment4"
+    att4.CFrame = CFrame.new(5.25, 0, 2) * CFrame.fromMatrix(Vector3.new(0,0,0), Vector3.new(0.866025388, 0, -0.5), Vector3.new(0,1,0), Vector3.new(0.5, 0, 0.866025388))
+    att4.Parent = AngelWingHrp
+    table.insert(AngelWingInstances, att4)
+
+    -- Beam1: att2 đến att3
+    local beam1 = Instance.new("Beam")
+    beam1.Name = "AngelBeam1"
+    beam1.Attachment0 = att2
+    beam1.Attachment1 = att3
+    beam1.Brightness = 1
+    beam1.Color = ColorSequence.new(AngelWingColor)
+    beam1.CurveSize0 = 2
+    beam1.CurveSize1 = 2
+    beam1.Enabled = true
+    beam1.FaceCamera = false
+    beam1.LightEmission = 1
+    beam1.LightInfluence = 1
+    beam1.Segments = 10
+    beam1.Texture = "rbxassetid://9544400688"
+    beam1.TextureLength = 1
+    beam1.TextureMode = Enum.TextureMode.Stretch
+    beam1.TextureSpeed = 0
+    beam1.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    beam1.Width0 = 4
+    beam1.Width1 = 6
+    beam1.ZOffset = 0
+    beam1.Parent = AngelWingHrp
+    table.insert(AngelWingInstances, beam1)
+
+    -- Beam2: att2 đến att4
+    local beam2 = Instance.new("Beam")
+    beam2.Name = "AngelBeam2"
+    beam2.Attachment0 = att2
+    beam2.Attachment1 = att4
+    beam2.Brightness = 1
+    beam2.Color = ColorSequence.new(AngelWingColor)
+    beam2.CurveSize0 = -2
+    beam2.CurveSize1 = -2
+    beam2.Enabled = true
+    beam2.FaceCamera = false
+    beam2.LightEmission = 1
+    beam2.LightInfluence = 1
+    beam2.Segments = 10
+    beam2.Texture = "rbxassetid://9544400688"
+    beam2.TextureLength = 1
+    beam2.TextureMode = Enum.TextureMode.Stretch
+    beam2.TextureSpeed = 0
+    beam2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    beam2.Width0 = 4
+    beam2.Width1 = 6
+    beam2.ZOffset = 0
+    beam2.Parent = AngelWingHrp
+    table.insert(AngelWingInstances, beam2)
+
+    -- PointLight
+    local pl = Instance.new("PointLight")
+    pl.Name = "AngelPointLight"
+    pl.Brightness = 4
+    pl.Color = AngelWingColor
+    pl.Enabled = true
+    pl.Range = 5
+    pl.Shadows = false
+    pl.Parent = AngelWingHrp
+    table.insert(AngelWingInstances, pl)
+end
+
+local function updateAwColor(newColor)
+    AngelWingColor = newColor
+    if AngelWingEnabled then
+        for _, inst in pairs(AngelWingInstances) do
+            if inst:IsA("ParticleEmitter") or inst:IsA("Beam") then
+                inst.Color = ColorSequence.new(AngelWingColor)
+            elseif inst:IsA("PointLight") then
+                inst.Color = AngelWingColor
+            end
+        end
+    end
+end
+
 local function CreateESP(player)
     if ESPs[player] or player == LocalPlayer then return end
     local label = Instance.new("TextLabel")
@@ -2565,6 +2772,28 @@ local function UpdateESP()
             end
         else
             RemoveESP(player)
+        end
+    end
+end
+
+local function UpdateAngelWing()
+    if AngelWingEnabled then
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum.MoveDirection.Magnitude > 0 then
+                for _, inst in pairs(AngelWingInstances) do
+                    if inst:IsA("ParticleEmitter") or inst:IsA("Beam") or inst:IsA("PointLight") then
+                        inst.Enabled = false
+                    end
+                end
+            else
+                for _, inst in pairs(AngelWingInstances) do
+                    if inst:IsA("ParticleEmitter") or inst:IsA("Beam") or inst:IsA("PointLight") then
+                        inst.Enabled = true
+                    end
+                end
+            end
         end
     end
 end
@@ -2722,13 +2951,9 @@ local function GetClosestValidPlayer()
     return closestPlayer
 end
 
-RunService.RenderStepped:Connect(function(deltaTime)
-    UpdateESP()
-    UpdateSpeed()
-    UpdateFly(deltaTime)
-
+local function UpdateAimbot()
     if Config.AimbotEnabled and getgenv().Aimbot.Status then
-        Player = GetClosestValidPlayer()
+        local Player = GetClosestValidPlayer()
         if Player and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
             local part = Player.Character[getgenv().Aimbot.Hitpart]
             local ping = Config.AutoPredictionEnabled and GetPing() or (Config.CustomPing or GetPing())
@@ -2738,7 +2963,51 @@ RunService.RenderStepped:Connect(function(deltaTime)
             end
         end
     end
+end
 
+local function UpdateTriggerBot()
+    if tbEnabled then
+        local part = GetBestTargetPart()
+        if part then
+            task.spawn(function()
+                local cap = part
+                task.wait(0)
+                if tbEnabled and distToCursor(cap) <= fovRadius then
+                    local origin = Camera.CFrame.Position
+                    local direction = (cap.Position - origin)
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+
+                    local result = Workspace:Raycast(origin, direction, rayParams)
+
+                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
+                        if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+                            local char = LocalPlayer.Character
+                            local fired = false
+                            if char then
+                                for _, tool in ipairs(char:GetChildren()) do
+                                    if tool:IsA("Tool") then
+                                        pcall(function() tool:Activate() end)
+                                        fired = true
+                                        break
+                                    end
+                                end
+                            end
+                            if not fired then
+                                click()
+                            end
+                        else
+                            click()
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end
+
+local function UpdateHitbox()
     if getgenv().HitboxStatus == "NoVisual" or getgenv().HitboxStatus == "Visual" then
         for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
             if player.Name ~= game:GetService('Players').LocalPlayer.Name then
@@ -2770,49 +3039,23 @@ RunService.RenderStepped:Connect(function(deltaTime)
             end
         end
     end
+end
 
-    -- TRIGGERBOT
-    if tbEnabled then
-        local part = GetBestTargetPart()
-        if part then
-            task.spawn(function()
-                local cap = part
-                task.wait(0)
-                if tbEnabled and distToCursor(cap) <= fovRadius then
-                    local origin = Camera.CFrame.Position
-                    local direction = (cap.Position - origin)
-                    local rayParams = RaycastParams.new()
-                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+RunService.RenderStepped:Connect(function(deltaTime)
+    UpdateESP()
+    UpdateSpeed()
+    UpdateFly(deltaTime)
+    UpdateAimbot()
+    UpdateHitbox()
+    UpdateTriggerBot()
+    UpdateAngelWing()
+end)
 
-                    local result = Workspace:Raycast(origin, direction, rayParams)
-
-                    -- Chỉ bắn nếu raycast trúng chính xác target (không bị che)
-                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
-                        if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
-                            -- Mobile
-                            local char = LocalPlayer.Character
-                            local fired = false
-                            if char then
-                                for _, tool in ipairs(char:GetChildren()) do
-                                    if tool:IsA("Tool") then
-                                        pcall(function() tool:Activate() end)
-                                        fired = true
-                                        break
-                                    end
-                                end
-                            end
-                            if not fired then
-                                click() -- fallback tap
-                            end
-                        else
-                            -- PC
-                            click()
-                        end
-                    end
-                end
-            end)
-        end
+-- Logic respawn cho Angel Wing
+game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart", 5)
+    if AngelWingEnabled then
+        createAw()
     end
 end)
 
