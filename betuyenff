@@ -851,7 +851,7 @@ end)
 
 -- Thêm biến và nút toggle cho No Slowdown trong Page 1 (Da Hood)
 Config.NoSlowdownEnabled = true
-noSlowButton = CreateButton(ButtonFrame1, "No Slowdown: OFF", function()
+noSlowButton = CreateButton(ButtonFrame1, "No Slowdown: ON", function()
     Config.NoSlowdownEnabled = not Config.NoSlowdownEnabled
     noSlowButton.Text = "No Slowdown: " .. (Config.NoSlowdownEnabled and "ON" or "OFF")
     sendNotification("No Slowdown", Config.NoSlowdownEnabled and "ON" or "OFF")
@@ -881,7 +881,7 @@ local function applyNoSlowdown()
         local moveDirection = hum.MoveDirection
         if moveDirection.Magnitude > 0 then
             -- Di chuyển nhân vật bằng CFrame với tốc độ tương đương WalkSpeed 16
-            local speed = 20 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
+            local speed = 16 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
             hrp.CFrame = hrp.CFrame + moveDirection * speed
         end
     end
@@ -900,16 +900,16 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
     end
 end)
 
-speedButton = CreateButton(ButtonFrame1, "Speed: OFF", function()
-    Config.SpeedEnabled = not Config.SpeedEnabled
-    speedButton.Text = "Speed: " .. (Config.SpeedEnabled and "ON" or "OFF")
-    sendNotification("SPEED", Config.SpeedEnabled and "ON" or "OFF")
-end)
-
 flyButton = CreateButton(ButtonFrame1, "Fly: OFF", function()
     Config.FlyEnabled = not Config.FlyEnabled
     flyButton.Text = "Fly: " .. (Config.FlyEnabled and "ON" or "OFF")
     sendNotification("FLY", Config.FlyEnabled and "ON" or "OFF")
+end)
+
+speedButton = CreateButton(ButtonFrame1, "Speed: OFF", function()
+    Config.SpeedEnabled = not Config.SpeedEnabled
+    speedButton.Text = "Speed: " .. (Config.SpeedEnabled and "ON" or "OFF")
+    sendNotification("SPEED", Config.SpeedEnabled and "ON" or "OFF")
 end)
 
 -- Thêm vào cuối script (trước phần kết thúc)
@@ -924,10 +924,55 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
+-- Ô nhập Speed Value
+local speedBox = Instance.new("TextBox")
+speedBox.Size = UDim2.new(1, 0, 0, 20)
+speedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+speedBox.TextColor3 = Color3.new(1, 1, 1)
+speedBox.Text = tostring(Config.SpeedValue or 16) -- mặc định 16
+speedBox.PlaceholderText = "Speed Value"
+speedBox.ClearTextOnFocus = false
+speedBox.Font = Enum.Font.GothamBold
+speedBox.TextSize = 12
+speedBox.Parent = ButtonFrame1
+Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 4)
+
+speedBox.FocusLost:Connect(function()
+    local num = tonumber(speedBox.Text)
+    if num then
+        Config.SpeedValue = num
+    else
+        speedBox.Text = tostring(Config.SpeedValue or 16)
+    end
+end)
+
+-- Nút Boost Jump
 boostJumpButton = CreateButton(ButtonFrame1, "Boost Jump: OFF", function()
     AscendEnabled = not AscendEnabled
     boostJumpButton.Text = "Boost Jump: " .. (AscendEnabled and "ON" or "OFF")
     sendNotification("Boost Jump", AscendEnabled and "ON" or "OFF")
+end)
+
+-- Ô nhập Boost Jump Power
+local boostBox = Instance.new("TextBox")
+boostBox.Size = UDim2.new(1, 0, 0, 20)
+boostBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+boostBox.TextColor3 = Color3.new(1, 1, 1)
+boostBox.Text = tostring(AscendSpeed or 35) -- mặc định 35
+boostBox.PlaceholderText = "Boost Jump Power"
+boostBox.ClearTextOnFocus = false
+boostBox.Font = Enum.Font.GothamBold
+boostBox.TextSize = 12
+boostBox.Parent = ButtonFrame1
+Instance.new("UICorner", boostBox).CornerRadius = UDim.new(0, 4)
+
+boostBox.FocusLost:Connect(function()
+    local num = tonumber(boostBox.Text)
+    if num then
+        AscendSpeed = num
+    else
+        boostBox.Text = tostring(AscendSpeed or 35)
+    end
 end)
 
 -- Danh sách mode AntiLock
@@ -997,24 +1042,6 @@ _G.__vhuyhub_antilock_conn = RunService.Heartbeat:Connect(function()
     if hrp and hrp.Parent then
         hrp.Velocity = oldVel
     end
-end)
-
--- Thêm vào cuối script (trước phần kết thúc)
--- Logic Boost Jump
-RunService.Heartbeat:Connect(function(dt)
-    if AscendEnabled then
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local step = AscendSpeed * dt
-            hrp.CFrame = hrp.CFrame + Vector3.new(0, step, 0)
-        end
-    end
-end)
-
-boostJumpButton = CreateButton(ButtonFrame1, "Boost Jump: OFF", function()
-    AscendEnabled = not AscendEnabled
-    boostJumpButton.Text = "Boost Jump: " .. (AscendEnabled and "ON" or "OFF")
-    sendNotification("Boost Jump", AscendEnabled and "ON" or "OFF")
 end)
 
 triggerBotButton = CreateButton(ButtonFrame1, "TriggerBot: " .. (tbEnabled and "ON" or "OFF"), function()
