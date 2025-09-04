@@ -5,6 +5,7 @@ local UserInputService   = game:GetService("UserInputService")
 local TweenService       = game:GetService("TweenService")
 local ReplicatedStorage  = game:GetService("ReplicatedStorage")
 local Camera             = workspace.CurrentCamera
+local ContextActionService = game:GetService("ContextActionService")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -22,8 +23,8 @@ end
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "Evade Helper • Rayfield",
-    LoadingTitle = "Loading UI",
-    LoadingSubtitle = "by you",
+    LoadingTitle = "niggalol | evade",
+    LoadingSubtitle = "by anhchangm52",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "EvadeHelper",
@@ -40,41 +41,31 @@ local TabMisc  = Window:CreateTab("Misc", 4483362458)
 
 -- // ==== State ==== //
 local State = {
+    BringEnabled = false
     AutoRespawn = false,
     InfJump = false,
     CFrameSpeedEnabled = false,
     CFrameSpeed = 25,
-    JumpBoostEnabled = false,
-    JumpBoost = 6, -- studs/frame when space held (clamped by dt)
+    AscendEnabled = false,
+    AscendSpeed = 6, -- studs/frame when enabled (clamped by dt)
     TracerEnabled = false,
     ESPEnabled = false,
-    ESPDownedOnly = false,
     ESPNameColor = Color3.fromRGB(255, 182, 193),
     ESPOutlineColor = Color3.fromRGB(0,0,0),
     HLFillColor = Color3.fromRGB(255,182,193),
     HLOutlineColor = Color3.fromRGB(255,255,255),
-    FOV = 90
+    FOV = 90,
+    AntiAFK = true,
+    FarmStreak = false
 }
 
 -- // ==== Anti-Idle ==== //
 local VirtualUser = game:GetService("VirtualUser")
 LocalPlayer.Idled:Connect(function()
+    if not State.AntiAFK then return end
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
-
--- // ==== Utilities ==== //
-local function isDowned(char)
-    if not char then return false end
-    -- Prefer Attributes
-    if char:GetAttribute("Downed") == true then return true end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum and hum:GetAttribute("Downed") == true then return true end
-    -- Legacy BoolValue fallback
-    local b = char:FindFirstChild("Downed")
-    if b and b:IsA("BoolValue") and b.Value == true then return true end
-    return false
-end
 
 local function getHRP(char)
     char = char or GetChar()
@@ -121,18 +112,37 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
--- // ==== Jump Boost (CFrame) ==== //
+-- // ==== Ascend Mode (CFrame) ==== //
 RunService.Heartbeat:Connect(function(dt)
-    if not State.JumpBoostEnabled then return end
-    if not UserInputService:IsKeyDown(Enum.KeyCode.Space) then return end
+    if not State.AscendEnabled then return end
     local hrp = getHRP()
     if not hrp then return end
-    local step = State.JumpBoost * dt
+    local step = State.AscendSpeed * dt
     hrp.CFrame = hrp.CFrame + Vector3.new(0, step, 0)
 end)
 
+-- // ==== Farm Streak ==== //
+RunService.Stepped:Connect(function()
+    if not State.FarmStreak then return end
+    local hrp = getHRP()
+    if hrp then
+        hrp.Position = Vector3.new(9999, 9999, 9999)
+    end
+end)
+
 -- // ==== FOV ==== //
-Camera.FieldOfView = State.FOV
+RunService.Heartbeat:Connect(function()
+    Camera.FieldOfView = State.FOV
+end)
+
+RunService.Stepped:Connect(function()
+    if not State.BringEnabled or not selectedPlayer or not selectedPlayer.Character or not LocalPlayer.Character then return end
+    local targetHRP = selectedPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local myHRP = getHRP(LocalPlayer.Character)
+    if targetHRP and myHRP then
+        targetHRP.CFrame = myHRP.CFrame + myHRP.CFrame.LookVector * 1 + Vector3.new(0, 2, 0)
+    end
+end)
 
 -- // ==== ESP ==== //
 -- Safe ScreenGui labels + Highlights + (optional) Drawing tracers
@@ -226,45 +236,40 @@ RunService.RenderStepped:Connect(function()
             local hum = ch:FindFirstChildOfClass("Humanoid")
             if hum and hum.Health > 0 then
                 local downed = isDowned(ch)
-                -- If only showing downed and this one isn't -> hide it
-                if State.ESPDownedOnly and not downed then
-                    destroyESPFor(plr)
+                ensureESPFor(plr)
+                local headPos = ch.Head.Position
+                local screenPos, onScreen = Camera:WorldToViewportPoint(headPos)
+
+                -- Label
+                local label = espLabels[plr]
+                label.Text = plr.DisplayName .. (downed and " [DOWNED]" or "")
+                label.Visible = onScreen
+                if onScreen then
+                    label.Position = UDim2.fromOffset(screenPos.X, screenPos.Y - 18)
+                end
+
+                -- Highlight
+                local hl = espHighlights[plr]
+                hl.Adornee = ch
+                hl.Enabled = true
+
+                -- Tracer
+                if State.TracerEnabled then
+                    if not tracers[plr] and Drawing then
+                        ensureESPFor(plr)
+                    end
+                    local line = tracers[plr]
+                    if line then
+                        if onScreen then
+                            line.Visible = true
+                            line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                            line.To = Vector2.new(screenPos.X, screenPos.Y)
+                        else
+                            line.Visible = false
+                        end
+                    end
                 else
-                    ensureESPFor(plr)
-                    local headPos = ch.Head.Position
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(headPos)
-
-                    -- Label
-                    local label = espLabels[plr]
-                    label.Text = plr.DisplayName .. (downed and " [DOWNED]" or "")
-                    label.Visible = onScreen
-                    if onScreen then
-                        label.Position = UDim2.fromOffset(screenPos.X, screenPos.Y - 18)
-                    end
-
-                    -- Highlight
-                    local hl = espHighlights[plr]
-                    hl.Adornee = ch
-                    hl.Enabled = true
-
-                    -- Tracer
-                    if State.TracerEnabled then
-                        if not tracers[plr] and Drawing then
-                            ensureESPFor(plr)
-                        end
-                        local line = tracers[plr]
-                        if line then
-                            if onScreen then
-                                line.Visible = true
-                                line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                                line.To = Vector2.new(screenPos.X, screenPos.Y)
-                            else
-                                line.Visible = false
-                            end
-                        end
-                    else
-                        if tracers[plr] then tracers[plr].Visible = false end
-                    end
+                    if tracers[plr] then tracers[plr]:Remove() tracers[plr] = nil end
                 end
             else
                 destroyESPFor(plr)
@@ -296,19 +301,19 @@ TabMove:CreateSlider({
     Callback = function(val) State.CFrameSpeed = val end
 })
 TabMove:CreateToggle({
-    Name = "Jump Boost (CFrame)",
-    CurrentValue = State.JumpBoostEnabled,
+    Name = "Ascend Mode (CFrame)",
+    CurrentValue = State.AscendEnabled,
     Flag = "JBEnable",
-    Callback = function(v) State.JumpBoostEnabled = v end
+    Callback = function(v) State.AscendEnabled = v end
 })
 TabMove:CreateSlider({
-    Name = "Jump Power (CFrame)",
+    Name = "Ascend Speed (CFrame)",
     Range = {2, 50},
     Increment = 1,
     Suffix = "units/s",
-    CurrentValue = State.JumpBoost,
+    CurrentValue = State.AscendSpeed,
     Flag = "JBVal",
-    Callback = function(val) State.JumpBoost = val end
+    Callback = function(val) State.AscendSpeed = val end
 })
 TabMove:CreateToggle({
     Name = "Infinite Jump",
@@ -325,16 +330,18 @@ TabESP:CreateToggle({
     Callback = function(v) State.ESPEnabled = v end
 })
 TabESP:CreateToggle({
-    Name = "Only show DOWNED",
-    CurrentValue = State.ESPDownedOnly,
-    Flag = "ESPDownedOnly",
-    Callback = function(v) State.ESPDownedOnly = v end
-})
-TabESP:CreateToggle({
     Name = "Tracer (Drawing)",
     CurrentValue = State.TracerEnabled,
     Flag = "Tracer",
-    Callback = function(v) State.TracerEnabled = v end
+    Callback = function(v) 
+        State.TracerEnabled = v 
+        if not v then
+            for _, tr in pairs(tracers) do
+                if tr then tr:Remove() end
+            end
+            tracers = {}
+        end
+    end
 })
 
 local cp1 = TabESP:CreateColorPicker({
@@ -376,8 +383,7 @@ local function refreshDropdown()
         end
     end
 
-    -- Rayfield mới: dùng UpdateOptions thay vì SetOptions
-    PlayerDrop:UpdateOptions(names)
+    PlayerDrop:Refresh(names)
 
     -- giữ người đang chọn nếu họ còn trong danh sách
     if selectedPlayer and table.find(names, selectedPlayer.Name) then
@@ -390,7 +396,7 @@ end
 PlayerDrop = TabList:CreateDropdown({
     Name = "Players",
     Options = {},
-    CurrentOption = {},
+    CurrentOption = "",
     MultipleOptions = false,
     Flag = "PlayersDropdown",
     Callback = function(opt)
@@ -424,6 +430,13 @@ TabList:CreateButton({
     end
 })
 
+TabList:CreateToggle({
+    Name = "Bring (Teleport to Me)",
+    CurrentValue = State.BringEnabled,
+    Flag = "BringEnabled",
+    Callback = function(v) State.BringEnabled = v end
+})
+
 -- auto refresh list mỗi 2s
 task.spawn(function()
     while task.wait(2) do
@@ -439,7 +452,7 @@ TabMisc:CreateSlider({
     Suffix = "deg",
     CurrentValue = State.FOV,
     Flag = "FOV",
-    Callback = function(v) State.FOV = v; Camera.FieldOfView = v end
+    Callback = function(v) State.FOV = v end
 })
 
 TabMisc:CreateToggle({
@@ -449,12 +462,19 @@ TabMisc:CreateToggle({
     Callback = function(v) State.AutoRespawn = v end
 })
 
--- // Optional: Bhop (giữ nguyên nếu bạn muốn)
-local lastJump = 0
-local jumpCD = 0.12
-RunService.Heartbeat:Connect(function()
-    -- Bạn có thể cắm thêm Bhop logic cũ vào đây nếu cần
-end)
+TabMisc:CreateToggle({
+    Name = "Anti-AFK",
+    CurrentValue = State.AntiAFK,
+    Flag = "AntiAFK",
+    Callback = function(v) State.AntiAFK = v end
+})
+
+TabMisc:CreateToggle({
+    Name = "Farm Streak",
+    CurrentValue = State.FarmStreak,
+    Flag = "FarmStreak",
+    Callback = function(v) State.FarmStreak = v end
+})
 
 -- // Cleanup when character respawns: keep ESP attached
 LocalPlayer.CharacterAdded:Connect(function(ch)
