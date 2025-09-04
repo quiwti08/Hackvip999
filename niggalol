@@ -76,7 +76,6 @@ local awColor = Color3.new(1, 1, 1)
 local bhEnabled = false
 local bhInstances = {}
 local bhColor = Color3.new(0.0588235, 0.0588235, 1)
-local currentAnimationPresets = { idle="Zombie", walk="R15", run="Zombie", jump="Ninja", climb="R15", fall="Mage" }
 local timeEnabled = false
 local currentTime = Lighting.ClockTime
 local CurrentFOV = 70
@@ -1048,9 +1047,397 @@ end)
 local auralistPage = venyx:addPage("Auralist", 5012543246)
 local auralistSection = auralistPage:addSection("Aura Features")
 
+local awEnabled = false
+local awInstances = {}
+local awHrp = nil
+local awColor = Color3.new(1, 1, 1) -- Default white for Angel Wings
+
+local function destroyAw()
+    for _, inst in pairs(awInstances) do
+        pcall(function() inst:Destroy() end)
+    end
+    awInstances = {}
+end
+
+local function createAw()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    awHrp = character:FindFirstChild("UpperTorso")
+    if not awHrp then return end
+
+    destroyAw()
+
+    -- Attachment1 at (0, 4.25, 0)
+    local att1 = Instance.new("Attachment")
+    att1.Name = "AngelAttachment1"
+    att1.CFrame = CFrame.new(0, 4.25, 0)
+    att1.Parent = awHrp
+    table.insert(awInstances, att1)
+
+    -- ParticleEmitter1 in att1
+    local pe1 = Instance.new("ParticleEmitter")
+    pe1.Name = "AngelParticle1"
+    pe1.Acceleration = Vector3.new(0, -6, 0)
+    pe1.Brightness = 1
+    pe1.Color = ColorSequence.new(awColor)
+    pe1.Drag = 0
+    pe1.EmissionDirection = Enum.NormalId.Bottom
+    pe1.Enabled = true
+    pe1.Lifetime = NumberRange.new(1, 2)
+    pe1.LightEmission = 1
+    pe1.LightInfluence = 1
+    pe1.LockedToPart = true
+    pe1.Orientation = Enum.ParticleOrientation.FacingCamera
+    pe1.Rate = 50
+    pe1.RotSpeed = NumberRange.new(-100, 100)
+    pe1.Rotation = NumberRange.new(-360, 360)
+    pe1.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5, 0.3), NumberSequenceKeypoint.new(1, 0.5, 0.3)})
+    pe1.Speed = NumberRange.new(2.5, 2.5)
+    pe1.SpreadAngle = Vector2.new(0, 360)
+    pe1.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    pe1.Texture = "rbxassetid://7511321694"
+    pe1.TimeScale = 1
+    pe1.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.1, 0),
+        NumberSequenceKeypoint.new(0.3, 0),
+        NumberSequenceKeypoint.new(0.8, 0),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    pe1.VelocityInheritance = 0
+    pe1.WindAffectsDrag = false
+    pe1.ZOffset = 0
+    pe1.Parent = att1
+    table.insert(awInstances, pe1)
+
+    -- ParticleEmitter2 in att1
+    local pe2 = Instance.new("ParticleEmitter")
+    pe2.Name = "AngelParticle2"
+    pe2.Acceleration = Vector3.new(0, -6, 0)
+    pe2.Brightness = 1
+    pe2.Color = ColorSequence.new(awColor)
+    pe2.Drag = 0
+    pe2.EmissionDirection = Enum.NormalId.Bottom
+    pe2.Enabled = true
+    pe2.Lifetime = NumberRange.new(1, 2)
+    pe2.LightEmission = 1
+    pe2.LightInfluence = 1
+    pe2.LockedToPart = true
+    pe2.Orientation = Enum.ParticleOrientation.FacingCamera
+    pe2.Rate = 100
+    pe2.RotSpeed = NumberRange.new(-100, 100)
+    pe2.Rotation = NumberRange.new(-360, 360)
+    pe2.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5, 0.3), NumberSequenceKeypoint.new(1, 0.5, 0.3)})
+    pe2.Speed = NumberRange.new(2.5, 2.5)
+    pe2.SpreadAngle = Vector2.new(0, 360)
+    pe2.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    pe2.Texture = "rbxassetid://1084976679"
+    pe2.TimeScale = 1
+    pe2.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.2, 0),
+        NumberSequenceKeypoint.new(0.8, 0),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    pe2.VelocityInheritance = 0
+    pe2.WindAffectsDrag = false
+    pe2.ZOffset = 0
+    pe2.Parent = att1
+    table.insert(awInstances, pe2)
+
+    -- Attachment2 at (0, 0.75, 0.5)
+    local att2 = Instance.new("Attachment")
+    att2.Name = "AngelAttachment2"
+    att2.CFrame = CFrame.new(0, 0.75, 0.5)
+    att2.Parent = awHrp
+    table.insert(awInstances, att2)
+
+    -- Attachment3 at (-5.25, 0, 2)
+    local att3 = Instance.new("Attachment")
+    att3.Name = "AngelAttachment3"
+    att3.CFrame = CFrame.new(-5.25, 0, 2) * CFrame.fromMatrix(Vector3.new(0,0,0), Vector3.new(0.866025388, 0, 0.5), Vector3.new(0,1,0), Vector3.new(-0.5, 0, 0.866025388))
+    att3.Parent = awHrp
+    table.insert(awInstances, att3)
+
+    -- Attachment4 at (5.25, 0, 2)
+    local att4 = Instance.new("Attachment")
+    att4.Name = "AngelAttachment4"
+    att4.CFrame = CFrame.new(5.25, 0, 2) * CFrame.fromMatrix(Vector3.new(0,0,0), Vector3.new(0.866025388, 0, -0.5), Vector3.new(0,1,0), Vector3.new(0.5, 0, 0.866025388))
+    att4.Parent = awHrp
+    table.insert(awInstances, att4)
+
+    -- Beam1: att2 to att3
+    local beam1 = Instance.new("Beam")
+    beam1.Name = "AngelBeam1"
+    beam1.Attachment0 = att2
+    beam1.Attachment1 = att3
+    beam1.Brightness = 1
+    beam1.Color = ColorSequence.new(awColor)
+    beam1.CurveSize0 = 2
+    beam1.CurveSize1 = 2
+    beam1.Enabled = true
+    beam1.FaceCamera = false
+    beam1.LightEmission = 1
+    beam1.LightInfluence = 1
+    beam1.Segments = 10
+    beam1.Texture = "rbxassetid://9544400688"
+    beam1.TextureLength = 1
+    beam1.TextureMode = Enum.TextureMode.Stretch
+    beam1.TextureSpeed = 0
+    beam1.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    beam1.Width0 = 4
+    beam1.Width1 = 6
+    beam1.ZOffset = 0
+    beam1.Parent = awHrp
+    table.insert(awInstances, beam1)
+
+    -- Beam2: att2 to att4
+    local beam2 = Instance.new("Beam")
+    beam2.Name = "AngelBeam2"
+    beam2.Attachment0 = att2
+    beam2.Attachment1 = att4
+    beam2.Brightness = 1
+    beam2.Color = ColorSequence.new(awColor)
+    beam2.CurveSize0 = -2
+    beam2.CurveSize1 = -2
+    beam2.Enabled = true
+    beam2.FaceCamera = false
+    beam2.LightEmission = 1
+    beam2.LightInfluence = 1
+    beam2.Segments = 10
+    beam2.Texture = "rbxassetid://9544400688"
+    beam2.TextureLength = 1
+    beam2.TextureMode = Enum.TextureMode.Stretch
+    beam2.TextureSpeed = 0
+    beam2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+    beam2.Width0 = 4
+    beam2.Width1 = 6
+    beam2.ZOffset = 0
+    beam2.Parent = awHrp
+    table.insert(awInstances, beam2)
+
+    -- PointLight
+    local pl = Instance.new("PointLight")
+    pl.Name = "AngelPointLight"
+    pl.Brightness = 4
+    pl.Color = awColor
+    pl.Enabled = true
+    pl.Range = 5
+    pl.Shadows = false
+    pl.Parent = awHrp
+    table.insert(awInstances, pl)
+end
+
+local function updateAwColor(newColor)
+    awColor = newColor
+    if awEnabled then
+        for _, inst in pairs(awInstances) do
+            if inst:IsA("ParticleEmitter") or inst:IsA("Beam") then
+                inst.Color = ColorSequence.new(awColor)
+            elseif inst:IsA("PointLight") then
+                inst.Color = awColor
+            end
+        end
+    end
+end
+
+-- Blueheat Aura
+local bhEnabled = false
+local bhInstances = {}
+local bhColor = Color3.new(0.0588235, 0.0588235, 1) -- Default dark blue
+
+local function destroyBh()
+    for _, inst in pairs(bhInstances) do
+        pcall(function() inst:Destroy() end)
+    end
+    bhInstances = {}
+end
+
+local function createBh()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+
+    destroyBh()
+
+    -- Get all parts except HumanoidRootPart
+    local parts = {}
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            table.insert(parts, part)
+        end
+    end
+
+    for _, part in pairs(parts) do
+        -- Atom1
+        local atom1 = Instance.new("ParticleEmitter")
+        atom1.Name = "BhAtom1"
+        atom1.Acceleration = Vector3.new(0, 1, 0)
+        atom1.Brightness = 10
+        atom1.Color = ColorSequence.new(bhColor)
+        atom1.Drag = 50
+        atom1.EmissionDirection = Enum.NormalId.Top
+        atom1.Enabled = true
+        atom1.Lifetime = NumberRange.new(0.4, 0.6)
+        atom1.LightEmission = 1
+        atom1.LightInfluence = 0
+        atom1.LockedToPart = false
+        atom1.Orientation = Enum.ParticleOrientation.FacingCamera
+        atom1.Rate = 20
+        atom1.RotSpeed = NumberRange.new(0, 0)
+        atom1.Rotation = NumberRange.new(-360, 360)
+        atom1.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.125), NumberSequenceKeypoint.new(1, 0)})
+        atom1.Speed = NumberRange.new(30, 40)
+        atom1.SpreadAngle = Vector2.new(90, 90)
+        atom1.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+        atom1.Texture = "rbxassetid://11448304274"
+        atom1.TimeScale = 0.75
+        atom1.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.500529, 0), NumberSequenceKeypoint.new(1, 1)})
+        atom1.VelocityInheritance = 0
+        atom1.WindAffectsDrag = false
+        atom1.ZOffset = -1
+        atom1.Parent = part
+        table.insert(bhInstances, atom1)
+
+        -- Flame1
+        local flame1 = Instance.new("ParticleEmitter")
+        flame1.Name = "BhFlame1"
+        flame1.Acceleration = Vector3.new(0, 1, 0)
+        flame1.Brightness = 10
+        flame1.Color = ColorSequence.new(bhColor)
+        flame1.Drag = 0
+        flame1.EmissionDirection = Enum.NormalId.Top
+        flame1.Enabled = true
+        flame1.Lifetime = NumberRange.new(0.4, 0.6)
+        flame1.LightEmission = 1
+        flame1.LightInfluence = 0
+        flame1.LockedToPart = false
+        flame1.Orientation = Enum.ParticleOrientation.FacingCamera
+        flame1.Rate = 150
+        flame1.RotSpeed = NumberRange.new(0, 0)
+        flame1.Rotation = NumberRange.new(-360, 360)
+        flame1.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})
+        flame1.Speed = NumberRange.new(1, 2)
+        flame1.SpreadAngle = Vector2.new(90, 90)
+        flame1.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+        flame1.Texture = "rbxassetid://10545078665"
+        flame1.TimeScale = 0.75
+        flame1.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.500529, 0), NumberSequenceKeypoint.new(1, 1)})
+        flame1.VelocityInheritance = 0
+        flame1.WindAffectsDrag = false
+        flame1.ZOffset = -1
+        flame1.Parent = part
+        table.insert(bhInstances, flame1)
+
+        -- Flame2
+        local flame2 = Instance.new("ParticleEmitter")
+        flame2.Name = "BhFlame2"
+        flame2.Acceleration = Vector3.new(0, 1, 0)
+        flame2.Brightness = 10
+        flame2.Color = ColorSequence.new(bhColor)
+        flame2.Drag = 0
+        flame2.EmissionDirection = Enum.NormalId.Top
+        flame2.Enabled = true
+        flame2.Lifetime = NumberRange.new(0.3, 0.4)
+        flame2.LightEmission = 1
+        flame2.LightInfluence = 0
+        flame2.LockedToPart = false
+        flame2.Orientation = Enum.ParticleOrientation.FacingCamera
+        flame2.Rate = 150
+        flame2.RotSpeed = NumberRange.new(0, 0)
+        flame2.Rotation = NumberRange.new(-360, 360)
+        flame2.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1.1875), NumberSequenceKeypoint.new(1, 0)})
+        flame2.Speed = NumberRange.new(2, 3)
+        flame2.SpreadAngle = Vector2.new(90, 90)
+        flame2.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+        flame2.Texture = "rbxassetid://10545078665"
+        flame2.TimeScale = 0.75
+        flame2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.500529, 0), NumberSequenceKeypoint.new(1, 1)})
+        flame2.VelocityInheritance = 0
+        flame2.WindAffectsDrag = false
+        flame2.ZOffset = -1.10000002
+        flame2.Parent = part
+        table.insert(bhInstances, flame2)
+
+        -- Glow
+        local glow = Instance.new("ParticleEmitter")
+        glow.Name = "BhGlow"
+        glow.Acceleration = Vector3.new(0, 1, 0)
+        glow.Brightness = 10
+        glow.Color = ColorSequence.new(bhColor)
+        glow.Drag = 0
+        glow.EmissionDirection = Enum.NormalId.Top
+        glow.Enabled = true
+        glow.FlipbookFramerate = NumberRange.new(30, 30)
+        glow.FlipbookLayout = Enum.ParticleFlipbookLayout.Grid4x4
+        glow.FlipbookMode = Enum.ParticleFlipbookMode.OneShot
+        glow.Lifetime = NumberRange.new(0.4, 0.6)
+        glow.LightEmission = 1
+        glow.LightInfluence = 0
+        glow.LockedToPart = true
+        glow.Orientation = Enum.ParticleOrientation.FacingCamera
+        glow.Rate = 200
+        glow.RotSpeed = NumberRange.new(0, 0)
+        glow.Rotation = NumberRange.new(-360, 360)
+        glow.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0.5)})
+        glow.Speed = NumberRange.new(0.1, 0.1)
+        glow.SpreadAngle = Vector2.new(360, 360)
+        glow.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+        glow.Texture = "rbxassetid://8451174579"
+        glow.TimeScale = 0.75
+        glow.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9125), NumberSequenceKeypoint.new(1, 1)})
+        glow.VelocityInheritance = 0
+        glow.WindAffectsDrag = false
+        glow.ZOffset = 1
+        glow.Parent = part
+        table.insert(bhInstances, glow)
+
+        -- Steam
+        local steam = Instance.new("ParticleEmitter")
+        steam.Name = "BhSteam"
+        steam.Acceleration = Vector3.new(0, 1, 0)
+        steam.Brightness = 10
+        steam.Color = ColorSequence.new(bhColor)
+        steam.Drag = 5
+        steam.EmissionDirection = Enum.NormalId.Top
+        steam.Enabled = true
+        steam.Lifetime = NumberRange.new(0.4, 0.6)
+        steam.LightEmission = 1
+        steam.LightInfluence = 0
+        steam.LockedToPart = false
+        steam.Orientation = Enum.ParticleOrientation.FacingCamera
+        steam.Rate = 100
+        steam.RotSpeed = NumberRange.new(0, 0)
+        steam.Rotation = NumberRange.new(-360, 360)
+        steam.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 2.4375), NumberSequenceKeypoint.new(1, 0)})
+        steam.Speed = NumberRange.new(8, 10)
+        steam.SpreadAngle = Vector2.new(90, 90)
+        steam.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0)})
+        steam.Texture = "rbxassetid://11156590261"
+        steam.TimeScale = 0.75
+        steam.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.499471, 0.8875), NumberSequenceKeypoint.new(1, 1)})
+        steam.VelocityInheritance = 0
+        steam.WindAffectsDrag = false
+        steam.ZOffset = -1
+        steam.Parent = part
+        table.insert(bhInstances, steam)
+    end
+end
+
+local function updateBhColor(newColor)
+    bhColor = newColor
+    if bhEnabled then
+        for _, inst in pairs(bhInstances) do
+            if inst:IsA("ParticleEmitter") then
+                inst.Color = ColorSequence.new(bhColor)
+            end
+        end
+    end
+end
+
+-- UI controls for both effects
 auralistSection:addToggle("Angel Wings", false, function(value)
     awEnabled = value
-    sendNotification("Angel Wings", value and "ON" or "OFF")
+    venyx:Notify("Angel Wings", value and "ON" or "OFF")
     if value then
         createAw()
     else
@@ -1060,12 +1447,12 @@ end)
 
 auralistSection:addColorPicker("Angel Wings Color", Color3.new(1, 1, 1), function(color)
     updateAwColor(color)
-    sendNotification("Angel Wings Color", "Color changed")
+    venyx:Notify("Angel Wings Color", "Color changed")
 end)
 
 auralistSection:addToggle("Blueheat Aura", false, function(value)
     bhEnabled = value
-    sendNotification("Blueheat Aura", value and "ON" or "OFF")
+    venyx:Notify("Blueheat Aura", value and "ON" or "OFF")
     if value then
         createBh()
     else
@@ -1075,10 +1462,11 @@ end)
 
 auralistSection:addColorPicker("Blueheat Color", Color3.new(0.0588235, 0.0588235, 1), function(color)
     updateBhColor(color)
-    sendNotification("Blueheat Color", "Color changed")
+    venyx:Notify("Blueheat Color", "Color changed")
 end)
 
-LocalPlayer.CharacterAdded:Connect(function(char)
+-- Handle character respawn for both effects
+game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
     char:WaitForChild("HumanoidRootPart", 5)
     if awEnabled then
         createAw()
@@ -1088,7 +1476,8 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
-local initialChar = LocalPlayer.Character
+-- Initial check for character
+local initialChar = game.Players.LocalPlayer.Character
 if initialChar then
     initialChar:WaitForChild("HumanoidRootPart", 5)
     if awEnabled then
@@ -1098,6 +1487,100 @@ if initialChar then
         createBh()
     end
 end
+
+local player = Players.LocalPlayer
+
+local animationBaseUrl = "http://www.roblox.com/asset/?id="
+
+-- 🔥 Full Animation Presets
+local animations = {
+    R15 = { idle=animationBaseUrl.."2510196951", walk=animationBaseUrl.."2510202577", run=animationBaseUrl.."2510198475", jump=animationBaseUrl.."2510197830", climb=animationBaseUrl.."2510192778", fall=animationBaseUrl.."2510195892" },
+    Loser = { idle=animationBaseUrl.."782841498", walk=animationBaseUrl.."616168032", run=animationBaseUrl.."616163682", jump=animationBaseUrl.."1083218792", climb=animationBaseUrl.."1083439238", fall=animationBaseUrl.."707829716" },
+    Astronaut = { idle=animationBaseUrl.."891621366", jump=animationBaseUrl.."891627522", fall=animationBaseUrl.."891617961", walk=animationBaseUrl.."891667138", run=animationBaseUrl.."891636393", climb=animationBaseUrl.."891609353" },
+    Bubbly = { idle=animationBaseUrl.."910004836", jump=animationBaseUrl.."910016857", fall=animationBaseUrl.."910001910", walk=animationBaseUrl.."910034870", run=animationBaseUrl.."910025107", climb=animationBaseUrl.."940996062" },
+    Cartoony = { idle=animationBaseUrl.."742637544", jump=animationBaseUrl.."742637942", fall=animationBaseUrl.."742637151", walk=animationBaseUrl.."742640026", run=animationBaseUrl.."742638842", climb=animationBaseUrl.."742636889" },
+    Confident = { idle=animationBaseUrl.."1069977950", jump=animationBaseUrl.."1069984524", fall=animationBaseUrl.."1069973677", walk=animationBaseUrl.."1070017263", run=animationBaseUrl.."1070001516", climb=animationBaseUrl.."1069946257" },
+    Cowboy = { idle=animationBaseUrl.."1014390418", jump=animationBaseUrl.."1014394726", fall=animationBaseUrl.."1014384571", walk=animationBaseUrl.."1014421541", run=animationBaseUrl.."1014401683", climb=animationBaseUrl.."1014380606" },
+    Elder = { idle=animationBaseUrl.."845397899", jump=animationBaseUrl.."845398858", fall=animationBaseUrl.."845396048", walk=animationBaseUrl.."845403856", run=animationBaseUrl.."845386501", climb=animationBaseUrl.."845392038" },
+    Knight = { idle=animationBaseUrl.."657595757", jump=animationBaseUrl.."658409194", fall=animationBaseUrl.."657600338", walk=animationBaseUrl.."657552124", run=animationBaseUrl.."657564596", climb=animationBaseUrl.."658360781" },
+    Levitation = { idle=animationBaseUrl.."616006778", jump=animationBaseUrl.."616008936", fall=animationBaseUrl.."616005863", walk=animationBaseUrl.."616013216", run=animationBaseUrl.."616010382", climb=animationBaseUrl.."616003713" },
+    Mage = { idle=animationBaseUrl.."707742142", jump=animationBaseUrl.."707853694", fall=animationBaseUrl.."707829716", walk=animationBaseUrl.."707897309", run=animationBaseUrl.."707861613", climb=animationBaseUrl.."707826056" },
+    Ninja = { idle=animationBaseUrl.."656117400", jump=animationBaseUrl.."656117878", fall=animationBaseUrl.."656115606", walk=animationBaseUrl.."656121766", run=animationBaseUrl.."656118852", climb=animationBaseUrl.."656114359" },
+    Patrol = { idle=animationBaseUrl.."1149612882", jump=animationBaseUrl.."1148811837", fall=animationBaseUrl.."1148863382", walk=animationBaseUrl.."1151231493", run=animationBaseUrl.."1150967949", climb=animationBaseUrl.."1148811837" },
+    Pirate = { idle=animationBaseUrl.."750781874", jump=animationBaseUrl.."750782230", fall=animationBaseUrl.."750780242", walk=animationBaseUrl.."750785693", run=animationBaseUrl.."750783738", climb=animationBaseUrl.."750779899" },
+    Popstar = { idle=animationBaseUrl.."1212900985", jump=animationBaseUrl.."1212954642", fall=animationBaseUrl.."1212900995", walk=animationBaseUrl.."1212980338", run=animationBaseUrl.."1212980348", climb=animationBaseUrl.."1213044953" },
+    Princess = { idle=animationBaseUrl.."941003647", jump=animationBaseUrl.."941008832", fall=animationBaseUrl.."941000007", walk=animationBaseUrl.."941028902", run=animationBaseUrl.."941015281", climb=animationBaseUrl.."940996062" },
+    Robot = { idle=animationBaseUrl.."616088211", jump=animationBaseUrl.."616090535", fall=animationBaseUrl.."616087089", walk=animationBaseUrl.."616095330", run=animationBaseUrl.."616091570", climb=animationBaseUrl.."616086039" },
+    Sneaky = { idle=animationBaseUrl.."1132473842", jump=animationBaseUrl.."1132489853", fall=animationBaseUrl.."1132469004", walk=animationBaseUrl.."1132510133", run=animationBaseUrl.."1132494274", climb=animationBaseUrl.."1132461372" },
+    Stylish = { idle=animationBaseUrl.."616136790", jump=animationBaseUrl.."616139451", fall=animationBaseUrl.."616134815", walk=animationBaseUrl.."616146177", run=animationBaseUrl.."616140816", climb=animationBaseUrl.."616133594" },
+    Superhero = { idle=animationBaseUrl.."616111295", jump=animationBaseUrl.."616115533", fall=animationBaseUrl.."616108001", walk=animationBaseUrl.."616122287", run=animationBaseUrl.."616117076", climb=animationBaseUrl.."616104706" },
+    Toy = { idle=animationBaseUrl.."782841498", jump=animationBaseUrl.."782847020", fall=animationBaseUrl.."782846423", walk=animationBaseUrl.."782843345", run=animationBaseUrl.."782842708", climb=animationBaseUrl.."782843869" },
+    Vampire = { idle=animationBaseUrl.."1083445855", jump=animationBaseUrl.."1083455352", fall=animationBaseUrl.."1083443587", walk=animationBaseUrl.."1083473930", run=animationBaseUrl.."1083462077", climb=animationBaseUrl.."1083439238" },
+    Werewolf = { idle=animationBaseUrl.."1083195517", jump=animationBaseUrl.."1083218792", fall=animationBaseUrl.."1083189019", walk=animationBaseUrl.."1083178339", run=animationBaseUrl.."1083216690", climb=animationBaseUrl.."1083182000" },
+    Zombie = { idle=animationBaseUrl.."616158929", jump=animationBaseUrl.."616161997", fall=animationBaseUrl.."616157476", walk=animationBaseUrl.."616168032", run=animationBaseUrl.."616163682", climb=animationBaseUrl.."616156119" },
+    RealisticZombie = { idle=animationBaseUrl.."3489171152", jump=animationBaseUrl.."616161997", fall=animationBaseUrl.."616157476", walk=animationBaseUrl.."3489174223", run=animationBaseUrl.."3489173414", climb=animationBaseUrl.."616156119" },
+}
+
+-- Lưu preset đã chọn cho từng loại anim
+local currentAnimationPresets = { idle="Zombie", walk="R15", run="Zombie", jump="Ninja", climb="R15", fall="Mage" }
+
+-- Danh sách preset name
+local animationPresetNames = {}
+for k,_ in pairs(animations) do table.insert(animationPresetNames, k) end
+
+-- Áp dụng 1 anim
+local function applyAnimation(animate, presetName, animationType)
+    local preset = animations[presetName]
+    if not preset then return end
+    local animId = preset[animationType]
+    if not animId then return end
+
+    if animationType == "idle" and animate.idle and animate.idle:FindFirstChild("Animation1") then
+        animate.idle.Animation1.AnimationId = animId
+    elseif animationType == "walk" and animate.walk and animate.walk:FindFirstChild("WalkAnim") then
+        animate.walk.WalkAnim.AnimationId = animId
+    elseif animationType == "run" and animate.run and animate.run:FindFirstChild("RunAnim") then
+        animate.run.RunAnim.AnimationId = animId
+    elseif animationType == "jump" and animate.jump and animate.jump:FindFirstChild("JumpAnim") then
+        animate.jump.JumpAnim.AnimationId = animId
+    elseif animationType == "climb" and animate.climb and animate.climb:FindFirstChild("ClimbAnim") then
+        animate.climb.ClimbAnim.AnimationId = animId
+    elseif animationType == "fall" and animate.fall and animate.fall:FindFirstChild("FallAnim") then
+        animate.fall.FallAnim.AnimationId = animId
+    end
+end
+
+-- Áp dụng theo lựa chọn
+local function applySelectedAnimation(animationType)
+    local char = player.Character
+    if not char then return end
+    local animate = char:FindFirstChild("Animate")
+    if not animate then return end
+    local presetName = currentAnimationPresets[animationType]
+    applyAnimation(animate, presetName, animationType)
+end
+
+-- UI (miscSection đã có sẵn trong file)
+local animationTypes = {"idle","walk","run","jump","climb","fall"}
+for _, animType in ipairs(animationTypes) do
+    local displayName = animType:sub(1,1):upper()..animType:sub(2)
+    auralistSection:addDropdown(displayName.." Animation", animationPresetNames, function(value)
+        currentAnimationPresets[animType] = value
+        venyx:Notify(displayName, "Selected: "..value)
+    end)
+    auralistSection:addButton("Apply "..displayName, function()
+        applySelectedAnimation(animType)
+        venyx:Notify("Animation", displayName.." set to "..currentAnimationPresets[animType])
+    end)
+end
+
+-- Auto apply khi respawn
+player.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart", 5)
+    for _, animType in ipairs(animationTypes) do
+        applySelectedAnimation(animType)
+    end
+end)
 
 -- Misc Page
 local miscPage = venyx:addPage("Misc", 12978113090)
