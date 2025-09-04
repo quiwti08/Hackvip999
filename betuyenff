@@ -940,9 +940,9 @@ Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 4)
 speedBox.FocusLost:Connect(function()
     local num = tonumber(speedBox.Text)
     if num then
-        Config.SpeedValue = num
+        Config.SpeedAmount = num
     else
-        speedBox.Text = tostring(Config.SpeedValue or 16)
+        speedBox.Text = tostring(Config.SpeedAmount or 16)
     end
 end)
 
