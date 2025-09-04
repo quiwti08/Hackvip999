@@ -38,6 +38,9 @@ local HitboxEnabled = false
 local HitboxTransparency = 0.9
 local HitboxSize = 15
 local RainbowHitEffectEnabled = true
+local AscendEnabled = false
+local AscendSpeed = 6 -- Giá trị mặc định
+local AscendKey = Enum.KeyCode.V -- Keybind mặc định
 local TracerColor = Color3.fromRGB(255, 0, 0)
 local lastHealth = {}
 local ESPEnabled = false
@@ -1563,6 +1566,30 @@ movementSection:addSlider("Speed CFrame Value", 20, 1, 100, function(value)
     SpeedAmount = value
 end)
 
+-- Thêm Keybind cho Boost Jump (mặc định là V)
+movementSection:addKeybind("Boost Jump Key", Enum.KeyCode.V, function()
+    AscendEnabled = not AscendEnabled
+    sendNotification("Boost Jump", AscendEnabled and "ON" or "OFF")
+end, function(key)
+    AscendKey = key
+end)
+
+-- Thêm Slider cho tốc độ Boost Jump (1-200)
+movementSection:addSlider("Boost Jump Speed", 6, 1, 200, function(value)
+    AscendSpeed = value
+    sendNotification("Boost Jump Speed", "Set to " .. value)
+end)
+
+RunService.Heartbeat:Connect(function(dt)
+    if AscendEnabled then
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local step = AscendSpeed * dt -- Tính bước di chuyển dựa trên tốc độ và delta time
+            hrp.CFrame = hrp.CFrame + Vector3.new(0, step, 0) -- Di chuyển nhân vật lên
+        end
+    end
+end)
+
 local function UpdateFly(deltaTime)
     if FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local root = LocalPlayer.Character.HumanoidRootPart
@@ -1607,7 +1634,7 @@ local function applyNoSlowdown()
     if isSlowed or hum.WalkSpeed < 16 then
         local moveDirection = hum.MoveDirection
         if moveDirection.Magnitude > 0 then
-            local speed = 17 / 60
+            local speed = 16 / 60
             hrp.CFrame = hrp.CFrame + moveDirection * speed
         end
     end
@@ -1627,36 +1654,6 @@ movementSection:addToggle("No Slowdown", true, function(value)
     NoSlowdownEnabled = value
     sendNotification("No Slowdown", value and "ON" or "OFF")
 end)
-
-local loadedShootButton = Instance.new("TextButton")
-loadedShootButton.Size = UDim2.new(0, 45, 0, 45)
-loadedShootButton.Position = UDim2.new(0, 15, 0, 310)
-loadedShootButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-loadedShootButton.Text = "LS"
-loadedShootButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-loadedShootButton.TextSize = 16
-loadedShootButton.Font = Enum.Font.GothamBold
-loadedShootButton.Visible = false
-loadedShootButton.Parent = LocalPlayer:WaitForChild("PlayerGui")
-Instance.new("UICorner", loadedShootButton).CornerRadius = UDim.new(0, 10)
-local function attachButtonEffects(btn, shrinkPx)
-    local orig = btn.Size
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 75, 75)}):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55, 55, 55)}):Play()
-    end)
-    btn.MouseButton1Click:Connect(function()
-        local s = shrinkPx or 3
-        local toSmall = UDim2.new(orig.X.Scale, math.max(0, orig.X.Offset - s), orig.Y.Scale, math.max(0, orig.Y.Offset - s))
-        local t1 = TweenService:Create(btn, TweenInfo.new(0.08), {Size = toSmall})
-        local t2 = TweenService:Create(btn, TweenInfo.new(0.08), {Size = orig})
-        t1:Play(); t1.Completed:Wait(); t2:Play()
-        task.spawn(shootMurderer)
-    end)
-end
-attachButtonEffects(loadedShootButton, 5)
 
 -- Settings Page
 local settingsPage = venyx:addPage("Settings", 5012544103)
