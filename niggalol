@@ -782,6 +782,145 @@ RunService.Heartbeat:Connect(function()
         monitorPlayerState(plr)
     end
 
+    if getgenv().Settings.Main.Enable == true then
+        local currentTarget = GetNearestValidTarget()
+        AimlockTarget = currentTarget
+
+        if AimlockTarget then
+            if getgenv().Settings.Main.UseShake == true and AimlockTarget and AimlockTarget.Character then
+                pcall(function()
+                    local TargetVelv1 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
+                    TargetVelv1.Velocity = Vector3.new(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
+                        Vector3.new(
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
+                        ) * 0.1
+                    TargetVelv1.AssemblyLinearVelocity = Vector3.new(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
+                        Vector3.new(
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
+                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
+                        ) * 0.1
+                end)
+            end
+            if getgenv().Settings.Resolver.UnderGround == true and AimlockTarget and AimlockTarget.Character then
+                pcall(function()
+                    local TargetVelv2 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
+                    TargetVelv2.Velocity = Vector3.new(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
+                    TargetVelv2.AssemblyLinearVelocity = Vector3.new(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
+                end)
+            end
+            if getgenv().Settings.Resolver.DetectDesync == true and AimlockTarget and AimlockTarget.Character and
+                AimlockTarget.Character:FindFirstChild("HumanoidRootPart") and AimlockTarget.Character.HumanoidRootPart.Velocity.magnitude > getgenv().Settings.Resolver.Detection then
+                pcall(function()
+                    local TargetVel = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
+                    TargetVel.Velocity = Vector3.new(0, 0, 0)
+                    TargetVel.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                end)
+            end
+            if getgenv().Settings.Main.AutoPingSets == true and getgenv().Settings.Horizontal.PredictionVelocity then
+                local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
+                local split = string.split(pingvalue, "(")
+                local ping = tonumber(split[1])
+                if ping > 190 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.206547
+                elseif ping > 180 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.19284
+                elseif ping > 170 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1923111
+                elseif ping > 160 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1823111
+                elseif ping > 150 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.171
+                elseif ping > 140 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.165773
+                elseif ping > 130 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1223333
+                elseif ping > 120 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.143765
+                elseif ping > 110 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1455
+                elseif ping > 100 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.130340
+                elseif ping > 90 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.136
+                elseif ping > 80 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1347
+                elseif ping > 70 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.119
+                elseif ping > 60 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.12731
+                elseif ping > 50 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.127668
+                elseif ping > 40 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.125
+                elseif ping > 30 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.11
+                elseif ping > 20 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.12588
+                elseif ping > 10 then
+                    getgenv().Settings.Horizontal.PredictionVelocity = 0.9
+                end
+            end
+            if getgenv().Settings.Part.CheckIfJumped == true and getgenv().Settings.Part.GetClosestPart == false then
+                if AimlockTarget and AimlockTarget.Character then
+                    if AimlockTarget.Character.Humanoid.FloorMaterial == Enum.Material.Air then
+                        getgenv().Settings.Part.AimPart = getgenv().Settings.Part.CheckIfJumpedAimPart
+                    else
+                        getgenv().Settings.Part.AimPart = OldAimPart
+                    end
+                end
+            end
+            if AimlockTarget and AimlockTarget.Character and
+                AimlockTarget.Character:FindFirstChild(getgenv().Settings.Part.AimPart) then
+                if getgenv().Settings.Main.FirstPerson == true then
+                    if getgenv().Settings.Horizontal.PredictionMovement == true then
+                        if getgenv().Settings.Smooth.Smoothness == true then
+                            local Main = CFrame.new(
+                                Camera.CFrame.p,
+                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
+                                    AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
+                                    getgenv().Settings.Horizontal.PredictionVelocity
+                            )
+                            Camera.CFrame = Camera.CFrame:Lerp(
+                                Main,
+                                getgenv().Settings.Smooth.SmoothnessAmount,
+                                Enum.EasingStyle.Elastic,
+                                Enum.EasingDirection.InOut
+                            )
+                        else
+                            Camera.CFrame = CFrame.new(
+                                Camera.CFrame.p,
+                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
+                                    AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
+                                    getgenv().Settings.Horizontal.PredictionVelocity
+                            )
+                        end
+                    elseif getgenv().Settings.Horizontal.PredictionMovement == false then
+                        if getgenv().Settings.Smooth.Smoothness == true then
+                            local Main = CFrame.new(
+                                Camera.CFrame.p,
+                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
+                            )
+                            Camera.CFrame = Camera.CFrame:Lerp(
+                                Main,
+                                getgenv().Settings.Smooth.SmoothnessAmount,
+                                getgenv().Settings.Smooth.SmoothMethod,
+                                getgenv().Settings.Smooth.SmoothMethodV2
+                            )
+                        else
+                            Camera.CFrame = CFrame.new(
+                                Camera.CFrame.p,
+                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
+                            )
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     if AntiLockEnabled then
         local char = LocalPlayer.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -2447,145 +2586,3 @@ for themeName, defaultColor in pairs(themes) do
         venyx:setTheme(themeName, color)
     end)
 end
-
--- Aimlock Heartbeat
-RunService.Heartbeat:Connect(function()
-    if getgenv().Settings.Main.Enable == true then
-        local currentTarget = GetNearestValidTarget()
-        AimlockTarget = currentTarget
-
-        if AimlockTarget then
-            if getgenv().Settings.Main.UseShake == true and AimlockTarget and AimlockTarget.Character then
-                pcall(function()
-                    local TargetVelv1 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                    TargetVelv1.Velocity = Vector3.new(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
-                        Vector3.new(
-                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
-                        ) * 0.1
-                    TargetVelv1.AssemblyLinearVelocity = Vector3.new(TargetVelv1.Velocity.X, TargetVelv1.Velocity.Y, TargetVelv1.Velocity.Z) +
-                        Vector3.new(
-                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower),
-                            math.random(-getgenv().Settings.Main.ShakePower, getgenv().Settings.Main.ShakePower)
-                        ) * 0.1
-                end)
-            end
-            if getgenv().Settings.Resolver.UnderGround == true and AimlockTarget and AimlockTarget.Character then
-                pcall(function()
-                    local TargetVelv2 = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                    TargetVelv2.Velocity = Vector3.new(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
-                    TargetVelv2.AssemblyLinearVelocity = Vector3.new(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
-                end)
-            end
-            if getgenv().Settings.Resolver.DetectDesync == true and AimlockTarget and AimlockTarget.Character and
-                AimlockTarget.Character:FindFirstChild("HumanoidRootPart") and AimlockTarget.Character.HumanoidRootPart.Velocity.magnitude > getgenv().Settings.Resolver.Detection then
-                pcall(function()
-                    local TargetVel = AimlockTarget.Character[getgenv().Settings.Part.AimPart]
-                    TargetVel.Velocity = Vector3.new(0, 0, 0)
-                    TargetVel.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                end)
-            end
-            if getgenv().Settings.Main.AutoPingSets == true and getgenv().Settings.Horizontal.PredictionVelocity then
-                local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
-                local split = string.split(pingvalue, "(")
-                local ping = tonumber(split[1])
-                if ping > 190 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.206547
-                elseif ping > 180 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.19284
-                elseif ping > 170 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1923111
-                elseif ping > 160 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1823111
-                elseif ping > 150 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.171
-                elseif ping > 140 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.165773
-                elseif ping > 130 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1223333
-                elseif ping > 120 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.143765
-                elseif ping > 110 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1455
-                elseif ping > 100 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.130340
-                elseif ping > 90 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.136
-                elseif ping > 80 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.1347
-                elseif ping > 70 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.119
-                elseif ping > 60 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.12731
-                elseif ping > 50 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.127668
-                elseif ping > 40 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.125
-                elseif ping > 30 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.11
-                elseif ping > 20 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.12588
-                elseif ping > 10 then
-                    getgenv().Settings.Horizontal.PredictionVelocity = 0.9
-                end
-            end
-            if getgenv().Settings.Part.CheckIfJumped == true and getgenv().Settings.Part.GetClosestPart == false then
-                if AimlockTarget and AimlockTarget.Character then
-                    if AimlockTarget.Character.Humanoid.FloorMaterial == Enum.Material.Air then
-                        getgenv().Settings.Part.AimPart = getgenv().Settings.Part.CheckIfJumpedAimPart
-                    else
-                        getgenv().Settings.Part.AimPart = OldAimPart
-                    end
-                end
-            end
-            if AimlockTarget and AimlockTarget.Character and
-                AimlockTarget.Character:FindFirstChild(getgenv().Settings.Part.AimPart) then
-                if getgenv().Settings.Main.FirstPerson == true then
-                    if getgenv().Settings.Horizontal.PredictionMovement == true then
-                        if getgenv().Settings.Smooth.Smoothness == true then
-                            local Main = CFrame.new(
-                                Camera.CFrame.p,
-                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
-                                    AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
-                                    getgenv().Settings.Horizontal.PredictionVelocity
-                            )
-                            Camera.CFrame = Camera.CFrame:Lerp(
-                                Main,
-                                getgenv().Settings.Smooth.SmoothnessAmount,
-                                Enum.EasingStyle.Elastic,
-                                Enum.EasingDirection.InOut
-                            )
-                        else
-                            Camera.CFrame = CFrame.new(
-                                Camera.CFrame.p,
-                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position +
-                                    AimlockTarget.Character[getgenv().Settings.Part.AimPart].Velocity *
-                                    getgenv().Settings.Horizontal.PredictionVelocity
-                            )
-                        end
-                    elseif getgenv().Settings.Horizontal.PredictionMovement == false then
-                        if getgenv().Settings.Smooth.Smoothness == true then
-                            local Main = CFrame.new(
-                                Camera.CFrame.p,
-                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
-                            )
-                            Camera.CFrame = Camera.CFrame:Lerp(
-                                Main,
-                                getgenv().Settings.Smooth.SmoothnessAmount,
-                                getgenv().Settings.Smooth.SmoothMethod,
-                                getgenv().Settings.Smooth.SmoothMethodV2
-                            )
-                        else
-                            Camera.CFrame = CFrame.new(
-                                Camera.CFrame.p,
-                                AimlockTarget.Character[getgenv().Settings.Part.AimPart].Position
-                            )
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
