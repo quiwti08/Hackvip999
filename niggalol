@@ -107,6 +107,11 @@ local CsyncHeight = 5
 local CsyncSpeed = 5
 local TriggerBotEnabled = false
 local fovRadius = 20
+local fakePosEnabled = false
+local savedCFrame = nil
+local randomCoords = {}
+local fakePosKey = Enum.KeyCode.N  -- Default key
+local fakePosConnection = nil
 
 -- Global settings
 getgenv().Settings = {
@@ -530,6 +535,42 @@ local function GetBestTargetPart()
         end
     end
     return bestPart
+end
+
+local function generateRandomCoords()
+    randomCoords = {}
+    for i = 1, 10 do
+        local x = math.random(-999, 999)
+        local y = math.random(-999, 999)
+        local z = math.random(-999, 999)
+        table.insert(randomCoords, Vector3.new(x, y, z))
+    end
+end
+
+local function toggleFakePos(state)
+    fakePosEnabled = state
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    if state then
+        savedCFrame = hrp.CFrame
+        generateRandomCoords()
+        if fakePosConnection then fakePosConnection:Disconnect() end
+        fakePosConnection = RunService.Heartbeat:Connect(function()
+            if not fakePosEnabled then return end
+            for _, pos in ipairs(randomCoords) do
+                if not fakePosEnabled then break end
+                hrp.CFrame = CFrame.new(pos)
+                task.wait(0.01) -- Rapid teleport
+            end
+        end)
+        sendNotification("Fake Pos", "ON")
+    else
+        if fakePosConnection then fakePosConnection:Disconnect() end
+        fakePosConnection = nil
+        hrp.CFrame = savedCFrame or hrp.CFrame
+        savedCFrame = nil
+        sendNotification("Fake Pos", "OFF")
+    end
 end
 
 -- Combat Page
@@ -1899,6 +1940,23 @@ miscSection:addColorPicker("Fog Color", Color3.fromRGB(255, 179, 186), function(
     if miscSection:getModule("Use Fog Color").Value then
         Lighting.FogColor = color
     end
+end)
+
+-- 🔘 Toggle Fake Pos
+miscSection:addToggle("Fake Pos", false, function(state)
+    toggleFakePos(state) -- gọi hàm bạn đã có sẵn
+end)
+
+-- ⌨️ Keybind cho Fake Pos
+miscSection:addKeybind("Fake Pos Key", Enum.KeyCode.V, function()
+    -- Khi nhấn phím thì toggle luôn
+    fakePosEnabled = not fakePosEnabled
+    toggleFakePos(fakePosEnabled)
+    venyx:Notify("Fake Pos", fakePosEnabled and "ON" or "OFF")
+end, function(newKey)
+    -- Khi đổi key trong UI
+    fakePosKey = newKey
+    venyx:Notify("Fake Pos", "Key đổi thành: "..tostring(newKey))
 end)
 
 miscSection:addButton("Auto Armor", function()
