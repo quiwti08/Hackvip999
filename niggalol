@@ -30,6 +30,7 @@ local Mouse = LocalPlayer:GetMouse()
 local AimlockTargets = {}
 local Notifications = {}
 local TargetNotifications = {}
+local lastPlayerStates = {}
 local selectedPlayer = nil
 local playerDropdown
 local lastSubject = Camera.CameraSubject
@@ -99,6 +100,13 @@ local jumpHappierKey = Enum.KeyCode.C
 local jumpHappierAnim = "http://www.roblox.com/asset/?id=15609995579"
 local currentTrack = nil
 local espTargetOnly = false
+local CsyncRandomEnabled = false
+local CsyncOrbitEnabled = false
+local CsyncRadius = 10
+local CsyncHeight = 5
+local CsyncSpeed = 5
+local TriggerBotEnabled = false
+local fovRadius = 20
 
 -- Global settings
 getgenv().Settings = {
@@ -264,7 +272,7 @@ local function sendNotification(title, text, duration)
     titleLabel.Size = UDim2.new(1, -10, 0, 25)
     titleLabel.Position = UDim2.new(0, 5, 0, 5)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = title or "DhuyxDtuyen"
+    titleLabel.Text = title or "Nigga.lol"
     titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     titleLabel.Font = Enum.Font.GothamBold
     titleLabel.TextSize = 16
@@ -446,6 +454,84 @@ local function findPlayerByDisplay(display)
     return nil
 end
 
+local function monitorPlayerState(plr)
+    if not plr then return end
+    local state = "Unknown"
+    if not plr:IsDescendantOf(Players) then
+        state = "Left game"
+    elseif not plr.Character then
+        state = "Dead"
+    else
+        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then
+            state = "Dead"
+        else
+            local be = plr.Character:FindFirstChild("BodyEffects")
+            if be then
+                local ko = be:FindFirstChild("K.O")
+                local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
+                if ko and ko.Value then
+                    state = "K.O"
+                elseif grabbed and grabbed.Value then
+                    state = "Grabbed"
+                else
+                    state = "Alive"
+                end
+            else
+                state = "Alive"
+            end
+        end
+    end
+
+    local lastState = lastPlayerStates[plr.UserId]
+    if lastState ~= state then
+        lastPlayerStates[plr.UserId] = state
+        sendNotification(plr.DisplayName, "Status: " .. state, 3)
+    end
+end
+
+local hitParts = {
+    "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
+    "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+    "RightUpperLeg", "RightLowerLeg", "RightFoot", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"
+}
+
+local function validPart(p)
+    if not p or not p.Parent or not p.Parent:FindFirstChild("Humanoid") then return false end
+    local player = Players:GetPlayerFromCharacter(p.Parent)
+    if not player or not table.find(AimlockTargets, player) then return false end  -- Dùng AimlockTargets
+    for _, n in ipairs(hitParts) do
+        if p.Name:lower() == n:lower() then return true end
+    end
+    return false
+end
+
+local function distToCursor(part)
+    local v, vis = Camera:WorldToViewportPoint(part.Position)
+    if not vis then return math.huge end
+    local m = UIS.TouchEnabled and Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) or UIS:GetMouseLocation()
+    return (Vector2.new(v.X, v.Y) - Vector2.new(m.X, m.Y)).Magnitude
+end
+
+local function GetBestTargetPart()
+    local bestPart, bestDist = nil, fovRadius
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and table.find(AimlockTargets, plr) and isAlive(plr) and plr.Character then  -- Dùng AimlockTargets
+            for _, partName in ipairs(hitParts) do
+                local part = plr.Character:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    local dist = distToCursor(part)
+                    if dist < bestDist then
+                        bestPart = part
+                        bestDist = dist
+                    end
+                end
+            end
+        end
+    end
+    return bestPart
+end
+
 -- Combat Page
 local combatPage = venyx:addPage("Combat", 12977951813)
 local combatSection = combatPage:addSection("Combat Features")
@@ -499,12 +585,12 @@ combatSection:addButton("Set Target", function()
         local index = table.find(AimlockTargets, selectedPlayer)
         if index then
             table.remove(AimlockTargets, index)
-            sendNotification("Untarget", selectedPlayer.DisplayName .. " removed from targets")
             sendTargetNotification(selectedPlayer, false)
+            sendNotification("Untarget", selectedPlayer.DisplayName .. " removed from targets")
         else
             table.insert(AimlockTargets, selectedPlayer)
-            sendNotification("Target", selectedPlayer.DisplayName .. " added to targets")
             sendTargetNotification(selectedPlayer, true)
+            sendNotification("Target", selectedPlayer.DisplayName .. " added to targets")
         end
         playerDropdown:Update(getPlayerList())
     end
@@ -515,6 +601,26 @@ local function refreshDropdown()
         playerDropdown:Update(getPlayerList())
     end
 end
+
+combatSection:addToggle("Csync Random", false, function(value)
+    CsyncRandomEnabled = value
+    sendNotification("Csync Random", value and "ON" or "OFF")
+end)
+
+combatSection:addToggle("Csync Orbit", false, function(value)
+    CsyncOrbitEnabled = value
+    sendNotification("Csync Orbit", value and "ON" or "OFF")
+end)
+
+combatSection:addSlider("Csync Radius", 10, 1, 50, function(value)
+    CsyncRadius = value
+end)
+combatSection:addSlider("Csync Height", 5, 0, 20, function(value)
+    CsyncHeight = value
+end)
+combatSection:addSlider("Csync Speed", 5, 1, 20, function(value)
+    CsyncSpeed = value
+end)
 
 Players.PlayerAdded:Connect(refreshDropdown)
 Players.PlayerRemoving:Connect(refreshDropdown)
@@ -588,17 +694,22 @@ combatSection:addKeybind("Set Target Key", Enum.KeyCode.Q, function()
         local index = table.find(AimlockTargets, target)
         if index then
             table.remove(AimlockTargets, index)
-            sendNotification("Untarget", target.DisplayName .. " removed from targets")
             sendTargetNotification(target, false)
+            sendNotification("Untarget", target.DisplayName .. " removed from targets")
         else
             table.insert(AimlockTargets, target)
-            sendNotification("Target", target.DisplayName .. " added to targets")
             sendTargetNotification(target, true)
+            sendNotification("Target", target.DisplayName .. " added to targets")
         end
         playerDropdown:Update(getPlayerList())
     end
 end, function(key)
     setTargetKey = key
+end)
+
+combatSection:addToggle("Triggerbot", false, function(value)
+    TriggerBotEnabled = value
+    sendNotification("Triggerbot", value and "ON" or "OFF")
 end)
 
 combatSection:addToggle("Desync Resolver", false, function(value)
@@ -626,6 +737,10 @@ combatSection:addDropdown("AntiLock Mode", AntiLockModes, function(mode)
 end)
 
 RunService.Heartbeat:Connect(function()
+    for _, plr in ipairs(AimlockTargets) do
+        monitorPlayerState(plr)
+    end
+
     if AntiLockEnabled then
         local char = LocalPlayer.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -647,6 +762,24 @@ RunService.Heartbeat:Connect(function()
             RunService.RenderStepped:Wait()
             if hrp and hrp.Parent then
                 hrp.Velocity = oldVel
+            end
+        end
+    end
+
+    if CsyncRandomEnabled or CsyncOrbitEnabled then
+        local target = GetNearestValidTarget()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myHRP then
+                local targetPos = target.Character.HumanoidRootPart.Position
+                local offset
+                if CsyncOrbitEnabled then
+                    local angle = tick() * CsyncSpeed
+                    offset = Vector3.new(math.cos(angle) * CsyncRadius, CsyncHeight, math.sin(angle) * CsyncRadius)
+                elseif CsyncRandomEnabled then
+                    offset = Vector3.new(math.random(-CsyncRadius, CsyncRadius), CsyncHeight, math.random(-CsyncRadius, CsyncRadius))
+                end
+                myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
             end
         end
     end
@@ -955,10 +1088,65 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
+
+    if TriggerBotEnabled then
+        local part = GetBestTargetPart()
+        if part then
+            task.spawn(function()
+                local cap = part
+                task.wait(0)
+                if TriggerBotEnabled and distToCursor(cap) <= fovRadius then
+                    local origin = Camera.CFrame.Position
+                    local direction = (cap.Position - origin)
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+
+                    local result = workspace:Raycast(origin, direction, rayParams)
+
+                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
+                        if UIS.TouchEnabled and not UIS.MouseEnabled then
+                            local char = LocalPlayer.Character
+                            local fired = false
+                            if char then
+                                for _, tool in ipairs(char:GetChildren()) do
+                                    if tool:IsA("Tool") then
+                                        pcall(function()
+                                            tool:Activate()
+                                        end)
+                                        fired = true
+                                        break
+                                    end
+                                end
+                            end
+                            if not fired then
+                                mouse1click()  -- fallback
+                            end
+                        else
+                            mouse1click()
+                        end
+                    end
+                end
+            end)
+        end
+    end
 end)
 
 Players.PlayerRemoving:Connect(function(plr)
     RemoveESP(plr)
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    lastPlayerStates[plr.UserId] = "Joined"
+    if table.find(AimlockTargets, plr) then
+        sendNotification(plr.DisplayName, "Status: Respawned", 3)
+    end
+end)
+Players.PlayerRemoving:Connect(function(plr)
+    lastPlayerStates[plr.UserId] = "Left game"
+    if table.find(AimlockTargets, plr) then
+        sendNotification(plr.DisplayName, "Status: Left game", 3)
+    end
 end)
 
 visualSection:addToggle("ESP Highlight", false, function(value)
