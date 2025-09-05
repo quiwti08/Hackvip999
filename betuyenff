@@ -1363,56 +1363,6 @@ hitboxBox:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 
-
--- HugR6
-local hugEnabled = false
-local hugButton
-local Play_1, Play_2
-
-local function stopAnim()
-    if Play_1 then Play_1:Stop() end
-    if Play_2 then Play_2:Stop() end
-    Play_1, Play_2 = nil, nil
-end
-
-hugButton = CreateButton(ButtonFrame2Left, "HugR6: OFF", function()
-    hugEnabled = not hugEnabled
-    hugButton.Text = "HugR6: " .. (hugEnabled and "ON" or "OFF")
-
-    local player = game.Players.LocalPlayer
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hum = char:WaitForChild("Humanoid")
-
-    -- Nếu bật thì tạo anim và play
-    if hugEnabled then
-        if hum.RigType == Enum.HumanoidRigType.R6 then
-            local Anim_1 = Instance.new("Animation")
-            Anim_1.AnimationId = "rbxassetid://283545583"
-            Play_1 = hum:LoadAnimation(Anim_1)
-
-            local Anim_2 = Instance.new("Animation")
-            Anim_2.AnimationId = "rbxassetid://225975820"
-            Play_2 = hum:LoadAnimation(Anim_2)
-        else
-            local Anim_R15 = Instance.new("Animation")
-            Anim_R15.AnimationId = "rbxassetid://118478639008343"
-            Play_1 = hum:LoadAnimation(Anim_R15)
-        end
-
-        if Play_1 then Play_1:Play() end
-        if Play_2 then Play_2:Play() end
-    else
-        stopAnim()
-    end
-end)
-
--- Khi respawn thì tự tắt HugR6
-game.Players.LocalPlayer.CharacterAdded:Connect(function()
-    hugEnabled = false
-    stopAnim()
-    hugButton.Text = "HugR6: OFF"
-end)
-
 -- Config
 getgenv().CustomAnimEnabled = true
 
