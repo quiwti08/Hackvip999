@@ -12,7 +12,7 @@ local AIM_RADIUS = 300
 local AIM_FOV = 100
 local AIM_SMOOTHNESS = 0.9
 local TriggerBotEnabled = true
-local fovRadius = 15
+local fovRadius = 20
 local movementEnabled = false
 local jumpPower = 50
 local walkSpeed = 16
@@ -800,6 +800,66 @@ aimSection:addToggle("Triggerbot", true, function(value)
     sendNotification("Triggerbot", value and "ON" or "OFF")
 end)
 
+-- Sound definitions
+local sounds = {
+    ["RIFK7"] = "rbxassetid://9102080552",
+    ["Bubble"] = "rbxassetid://9102092728",
+    ["Minecraft"] = "rbxassetid://5869422451",
+    ["Cod"] = "rbxassetid://160432334",
+    ["Bameware"] = "rbxassetid://6565367558",
+    ["Neverlose"] = "rbxassetid://6565370984",
+    ["Gamesense"] = "rbxassetid://4817809188",
+    ["Rust"] = "rbxassetid://6565371338",
+}
+
+-- Create Sound instance
+local SoundService = game:GetService("SoundService")
+local hitSound = Instance.new("Sound")
+hitSound.Volume = 3
+hitSound.Parent = SoundService
+
+-- Sound pool for multiple sound playback
+local soundPool = {}
+local soundIndex = 1
+
+local function getNextSound()
+    if soundIndex > #soundPool then
+        local s = hitSound:Clone()
+        s.Parent = workspace
+        s.Looped = false
+        table.insert(soundPool, s)
+    end
+    local s = soundPool[soundIndex]
+    soundIndex = soundIndex + 1
+    return s
+end
+
+local function playHitSound()
+    local s = getNextSound()
+    s:Stop()
+    s:Play()
+end
+
+-- UI Setup for HitSound
+local aimSection = aimPage:addSection("HitSound Settings")
+aimSection:addToggle("HitSoundEnabled", false, function(value)
+    getgenv().YeuTuyen.HitSoundEnabled = value
+    sendNotification("HitSound", value and "Enabled" or "Disabled", 2)
+end)
+
+aimSection:addDropdown("HitSoundSelect", {"RIFK7", "Bubble", "Minecraft", "Cod", "Bameware", "Neverlose", "Gamesense", "Rust"}, "Neverlose", function(value)
+    local id = sounds[value]
+    if id then
+        hitSound.SoundId = id
+        getgenv().YeuTuyen.HitSoundSelect = value
+        sendNotification("HitSound", "Selected: " .. value, 2)
+    end
+end)
+
+-- Global variable to store hit sound settings
+getgenv().YeuTuyen.HitSoundEnabled = false
+getgenv().YeuTuyen.HitSoundSelect = "Neverlose"
+
 RunService.RenderStepped:Connect(function()
     if TriggerBotEnabled then
         local part = GetBestTargetPart()
@@ -815,22 +875,7 @@ RunService.RenderStepped:Connect(function()
                     rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
                     local result = workspace:Raycast(origin, direction, rayParams)
                     if result and result.Instance:IsDescendantOf(cap.Parent) then
-                        local char = LocalPlayer.Character
-                        local fired = false
-                        if char then
-                            for _, tool in ipairs(char:GetChildren()) do
-                                if tool:IsA("Tool") then
-                                    pcall(function()
-                                        tool:Activate()
-                                    end)
-                                    fired = true
-                                    break
-                                end
-                            end
-                        end
-                        if not fired then
-                            click()
-                        end
+                        click()
                     end
                 end
             end)
