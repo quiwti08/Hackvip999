@@ -106,7 +106,7 @@ local CsyncRadius = 10
 local CsyncHeight = 5
 local CsyncSpeed = 5
 local TriggerBotEnabled = false
-local fovRadius = 20
+local fovRadius = 15
 local fakePosEnabled = false
 local savedCFrame = nil
 local randomCoords = {}
@@ -122,10 +122,16 @@ getgenv().Settings = {
         AutoPingSets = true,
         UseCircleRadius = false,
         DisableOutSideCircle = false,
+
         UseShake = true,
         ShakePower = 1,
+
+        CheckForWalls = true
     },
     Check = {
+        CheckIfKo = true, -- This Is For Da Hood
+        DisableOnTargetDeath = true,
+        DisableOnPlayerDeath = true
     },
     Horizontal = {
         PredictMovement = true,
@@ -141,7 +147,6 @@ getgenv().Settings = {
         AimPart = "Head",
         CheckIfJumpedAimPart = "HumanoidRootPart",
         CheckIfJumped = true,
-        GetClosestPart = false
     },
     Resolver = {
         UnderGround = false,
@@ -149,7 +154,6 @@ getgenv().Settings = {
         DetectDesync = true,
         Detection = 75,
         UseDetectDesyncKeybind = true,
-        SendNotification = true
     },
     Visual = {
         Fov = false,
@@ -160,13 +164,15 @@ getgenv().Settings = {
     }
 }
 
--- Aimlock locals
+local Client = Players.LocalPlayer;
+ 
+local Mouse, Camera = Client:GetMouse(), workspace.CurrentCamera
+ 
 local Circle = Drawing.new("Circle")
-local OldAimPart = getgenv().Settings.Part.AimPart
-local AimlockTarget = nil
-local MousePressed = false
-local CanNotify = false
+ 
 local CF, RNew, Vec3, Vec2 = CFrame.new, Ray.new, Vector3.new, Vector2.new
+ 
+local OldAimPart = getgenv().Settings.Part.AimPart
 
 -- Venyx UI initialization
 local venyx = library.new("nigga.lol | vhuy-anhchangm52")
@@ -504,7 +510,7 @@ local hitParts = {
 local function validPart(p)
     if not p or not p.Parent or not p.Parent:FindFirstChild("Humanoid") then return false end
     local player = Players:GetPlayerFromCharacter(p.Parent)
-    if not player or not table.find(AimlockTargets, player) then return false end  -- Dùng AimlockTargets
+    if not player or not table.find(AimlockTargets, player) then return false end  
     for _, n in ipairs(hitParts) do
         if p.Name:lower() == n:lower() then return true end
     end
@@ -783,9 +789,7 @@ RunService.Heartbeat:Connect(function()
     end
 
     if getgenv().Settings.Main.Enable == true then
-        local currentTarget = GetNearestValidTarget()
-        AimlockTarget = currentTarget
-
+        local AimlockTarget = GetNearestValidTarget()
         if AimlockTarget then
             if getgenv().Settings.Main.UseShake == true and AimlockTarget and AimlockTarget.Character then
                 pcall(function()
@@ -861,15 +865,6 @@ RunService.Heartbeat:Connect(function()
                     getgenv().Settings.Horizontal.PredictionVelocity = 0.12588
                 elseif ping > 10 then
                     getgenv().Settings.Horizontal.PredictionVelocity = 0.9
-                end
-            end
-            if getgenv().Settings.Part.CheckIfJumped == true and getgenv().Settings.Part.GetClosestPart == false then
-                if AimlockTarget and AimlockTarget.Character then
-                    if AimlockTarget.Character.Humanoid.FloorMaterial == Enum.Material.Air then
-                        getgenv().Settings.Part.AimPart = getgenv().Settings.Part.CheckIfJumpedAimPart
-                    else
-                        getgenv().Settings.Part.AimPart = OldAimPart
-                    end
                 end
             end
             if AimlockTarget and AimlockTarget.Character and
@@ -965,19 +960,32 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-combatSection:addToggle("Use FOV Circle", false, function(value)
+combatSection:addToggle("Use FOV Circle triggerbot", false, function(value)
     getgenv().Settings.Visual.Fov = value
     getgenv().Settings.Visual.UseCircleRadius = value
     sendNotification("FOV Circle", value and "ON" or "OFF")
 end)
-combatSection:addSlider("FOV Radius", 200, 0, 1000, function(value)
-    getgenv().Settings.Visual.FovRadius = value
+getgenv().UpdateFOV = function()
+    if (not Circle) then
+        return (Circle)
+    end
+    Circle.Color = Settings.Visual.FovColor
+    Circle.Visible = Settings.Visual.Fov
+    Circle.Radius = fovRadius
+    Circle.Thickness = Settings.Visual.FovThickness
+    Circle.Position = Vec2(Mouse.X, Mouse.Y + Inset)
+    return (Circle)
+end
+ 
+RunService.Heartbeat:Connect(UpdateFOV)
+combatSection:addSlider("FOV Radius", 15, 0, 1000, function(value)
+    fovRadius = value
 end)
 combatSection:addColorPicker("FOV Color", Color3.fromRGB(255, 179, 186), function(color)
     getgenv().Settings.Visual.FovColor = color
 end)
 
-combatSection:addSlider("Smoothness", 1, 0, 1, function(value)
+combatSection:addSlider("Smoothness aimlock", 1, 0, 1, function(value)
     getgenv().Settings.Smooth.SmoothnessAmount = value
 end)
 
@@ -1856,6 +1864,8 @@ if initialChar then
     end
 end
 
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
 local animationBaseUrl = "http://www.roblox.com/asset/?id="
@@ -1894,7 +1904,9 @@ local currentAnimationPresets = { idle="Zombie", walk="R15", run="Zombie", jump=
 
 -- Danh sách preset name
 local animationPresetNames = {}
-for k,_ in pairs(animations) do table.insert(animationPresetNames, k) end
+for k, _ in pairs(animations) do
+    table.insert(animationPresetNames, k)
+end
 
 -- Áp dụng 1 anim
 local function applyAnimation(animate, presetName, animationType)
@@ -1903,18 +1915,26 @@ local function applyAnimation(animate, presetName, animationType)
     local animId = preset[animationType]
     if not animId then return end
 
-    if animationType == "idle" and animate.idle and animate.idle:FindFirstChild("Animation1") then
-        animate.idle.Animation1.AnimationId = animId
-    elseif animationType == "walk" and animate.walk and animate.walk:FindFirstChild("WalkAnim") then
-        animate.walk.WalkAnim.AnimationId = animId
-    elseif animationType == "run" and animate.run and animate.run:FindFirstChild("RunAnim") then
-        animate.run.RunAnim.AnimationId = animId
-    elseif animationType == "jump" and animate.jump and animate.jump:FindFirstChild("JumpAnim") then
-        animate.jump.JumpAnim.AnimationId = animId
-    elseif animationType == "climb" and animate.climb and animate.climb:FindFirstChild("ClimbAnim") then
-        animate.climb.ClimbAnim.AnimationId = animId
-    elseif animationType == "fall" and animate.fall and animate.fall:FindFirstChild("FallAnim") then
-        animate.fall.FallAnim.AnimationId = animId
+    local animObject = animate:FindFirstChild(animationType)
+    if not animObject then return end
+
+    local animChild
+    if animationType == "idle" then
+        animChild = animObject:FindFirstChild("Animation1")
+    elseif animationType == "walk" then
+        animChild = animObject:FindFirstChild("WalkAnim")
+    elseif animationType == "run" then
+        animChild = animObject:FindFirstChild("RunAnim")
+    elseif animationType == "jump" then
+        animChild = animObject:FindFirstChild("JumpAnim")
+    elseif animationType == "climb" then
+        animChild = animObject:FindFirstChild("ClimbAnim")
+    elseif animationType == "fall" then
+        animChild = animObject:FindFirstChild("FallAnim")
+    end
+
+    if animChild then
+        animChild.AnimationId = animId
     end
 end
 
@@ -1928,8 +1948,19 @@ local function applySelectedAnimation(animationType)
     applyAnimation(animate, presetName, animationType)
 end
 
--- UI (miscSection đã có sẵn trong file)
-local animationTypes = {"idle","walk","run","jump","climb","fall"}
+-- Áp dụng tất cả animations
+local function applyAllAnimations()
+    local char = player.Character
+    if not char then return end
+    local animate = char:FindFirstChild("Animate")
+    if not animate then return end
+    for _, animType in ipairs(animationTypes) do
+        applyAnimation(animate, currentAnimationPresets[animType], animType)
+    end
+end
+
+-- UI (giả sử auralistSection và venyx đã được định nghĩa)
+local animationTypes = {"idle", "walk", "run", "jump", "climb", "fall"}
 for _, animType in ipairs(animationTypes) do
     local displayName = animType:sub(1,1):upper()..animType:sub(2)
     auralistSection:addDropdown(displayName.." Animation", animationPresetNames, function(value)
@@ -1945,8 +1976,17 @@ end
 -- Auto apply khi respawn
 player.CharacterAdded:Connect(function(char)
     char:WaitForChild("HumanoidRootPart", 5)
-    for _, animType in ipairs(animationTypes) do
-        applySelectedAnimation(animType)
+    applyAllAnimations()
+end)
+
+-- Continuous application using RunService
+local lastApplied = 0
+local applyInterval = 1 -- Apply every 1 second to avoid performance issues
+RunService.Heartbeat:Connect(function()
+    local currentTime = tick()
+    if currentTime - lastApplied >= applyInterval then
+        applyAllAnimations()
+        lastApplied = currentTime
     end
 end)
 
@@ -2316,12 +2356,10 @@ end
 local function enableKorblox(character)
     task.wait(Time)
     hideRightLegAndAddAccessories(character)
-    applyKorbloxAnimations()
 end
 
 local function disableKorblox(character)
     restoreRightLeg(character)
-    restoreAnimations()
 end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
@@ -2333,7 +2371,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
-miscSection:addToggle("Korblox and Animationpack auto", true, function(state)
+miscSection:addToggle("Korblox", true, function(state)
     korbloxEnabled = state
     local char = LocalPlayer.Character
     if char then
