@@ -10,6 +10,8 @@ local Mouse = LocalPlayer:GetMouse()
 local AIM_RADIUS = 300
 local AIM_FOV = 100
 local AIM_SMOOTHNESS = 0.9
+local TriggerBotEnabled = true
+local fovRadius = 15
 
 -- Initialize Venyx UI
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
@@ -525,13 +527,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Mouse click simulation
-local mouse1click = mouse1click or function()
-    local vim = game:GetService("VirtualInputManager")
-    vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-    vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-end
-
 -- GetBestTarget for Aimlock
 local function GetBestTarget()
     if not getgenv().YeuTuyen or not getgenv().YeuTuyen.SelectedTargets then return end
@@ -649,6 +644,61 @@ local function SelectClosestToMouse()
     end
 end
 
+local function isAlive(plr)
+    if not plr or not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
+    local be = plr.Character:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
+        if (ko and ko.Value) or (grabbed and grabbed.Value) then return false end
+    end
+    return true
+end
+
+local hitParts = {
+    "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
+    "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+    "RightUpperLeg", "RightLowerLeg", "RightFoot", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"
+}
+
+local function validPart(p)
+    if not p or not p.Parent or not p.Parent:FindFirstChild("Humanoid") then return false end
+    local player = Players:GetPlayerFromCharacter(p.Parent)
+    if not player then return false end  
+    for _, n in ipairs(hitParts) do
+        if p.Name:lower() == n:lower() then return true end
+    end
+    return false
+end
+
+local function distToCursor(part)
+    local v, vis = Camera:WorldToViewportPoint(part.Position)
+    if not vis then return math.huge end
+    local m = UIS.TouchEnabled and Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) or UIS:GetMouseLocation()
+    return (Vector2.new(v.X, v.Y) - Vector2.new(m.X, m.Y)).Magnitude
+end
+
+local function GetBestTargetPart()
+    local bestPart, bestDist = nil, fovRadius
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and isAlive(plr) and plr.Character then 
+            for _, partName in ipairs(hitParts) do
+                local part = plr.Character:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    local dist = distToCursor(part)
+                    if dist < bestDist then
+                        bestPart = part
+                        bestDist = dist
+                    end
+                end
+            end
+        end
+    end
+    return bestPart
+end
+
 -- Rainbow effect
 local rainbowHue = 0
 task.spawn(function()
@@ -689,6 +739,55 @@ end)
 aimSection:addSlider("Aim Smoothness", AIM_SMOOTHNESS * 100, 0, 100, function(value)
     AIM_SMOOTHNESS = value / 100
     sendNotification("Aim Smoothness", "Set to " .. value .. "%", 2)
+end)
+
+aimSection:addToggle("Triggerbot", true, function(value)
+    TriggerBotEnabled = value
+    sendNotification("Triggerbot", value and "ON" or "OFF")
+end)
+
+RunService.RenderStepped:Connect(function()
+    if TriggerBotEnabled then
+        local part = GetBestTargetPart()
+        if part then
+            task.spawn(function()
+                local cap = part
+                task.wait(0)
+                if TriggerBotEnabled and distToCursor(cap) <= fovRadius then
+                    local origin = Camera.CFrame.Position
+                    local direction = (cap.Position - origin)
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+
+                    local result = workspace:Raycast(origin, direction, rayParams)
+
+                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
+                        if UIS.TouchEnabled and not UIS.MouseEnabled then
+                            local char = LocalPlayer.Character
+                            local fired = false
+                            if char then
+                                for _, tool in ipairs(char:GetChildren()) do
+                                    if tool:IsA("Tool") then
+                                        pcall(function()
+                                            tool:Activate()
+                                        end)
+                                        fired = true
+                                        break
+                                    end
+                                end
+                            end
+                            if not fired then
+                                mouse1click()  -- fallback
+                            end
+                        else
+                            mouse1click()
+                        end
+                    end
+                end
+            end)
+        end
+    end
 end)
 
 -- ESP Toggle
@@ -784,7 +883,6 @@ RunService.RenderStepped:Connect(function(delta)
         local targetLookAt = predictVec
         local lerpedLookAt = currentLookAt:Lerp(targetLookAt, AIM_SMOOTHNESS)
         Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, lerpedLookAt)
-        mouse1click()
 
         -- Update ESP for current target
         getgenv().YeuTuyen.SelectedTargets[target.Name] = true
