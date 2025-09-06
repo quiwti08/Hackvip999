@@ -785,13 +785,11 @@ end)
 aimSection:addSlider("FOV Radius", AIM_FOV, 20, 500, function(value)
     AIM_FOV = value
     fovCircle.Radius = value
-    sendNotification("FOV Radius", "Set to " .. value, 2)
 end)
 
 -- Aim Smoothness Slider
 aimSection:addSlider("Aim Smoothness", AIM_SMOOTHNESS * 100, 0, 100, function(value)
     AIM_SMOOTHNESS = value / 100
-    sendNotification("Aim Smoothness", "Set to " .. value .. "%", 2)
 end)
 
 aimSection:addToggle("Triggerbot", true, function(value)
@@ -852,12 +850,10 @@ end)
 -- Sliders
 aimSection:addSlider("WalkSpeed", 30, 16, 300, function(value)
     walkSpeed = value
-    sendNotification("WalkSpeed", "Set to " .. value, 2)
 end)
 
 aimSection:addSlider("JumpPower", 60, 50, 300, function(value)
     jumpPower = value
-    sendNotification("JumpPower", "Set to " .. value, 2)
 end)
 
 RunService.Heartbeat:Connect(function(dt)
