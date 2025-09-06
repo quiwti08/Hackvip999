@@ -346,23 +346,182 @@ local function updateESP(plr)
     end
 end
 
--- ESP update loop
-task.spawn(function()
-    while true do
-        if getgenv().YeuTuyen.ESPEnabled or tracerEnabled then
-            for _, p in ipairs(Players:GetPlayers()) do
-                updateESP(p)
-            end
+-- Rainbow update
+local rainbowHue = 0
+RunService.RenderStepped:Connect(function()
+    rainbowHue = (rainbowHue + 0.01) % 1
+end)
+
+local function getRainbowColor()
+    return Color3.fromHSV(rainbowHue, 1, 1)
+end
+
+-- Hit effect (2 giây rainbow outline)
+local function RainbowHitEffect(char)
+    if not char then return end
+    local hl = char:FindFirstChild("ESPHighlight")
+    if not hl then return end
+
+    local effect = Instance.new("Highlight")
+    effect.Adornee = char
+    effect.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    effect.FillTransparency = 1
+    effect.OutlineTransparency = 0
+    effect.Parent = char
+
+    local t = 0
+    local conn
+    conn = RunService.RenderStepped:Connect(function(dt)
+        if t > 2 then
+            effect:Destroy()
+            conn:Disconnect()
         else
-            for _, p in ipairs(Players:GetPlayers()) do
-                removeESP(p)
-                if tracers[p.Name] then
-                    tracers[p.Name]:Remove()
-                    tracers[p.Name] = nil
+            t += dt
+            effect.OutlineColor = getRainbowColor()
+        end
+    end)
+end
+
+-- Theo dõi máu để gọi hiệu ứng
+local function TrackHealth(plr)
+    local char = plr.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    local lastHealth = hum.Health
+    hum.HealthChanged:Connect(function(newHealth)
+        if newHealth < lastHealth then
+            RainbowHitEffect(char)
+        end
+        lastHealth = newHealth
+    end)
+end
+
+-- Theo dõi player spawn
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(1)
+        TrackHealth(plr)
+    end)
+end)
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= LocalPlayer then
+        if plr.Character then TrackHealth(plr) end
+        plr.CharacterAdded:Connect(function()
+            task.wait(1)
+            TrackHealth(plr)
+        end)
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local char = plr.Character
+            local head = char and char:FindFirstChild("Head")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+            if char and head and hum and hum.Health > 0 then
+                -- ESP
+                if getgenv().YeuTuyen.ESPEnabled then
+                    local hl = char:FindFirstChild("ESPHighlight") or Instance.new("Highlight")
+                    hl.Name = "ESPHighlight"
+                    hl.Adornee = char
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    hl.FillTransparency = 0.4
+                    hl.OutlineTransparency = 0
+                    hl.Parent = char
+
+                    local gui = char:FindFirstChild("NameESP") or Instance.new("BillboardGui")
+                    if not char:FindFirstChild("NameESP") then
+                        gui.Name = "NameESP"
+                        gui.Adornee = head
+                        gui.Size = UDim2.new(0, 200, 0, 30)
+                        gui.StudsOffset = Vector3.new(0, 2.5, 0)
+                        gui.AlwaysOnTop = true
+                        gui.Parent = char
+                        local nameLabel = Instance.new("TextLabel")
+                        nameLabel.Name = "NameLabel"
+                        nameLabel.Size = UDim2.new(1, 0, 1, 0)
+                        nameLabel.BackgroundTransparency = 1
+                        nameLabel.TextStrokeTransparency = 0.5
+                        nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+                        nameLabel.Font = Enum.Font.SourceSansBold
+                        nameLabel.TextScaled = true
+                        nameLabel.Parent = gui
+                    end
+                    local nameLabel = gui:FindFirstChild("NameLabel")
+
+                    -- Kiểm tra target
+                    local isTarget = getgenv().YeuTuyen.SelectedTargets[plr.Name]
+                    local color = Color3.fromRGB(255, 255, 255) -- mặc định trắng
+                    if isTarget then
+                        color = rainbowMode and getRainbowColor() or Color3.fromRGB(0, 255, 0)
+                    end
+
+                    hl.FillColor = color
+                    hl.OutlineColor = color
+                    if nameLabel then
+                        nameLabel.Text = plr.DisplayName .. " (" .. plr.Name .. ")"
+                        nameLabel.TextColor3 = color
+                    end
+                else
+                    local hl = char:FindFirstChild("ESPHighlight")
+                    if hl then hl:Destroy() end
+                    local gui = char:FindFirstChild("NameESP")
+                    if gui then gui:Destroy() end
                 end
+
+                -- Tracer
+                if tracerEnabled then
+                    local tracer = tracers[plr.Name] or Drawing.new("Line")
+                    tracers[plr.Name] = tracer
+                    tracer.Thickness = 2
+
+                    local isTarget = getgenv().YeuTuyen.SelectedTargets[plr.Name]
+                    if not isTarget then
+                        -- Không còn target => xoá tracer
+                        if tracers[plr.Name] then
+                            tracers[plr.Name]:Remove()
+                            tracers[plr.Name] = nil
+                        end
+                    else
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                        if onScreen then
+                            tracer.Visible = true
+                            tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                            tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                            tracer.Color = rainbowMode and getRainbowColor() or Color3.fromRGB(0, 255, 0)
+                        else
+                            tracer.Visible = false
+                        end
+                    end
+                else
+                    if tracers[plr.Name] then
+                        tracers[plr.Name]:Remove()
+                        tracers[plr.Name] = nil
+                    end
+                end
+            else
+                -- Xoá ESP + Tracer khi chết
+                if tracers[plr.Name] then
+                    tracers[plr.Name]:Remove()
+                    tracers[plr.Name] = nil
+                end
+                local hl = char and char:FindFirstChild("ESPHighlight")
+                if hl then hl:Destroy() end
+                local gui = char and char:FindFirstChild("NameESP")
+                if gui then gui:Destroy() end
             end
         end
-        task.wait(0.5)
+    end
+
+    -- Circle update
+    if fovCircle.Visible and rainbowMode then
+        fovCircle.Color = getRainbowColor()
+    elseif fovCircle.Visible then
+        fovCircle.Color = Color3.fromRGB(255, 255, 255)
     end
 end)
 
