@@ -61,7 +61,7 @@ local Config = {
 }
 
 local AscendEnabled = false
-local AscendSpeed = 35  -- Mặc định
+local AscendSpeed = 70  -- Mặc định
 
 getgenv().HitboxSize = 15
 getgenv().HitboxTransparency = 0.9
