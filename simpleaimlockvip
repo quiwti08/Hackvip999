@@ -520,48 +520,6 @@ RunService.RenderStepped:Connect(function()
     elseif fovCircle.Visible then
         fovCircle.Color = Color3.fromRGB(255, 255, 255)
     end
-
-    if TriggerBotEnabled then
-        local part = GetBestTargetPart()
-        if part then
-            task.spawn(function()
-                local cap = part
-                task.wait(0)
-                if distToCursor(cap) <= fovRadius then
-                    local origin = Camera.CFrame.Position
-                    local direction = (cap.Position - origin)
-                    local rayParams = RaycastParams.new()
-                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
-
-                    local result = workspace:Raycast(origin, direction, rayParams)
-
-                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
-                        if UIS.TouchEnabled and not UIS.MouseEnabled then
-                            local char = LocalPlayer.Character
-                            local fired = false
-                            if char then
-                                for _, tool in ipairs(char:GetChildren()) do
-                                    if tool:IsA("Tool") then
-                                        pcall(function()
-                                            tool:Activate()
-                                        end)
-                                        fired = true
-                                        break
-                                    end
-                                end
-                            end
-                            if not fired then
-                                mouse1click()  -- fallback
-                            end
-                        else
-                            mouse1click()
-                        end
-                    end
-                end
-            end)
-        end
-    end
 end)
 
 -- GetBestTarget for Aimlock
@@ -710,6 +668,20 @@ local function validPart(p)
     return false
 end
 
+if not mouse1press then
+    function mouse1press()
+        local pos = game:GetService("UserInputService"):GetMouseLocation()
+        VirtualInputManager:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 0)
+    end
+end
+
+if not mouse1release then
+    function mouse1release()
+        local pos = game:GetService("UserInputService"):GetMouseLocation()
+        VirtualInputManager:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 0)
+    end
+end
+
 local function click()
     if UserInputService.TouchEnabled then
         local touchPos = UserInputService:GetMouseLocation()
@@ -795,6 +767,50 @@ end)
 aimSection:addToggle("Triggerbot", true, function(value)
     TriggerBotEnabled = value
     sendNotification("Triggerbot", value and "ON" or "OFF")
+end)
+
+RunService.RenderStepped:Connect(function()
+    if TriggerBotEnabled then
+        local part = GetBestTargetPart()
+        if part then
+            task.spawn(function()
+                local cap = part
+                task.wait(0)
+                if distToCursor(cap) <= fovRadius then
+                    local origin = Camera.CFrame.Position
+                    local direction = (cap.Position - origin)
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+
+                    local result = workspace:Raycast(origin, direction, rayParams)
+
+                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
+                        if UIS.TouchEnabled and not UIS.MouseEnabled then
+                            local char = LocalPlayer.Character
+                            local fired = false
+                            if char then
+                                for _, tool in ipairs(char:GetChildren()) do
+                                    if tool:IsA("Tool") then
+                                        pcall(function()
+                                            tool:Activate()
+                                        end)
+                                        fired = true
+                                        break
+                                    end
+                                end
+                            end
+                            if not fired then
+                                mouse1click()  -- fallback
+                            end
+                        else
+                            mouse1click()
+                        end
+                    end
+                end
+            end)
+        end
+    end
 end)
 
 -- ESP Toggle
