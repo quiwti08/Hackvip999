@@ -37,7 +37,7 @@ getgenv().YeuTuyen = {
     AutoPingSets = true,
     UseShake = true,
     ShakePower = 1,
-    PredictMovement = true,
+    PredictMovement = false,
     PredictionVelocity = 0.17221418,
     UnderGround = false,
     DetectDesync = true,
@@ -753,9 +753,16 @@ local aimPage = venyx:addPage("Aimbot", 5012544693)
 local aimSection = aimPage:addSection("Aimbot Settings")
 
 -- Aim Mode Toggle
-aimSection:addToggle("Aim Mode", getgenv().YeuTuyen.Mode == "Aimbot", function(value)
-    getgenv().YeuTuyen.Mode = value and "Aimbot" or "Aimlock"
-    fovCircle.Visible = value
+aimSection:addButton("Switch Aim Mode", function()
+    -- Đảo trạng thái giữa 2 mode
+    if getgenv().YeuTuyen.Mode == "Aimbot" then
+        getgenv().YeuTuyen.Mode = "Aimlock"
+        fovCircle.Visible = false
+    else
+        getgenv().YeuTuyen.Mode = "Aimbot"
+        fovCircle.Visible = true
+    end
+    
     sendNotification("Mode Switch", "Switched to " .. getgenv().YeuTuyen.Mode, 2)
 end)
 
@@ -768,7 +775,7 @@ aimSection:addToggle("RightClickAim", false, function(value)
     toggleRightClickAim(value)
 end)
 
-aimSection:addToggle("Auto Prediction", getgenv().YeuTuyen.PredictMovement, function(value)
+aimSection:addToggle("Auto Prediction", false, function(value)
     getgenv().YeuTuyen.PredictMovement = value
     sendNotification("Auto Prediction", value and "Enabled" or "Disabled", 2)
 end)
@@ -1080,13 +1087,11 @@ RunService.RenderStepped:Connect(function(delta)
             predictVec = aimPart.Position + aimPart.Velocity * getgenv().YeuTuyen.PredictionVelocity
         end
 
-        -- Điều chỉnh camera
-        local currentLookAt = Camera.CFrame.LookVector * 1000 + Camera.CFrame.Position
-        local targetLookAt = predictVec
-        local lerpedLookAt = currentLookAt:Lerp(targetLookAt, AIM_SMOOTHNESS)
-        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, lerpedLookAt)
-        if TriggerBotEnabled then
-            click()
+        if getgenv().YeuTuyen.Status then
+            local currentLookAt = Camera.CFrame.LookVector * 1000 + Camera.CFrame.Position
+            local targetLookAt = predictVec
+            local lerpedLookAt = currentLookAt:Lerp(targetLookAt, AIM_SMOOTHNESS)
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, lerpedLookAt)
         end
 
         -- Update ESP for current target
@@ -1128,8 +1133,6 @@ RunService.RenderStepped:Connect(function(delta)
 end)
 
 -- Teleport section
-local lastTeleportTime = 0
-local cooldownDuration = 5
 local function getBestTargetForTeleport()
     local closestDowned = nil
     local closestNormal = nil
@@ -1168,12 +1171,6 @@ local function teleportToTarget()
         sendNotification("Teleport", "Cannot teleport to " .. target.Name, 2)
         return
     end
-    local now = tick()
-    if now - lastTeleportTime < cooldownDuration then
-        sendNotification("Teleport", "Cooldown: " .. math.ceil(cooldownDuration - (now - lastTeleportTime)) .. "s", 2)
-        return
-    end
-    lastTeleportTime = now
     local myChar = LocalPlayer.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
     local targetHRP = char:FindFirstChild("HumanoidRootPart")
@@ -1190,14 +1187,6 @@ local function teleportToTarget()
     else
         myHRP.CFrame = CFrame.new(targetHRP.Position + Vector3.new(2, 0, 0))
         sendNotification("Teleport", "Teleported above alive target: " .. target.Name, 2)
-        local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-        if backpack then
-            local tool = backpack:FindFirstChildWhichIsA("Tool")
-            if tool then
-                tool.Parent = myChar
-            end
-        end
-        getgenv().YeuTuyen.Status = true
     end
 end
 
