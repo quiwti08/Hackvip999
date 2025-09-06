@@ -865,6 +865,15 @@ RunService.Heartbeat:Connect(function()
                     getgenv().Settings.Horizontal.PredictionVelocity = 0.9
                 end
             end
+            if getgenv().Settings.Part.CheckIfJumped == true then
+                if AimlockTarget and AimlockTarget.Character then
+                    if AimlockTarget.Character.Humanoid.FloorMaterial == Enum.Material.Air then
+                        getgenv().Settings.Part.AimPart = getgenv().Settings.Part.CheckIfJumpedAimPart
+                    else
+                        getgenv().Settings.Part.AimPart = OldAimPart
+                    end
+                end
+            end
             if AimlockTarget and AimlockTarget.Character and
                 AimlockTarget.Character:FindFirstChild(getgenv().Settings.Part.AimPart) then
                 if getgenv().Settings.Main.FirstPerson == true then
