@@ -12,6 +12,9 @@ local AIM_FOV = 100
 local AIM_SMOOTHNESS = 0.9
 local TriggerBotEnabled = true
 local fovRadius = 15
+local movementEnabled = false
+local jumpPower = 50
+local walkSpeed = 16
 
 -- Initialize Venyx UI
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
@@ -837,6 +840,54 @@ aimSection:addKeybind("Set Target Key", targetKey, function()
 end, function(newKey)
     targetKey = newKey
     sendNotification("Set Target Key", "Set to " .. newKey.Name, 2)
+end)
+
+aimSection:addToggle("Movement", false, function(value)
+    movementEnabled = value
+    sendNotification("Movement", value and "ON" or "OFF", 2)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character.Humanoid.UseJumpPower = true
+    end
+end)
+
+-- Keybind
+aimSection:addKeybind("Toggle Movement Key", Enum.KeyCode.Z, function()
+    movementEnabled = not movementEnabled
+    sendNotification("Movement", movementEnabled and "ON" or "OFF", 2)
+end, function(newKey)
+    movementKey = newKey
+    sendNotification("Movement Key", "Set to " .. newKey.Name, 2)
+end)
+
+-- Sliders
+aimSection:addSlider("WalkSpeed", 30, 16, 300, function(value)
+    walkSpeed = value
+    sendNotification("WalkSpeed", "Set to " .. value, 2)
+end)
+
+aimSection:addSlider("JumpPower", 60, 50, 300, function(value)
+    jumpPower = value
+    sendNotification("JumpPower", "Set to " .. value, 2)
+end)
+
+RunService.Heartbeat:Connect(function(dt)
+    if movementEnabled then 
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hrp and hum then
+            -- bước di chuyển
+            local stepY = jumpPower * dt
+            local stepXZ = walkSpeed * dt
+            
+            local moveDir = hum.MoveDirection
+            if moveDir.Magnitude > 0 then
+                hrp.CFrame = hrp.CFrame + (moveDir * stepXZ) + Vector3.new(0, stepY, 0)
+            else
+                hrp.CFrame = hrp.CFrame + Vector3.new(0, stepY, 0)
+            end
+        end
+    end
 end)
 
 -- GUI Toggle Keybind
