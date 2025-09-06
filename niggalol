@@ -40,7 +40,7 @@ local HitboxTransparency = 0.9
 local HitboxSize = 15
 local RainbowHitEffectEnabled = true
 local AscendEnabled = false
-local AscendSpeed = 6 -- Giá trị mặc định
+local AscendSpeed = 70 -- Giá trị mặc định
 local AscendKey = Enum.KeyCode.V 
 local AntiLockEnabled = false
 local AntiLockType = "Behind" -- Chế độ mặc định
@@ -56,12 +56,10 @@ local AntiLockModes = {
 }
 local TracerColor = Color3.fromRGB(255, 0, 0)
 local lastHealth = {}
-local ESPEnabled = false
 local SkeletonEnabled = false
-local NameEnabled = false
-local ESPColor = Color3.fromRGB(255, 179, 186)
 local SkeletonColor = Color3.fromRGB(255, 255, 255)
-local NameColor = Color3.fromRGB(255, 179, 186)
+local ESPEnabled = false
+local ESPColor = Color3.fromRGB(255, 255, 255) -- Default white
 local FriendColor = Color3.fromRGB(0, 0, 255)
 local EnemyColor = Color3.fromRGB(255, 0, 0)
 local UseTeamColor = true
@@ -105,7 +103,7 @@ local CsyncOrbitEnabled = false
 local CsyncRadius = 10
 local CsyncHeight = 5
 local CsyncSpeed = 5
-local TriggerBotEnabled = false
+local TriggerBotEnabled = true
 local fovRadius = 15
 local fakePosEnabled = false
 local savedCFrame = nil
@@ -754,7 +752,7 @@ end, function(key)
     setTargetKey = key
 end)
 
-combatSection:addToggle("Triggerbot", false, function(value)
+combatSection:addToggle("Triggerbot", true, function(value)
     TriggerBotEnabled = value
     sendNotification("Triggerbot", value and "ON" or "OFF")
 end)
@@ -998,6 +996,7 @@ visualSection:addToggle("ESP Target Only Mode", false, function(value)
     sendNotification("ESP Target Only Mode", value and "ON" or "OFF")
 end)
 
+-- === Hàm tạo màu cầu vồng động ===
 local function getRainbowColor()
     local timeVal = tick() * 2
     local r = math.floor((math.sin(timeVal) * 0.5 + 0.5) * 255)
@@ -1006,10 +1005,12 @@ local function getRainbowColor()
     return Color3.fromRGB(r, g, b)
 end
 
+-- === Tạo hiệu ứng khi trúng đòn ===
 local function createHitEffect(targetCharacter)
     local hrp = targetCharacter:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
-    
+
+    -- Hiệu ứng chính
     local effect = Instance.new("Part")
     effect.Shape = Enum.PartType.Ball
     effect.Anchored = true
@@ -1018,10 +1019,12 @@ local function createHitEffect(targetCharacter)
     effect.Color = getRainbowColor()
     effect.Size = Vector3.new(4, 4, 4)
     effect.Transparency = 0
+    effect.CFrame = hrp.CFrame
     effect.Parent = hrp
-    effect.Position = hrp.Position
-    
+
+    -- Viền ngoài
     local outline = Instance.new("Part")
+    outline.Name = "Outline"
     outline.Shape = Enum.PartType.Ball
     outline.Anchored = true
     outline.CanCollide = false
@@ -1029,31 +1032,48 @@ local function createHitEffect(targetCharacter)
     outline.Color = getRainbowColor()
     outline.Size = effect.Size * 1.2
     outline.Transparency = 0.3
+    outline.CFrame = effect.CFrame
     outline.Parent = effect
-    outline.Position = effect.Position
-    
+
     return effect
 end
 
+-- Biến hiệu ứng toàn cục
 local hitEffect = nil
 
+-- === Play hiệu ứng ===
 local function playHitEffect(targetCharacter)
     if hitEffect and hitEffect.Parent then
         hitEffect:Destroy()
     end
-    
+
     hitEffect = createHitEffect(targetCharacter)
     if not hitEffect then return end
-    
+
+    local outline = hitEffect:FindFirstChild("Outline")
     local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local growTween = TweenService:Create(hitEffect, tweenInfo, {Size = Vector3.new(8, 8, 8), Transparency = 1})
-    local outlineTween = TweenService:Create(hitEffect:FindFirstChild("Part"), tweenInfo, {Size = Vector3.new(10, 10, 10), Transparency = 1})
-    local colorTween = TweenService:Create(hitEffect, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {Color = getRainbowColor():Lerp(Color3.new(1, 1, 1), 0.5)})
-    
+
+    local growTween = TweenService:Create(hitEffect, tweenInfo, {
+        Size = Vector3.new(8, 8, 8),
+        Transparency = 1
+    })
+
+    local outlineTween
+    if outline then
+        outlineTween = TweenService:Create(outline, tweenInfo, {
+            Size = Vector3.new(10, 10, 10),
+            Transparency = 1
+        })
+    end
+
+    local colorTween = TweenService:Create(hitEffect, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {
+        Color = getRainbowColor():Lerp(Color3.new(1, 1, 1), 0.5)
+    })
+
     growTween:Play()
-    outlineTween:Play()
+    if outlineTween then outlineTween:Play() end
     colorTween:Play()
-    
+
     growTween.Completed:Connect(function()
         if hitEffect and hitEffect.Parent then
             hitEffect:Destroy()
@@ -1062,14 +1082,17 @@ local function playHitEffect(targetCharacter)
     end)
 end
 
+-- === Theo dõi và setup cho người chơi ===
 local function setupHitEffect(plr)
     local function connectHealthChanged(char)
         if not char then return end
+
         local hum = char:WaitForChild("Humanoid", 5)
         if not hum then return end
+
         local lastHealthValue = hum.Health
         hum.HealthChanged:Connect(function(current)
-            if RainbowHitEffectEnabled and current < lastHealthValue then
+            if RainbowHitEffectEnabled and current < lastHealthValue and table.find(AimlockTargets, plr) then
                 playHitEffect(char)
             end
             lastHealthValue = current
@@ -1083,13 +1106,12 @@ local function setupHitEffect(plr)
     plr.CharacterAdded:Connect(connectHealthChanged)
 end
 
+-- Gán cho tất cả player
 for _, plr in ipairs(Players:GetPlayers()) do
     setupHitEffect(plr)
-    plr.CharacterAdded:Connect(function(char)
-        char:WaitForChild("Humanoid")
-        setupHitEffect(plr)
-    end)
 end
+
+-- Khi player mới vào game
 Players.PlayerAdded:Connect(setupHitEffect)
 
 local espGui = Instance.new("ScreenGui")
@@ -1100,7 +1122,6 @@ local function CreateESP(player)
     if ESPs[player] or player == LocalPlayer then return end
     local label = Instance.new("TextLabel")
     label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 179, 186)
     label.TextSize = 16
     label.Font = Enum.Font.GothamBold
     label.Text = player.DisplayName
@@ -1116,8 +1137,6 @@ local function CreateESP(player)
     highlight.Enabled = false
     highlight.FillTransparency = 0.6
     highlight.OutlineTransparency = 0.2
-    highlight.FillColor = Color3.fromRGB(255, 179, 186)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
     highlight.Adornee = player.Character
     highlight.Parent = espGui
 
@@ -1135,6 +1154,13 @@ local function RemoveESP(player)
 end
 
 local function UpdateESP()
+    -- Remove all invalid ESP first
+    for player, esp in pairs(ESPs) do
+        if not Players:FindFirstChild(player.Name) or not player.Character then
+            RemoveESP(player)
+        end
+    end
+
     if not ESPEnabled then
         for _, v in pairs(ESPs) do
             v.label.Visible = false
@@ -1142,12 +1168,15 @@ local function UpdateESP()
         end
         return
     end
+
     for _, player in ipairs(Players:GetPlayers()) do
-        if espTargetOnly and not table.find(AimlockTargets, player) then
-            RemoveESP(player)
-            continue
-        end
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local isTarget = table.find(AimlockTargets, player)
+            if espTargetOnly and not isTarget then
+                RemoveESP(player)
+                continue
+            end
+
             local head = player.Character:FindFirstChild("Head")
             if head then
                 CreateESP(player)
@@ -1158,6 +1187,19 @@ local function UpdateESP()
                         esp.label.Visible = true
                         esp.label.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y - 20)
                         esp.highlight.Enabled = true
+
+                        -- Tùy chỉnh màu theo yêu cầu
+                        local espColor
+                        if not isAlive(player) then
+                            espColor = themes.Glow  -- Hồng cho K.O/Grabbed
+                        elseif isTarget then
+                            espColor = Color3.fromRGB(50, 50, 50)  -- Xám cho target
+                        else
+                            espColor = Color3.fromRGB(255, 255, 255)  -- Trắng cho còn lại
+                        end
+                        esp.highlight.FillColor = espColor
+                        esp.highlight.OutlineColor = espColor:Lerp(Color3.new(1,1,1), 0.5)
+                        esp.label.TextColor3 = espColor
                     else
                         esp.label.Visible = false
                         esp.highlight.Enabled = false
@@ -1171,6 +1213,8 @@ local function UpdateESP()
         end
     end
 end
+
+RunService.RenderStepped:Connect(UpdateESP)
 
 local function drawSkeleton(plr, color)
     if espTargetOnly and not table.find(AimlockTargets, plr) then return end
@@ -1232,43 +1276,6 @@ RunService.RenderStepped:Connect(function()
                 color = FriendColor
             else
                 color = EnemyColor
-            end
-
-            if ESPEnabled or NameEnabled or SkeletonEnabled then
-                if v.Character and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
-                    local head = v.Character:FindFirstChild("Head")
-                    if head then
-                        CreateESP(v)
-                        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                        local esp = ESPs[v]
-                        if esp then
-                            if onScreen then
-                                if ESPEnabled then
-                                    esp.highlight.Enabled = true
-                                    esp.highlight.FillColor = color
-                                    esp.highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                                    esp.highlight.Adornee = v.Character
-                                else
-                                    esp.highlight.Enabled = false
-                                end
-                                if NameEnabled then
-                                    esp.label.Visible = true
-                                    esp.label.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y - 20)
-                                    esp.label.TextColor3 = NameColor
-                                else
-                                    esp.label.Visible = false
-                                end
-                            else
-                                esp.label.Visible = false
-                                esp.highlight.Enabled = false
-                            end
-                        end
-                    else
-                        RemoveESP(v)
-                    end
-                else
-                    RemoveESP(v)
-                end
             end
 
             if SkeletonEnabled then
@@ -1337,34 +1344,9 @@ Players.PlayerRemoving:Connect(function(plr)
     end
 end)
 
-visualSection:addToggle("ESP Highlight", false, function(value)
+visualSection:addToggle("ESP", false, function(value)
     ESPEnabled = value
-    sendNotification("ESP Highlight", value and "ON" or "OFF")
-    if not value then
-        for _, v in ipairs(Players:GetPlayers()) do
-            if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("GetReal") then
-                v.Character.GetReal:Destroy()
-            end
-        end
-    end
-end)
-visualSection:addColorPicker("ESP Color", ESPColor, function(color)
-    ESPColor = color
-end)
-
-visualSection:addToggle("ESP Name", false, function(value)
-    NameEnabled = value
-    sendNotification("ESP Name", value and "ON" or "OFF")
-    if not value then
-        for _, v in ipairs(Players:GetPlayers()) do
-            if v ~= LocalPlayer and v.Character and v.Character.Head:FindFirstChild("ESPName") then
-                v.Character.Head.ESPName:Destroy()
-            end
-        end
-    end
-end)
-visualSection:addColorPicker("Name Color", NameColor, function(color)
-    NameColor = color
+    sendNotification("ESP", value and "ON" or "OFF")
 end)
 
 visualSection:addToggle("Skeleton ESP", false, function(value)
@@ -1438,7 +1420,7 @@ end
 local function createAw()
     local character = game.Players.LocalPlayer.Character
     if not character then return end
-    awHrp = character:FindFirstChild("UpperTorso")
+    awHrp = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
     if not awHrp then return end
 
     destroyAw()
@@ -2527,7 +2509,7 @@ end, function(key)
 end)
 
 -- Thêm Slider cho tốc độ Boost Jump (1-200)
-movementSection:addSlider("Boost Jump Speed", 6, 1, 200, function(value)
+movementSection:addSlider("Boost Jump Speed", 70, 1, 200, function(value)
     AscendSpeed = value
     sendNotification("Boost Jump Speed", "Set to " .. value)
 end)
