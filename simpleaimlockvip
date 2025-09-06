@@ -16,12 +16,12 @@ local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxcia
 local venyx = library.new("nigga.lol | vhuy-anhchangm52", 5013109572)
 
 local themes = {
-    Background = Color3.fromRGB(24, 24, 24),
-    Glow = Color3.fromRGB(255, 179, 186),
-    Accent = Color3.fromRGB(10, 10, 10),
-    LightContrast = Color3.fromRGB(20, 20, 20),
-    DarkContrast = Color3.fromRGB(14, 14, 14),
-    TextColor = Color3.fromRGB(255, 179, 186)
+	Background = Color3.fromRGB(24, 24, 24), 
+	Glow = Color3.fromRGB(255, 179, 186), 
+	Accent = Color3.fromRGB(10, 10, 10), 
+	LightContrast = Color3.fromRGB(20, 20, 20), 
+	DarkContrast = Color3.fromRGB(14, 14, 14),  
+	TextColor = Color3.fromRGB(255, 179, 186)
 }
 
 -- Initialize Notifications tables
