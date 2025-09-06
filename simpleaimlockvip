@@ -4,6 +4,7 @@ local StarterGui = game:GetService("StarterGui")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
@@ -19,15 +20,6 @@ local walkSpeed = 16
 -- Initialize Venyx UI
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
 local venyx = library.new("nigga.lol | vhuy-anhchangm52", 5013109572)
-
-local themes = {
-	Background = Color3.fromRGB(24, 24, 24), 
-	Glow = Color3.fromRGB(255, 179, 186), 
-	Accent = Color3.fromRGB(10, 10, 10), 
-	LightContrast = Color3.fromRGB(20, 20, 20), 
-	DarkContrast = Color3.fromRGB(14, 14, 14),  
-	TextColor = Color3.fromRGB(255, 179, 186)
-}
 
 -- Initialize Notifications tables
 local Notifications = {}
@@ -528,6 +520,48 @@ RunService.RenderStepped:Connect(function()
     elseif fovCircle.Visible then
         fovCircle.Color = Color3.fromRGB(255, 255, 255)
     end
+
+    if TriggerBotEnabled then
+        local part = GetBestTargetPart()
+        if part then
+            task.spawn(function()
+                local cap = part
+                task.wait(0)
+                if distToCursor(cap) <= fovRadius then
+                    local origin = Camera.CFrame.Position
+                    local direction = (cap.Position - origin)
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+
+                    local result = workspace:Raycast(origin, direction, rayParams)
+
+                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
+                        if UIS.TouchEnabled and not UIS.MouseEnabled then
+                            local char = LocalPlayer.Character
+                            local fired = false
+                            if char then
+                                for _, tool in ipairs(char:GetChildren()) do
+                                    if tool:IsA("Tool") then
+                                        pcall(function()
+                                            tool:Activate()
+                                        end)
+                                        fired = true
+                                        break
+                                    end
+                                end
+                            end
+                            if not fired then
+                                mouse1click()  -- fallback
+                            end
+                        else
+                            mouse1click()
+                        end
+                    end
+                end
+            end)
+        end
+    end
 end)
 
 -- GetBestTarget for Aimlock
@@ -763,50 +797,6 @@ end)
 aimSection:addToggle("Triggerbot", true, function(value)
     TriggerBotEnabled = value
     sendNotification("Triggerbot", value and "ON" or "OFF")
-end)
-
-RunService.RenderStepped:Connect(function()
-    if TriggerBotEnabled then
-        local part = GetBestTargetPart()
-        if part then
-            task.spawn(function()
-                local cap = part
-                task.wait(0)
-                if TriggerBotEnabled and distToCursor(cap) <= fovRadius then
-                    local origin = Camera.CFrame.Position
-                    local direction = (cap.Position - origin)
-                    local rayParams = RaycastParams.new()
-                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
-
-                    local result = workspace:Raycast(origin, direction, rayParams)
-
-                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
-                        if UIS.TouchEnabled and not UIS.MouseEnabled then
-                            local char = LocalPlayer.Character
-                            local fired = false
-                            if char then
-                                for _, tool in ipairs(char:GetChildren()) do
-                                    if tool:IsA("Tool") then
-                                        pcall(function()
-                                            tool:Activate()
-                                        end)
-                                        fired = true
-                                        break
-                                    end
-                                end
-                            end
-                            if not fired then
-                                mouse1click()  -- fallback
-                            end
-                        else
-                            mouse1click()
-                        end
-                    end
-                end
-            end)
-        end
-    end
 end)
 
 -- ESP Toggle
