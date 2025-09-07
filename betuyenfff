@@ -566,26 +566,45 @@ local function GetBestTargetPart()
     return bestPart
 end
 
--- Kiểm tra sự tồn tại của các RemoteEvent an toàn
-local GunshotRemote, BlasterShootRemote
-
-local success, _ = pcall(function()
-    GunshotRemote = ReplicatedStorage.Remotes.PlayerReQuest:FindFirstChild("Gunshot")
-end)
-
-success, _ = pcall(function()
-    BlasterShootRemote = ReplicatedStorage.Blaster.Remotes:FindFirstChild("Shoot")
-end)
-
 -- Hàm bắn
 local function shoot()
-    if GunshotRemote then
-        GunshotRemote:FireServer()  -- Gọi RemoteGunshot nếu tồn tại
-    elseif BlasterShootRemote then
-        BlasterShootRemote:FireServer()  -- Gọi RemoteShoot nếu tồn tại
-    else
-        click()  -- Nếu không có Remote nào, thực hiện click
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+
+    if playerGui then
+        -- Kiểm tra MobileControls và Fire button
+        local mobileControls = playerGui:FindFirstChild("MobileControls")
+        if mobileControls then
+            local touchControlFrame = mobileControls:FindFirstChild("TouchControlFrame")
+            if touchControlFrame then
+                local frame = touchControlFrame:FindFirstChild("Frame")
+                if frame then
+                    local fireButton = frame:FindFirstChild("Fire")
+                    if fireButton then
+                        -- Nếu có nút Fire thì bấm vào đó
+                        fireButton:Click()
+                        return
+                    end
+                end
+            end
+        end
+
+        -- Kiểm tra BlasterGui và ShootButton
+        local blasterGui = playerGui:FindFirstChild("BlasterGui")
+        if blasterGui then
+            local buttons = blasterGui:FindFirstChild("Buttons")
+            if buttons then
+                local shootButton = buttons:FindFirstChild("ShootButton")
+                if shootButton then
+                    -- Nếu có nút ShootButton thì bấm vào đó
+                    shootButton:Click()
+                    return
+                end
+            end
+        end
     end
+
+    -- Nếu không có nút nào thì thực hiện click mặc định
+    click()
 end
 
 -- Rainbow effect
