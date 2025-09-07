@@ -914,14 +914,14 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-combatSection:addToggle("Hitbox", false, function(value)
+aimSection:addToggle("Hitbox", false, function(value)
     HitboxEnabled = value
     sendNotification("Hitbox", value and "ON" or "OFF")
 end)
-combatSection:addSlider("Hitbox Transparency", 0.9, 0, 1, function(value)
+aimSection:addSlider("Hitbox Transparency", 0.9, 0, 1, function(value)
     HitboxTransparency = value
 end)
-combatSection:addSlider("Hitbox Size", 15, 5, 50, function(value)
+aimSection:addSlider("Hitbox Size", 15, 5, 50, function(value)
     HitboxSize = value
 end)
 
