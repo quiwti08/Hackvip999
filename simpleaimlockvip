@@ -52,7 +52,7 @@ getgenv().YeuTuyen = {
     ShakePower = 1,
     PredictMovement = false,
     PredictionVelocity = 0.17221418,
-    UnderGround = false,
+    UnderGround = true,
     DetectDesync = true,
     Detection = 75,
 }
@@ -116,7 +116,7 @@ local function sendNotification(title, text, duration)
     gradient.Rotation = 90
     gradient.Parent = frame
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255, 179, 186)
+    stroke.Color = Color3.fromRGB(255, 255, 255)
     stroke.Thickness = 2
     stroke.Transparency = 0.5
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -208,7 +208,7 @@ local function sendTargetNotification(plr)
     gradient.Rotation = 90
     gradient.Parent = frame
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255, 179, 186)
+    stroke.Color = Color3.fromRGB(255, 255, 255)
     stroke.Thickness = 2
     stroke.Transparency = 0.5
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -854,6 +854,10 @@ end)
 -- Global variable to store hit sound settings
 getgenv().YeuTuyen.HitSoundEnabled = true
 getgenv().YeuTuyen.HitSoundSelect = "Neverlose"
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GunshotRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("PlayerReQuest"):WaitForChild("Gunshot")
+local BlasterShootRemote = ReplicatedStorage:WaitForChild("Blaster"):WaitForChild("Remotes"):WaitForChild("Shoot")
 
 RunService.RenderStepped:Connect(function()
     if TriggerBotEnabled then
