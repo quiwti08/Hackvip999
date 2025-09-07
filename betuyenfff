@@ -39,7 +39,7 @@ local AIM_RADIUS = 300
 local AIM_FOV = 100
 local AIM_SMOOTHNESS = 0.9
 local TriggerBotEnabled = true
-local fovRadius = 20
+local fovRadius = 15
 local movementEnabled = false
 local jumpPower = 50
 local walkSpeed = 16
@@ -57,7 +57,7 @@ getgenv().YeuTuyen = {
     Status = true,
     Hitpart = "Head",
     SelectedTargets = {},
-    ESPEnabled = true,
+    ESPEnabled = false,
     Mode = "Aimbot",
     CheckIfJumped = true,
     CheckIfJumpedAimPart = "HumanoidRootPart",
@@ -73,7 +73,7 @@ getgenv().YeuTuyen = {
 
 -- FOV Circle
 local fovCircle = Drawing.new("Circle")
-fovCircle.Visible = false
+fovCircle.Visible = true
 fovCircle.Radius = AIM_FOV
 fovCircle.Thickness = 2
 fovCircle.NumSides = 100
