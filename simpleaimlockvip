@@ -16,6 +16,7 @@ local fovRadius = 20
 local movementEnabled = false
 local jumpPower = 50
 local walkSpeed = 16
+local teamCheck = false
 
 -- Initialize Venyx UI
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
@@ -36,7 +37,7 @@ local TargetNotifications = {}
 
 -- Global settings
 getgenv().YeuTuyen = {
-    Status = true,
+    Status = false,
     Hitpart = "Head",
     SelectedTargets = {},
     ESPEnabled = true,
@@ -799,8 +800,9 @@ aimSection:addDropdown("Aim Part", {"Head", "UpperTorso", "HumanoidRootPart", "T
     sendNotification("Aim Part", "Set to " .. value, 2)
 end)
 
-aimSection:addToggle("RightClickAim", false, function(value)
-    toggleRightClickAim(value)
+aimSection:addToggle("TeamCheck", false, function(value)
+    teamCheck = value
+    sendNotification("TeamCheck", value and "Enabled" or "Disabled", 2)
 end)
 
 aimSection:addToggle("Auto Prediction", false, function(value)
@@ -1001,17 +1003,12 @@ end)
 -- Select default page
 venyx:SelectPage(venyx.pages[1], true)
 
--- Aimlock activation
--- Biến để theo dõi trạng thái RightClickAim
-local rightClickAimEnabled = false
-local inputBeganConnection = nil
-local inputEndedConnection = nil
+-- Biến để lưu kết nối
+local inputBeganConnection
+local inputEndedConnection
 
--- Hàm để bật/tắt sự kiện Aimlock
 local function toggleRightClickAim(value)
-    rightClickAimEnabled = value
-    
-    -- Ngắt kết nối sự kiện nếu đang bật
+    -- Hủy kết nối cũ nếu có
     if inputBeganConnection then
         inputBeganConnection:Disconnect()
         inputBeganConnection = nil
@@ -1020,21 +1017,24 @@ local function toggleRightClickAim(value)
         inputEndedConnection:Disconnect()
         inputEndedConnection = nil
     end
-    
-    -- Kích hoạt sự kiện nếu toggle bật
+
     if value then
+        -- Khi bật RightClickAim → giữ chuột phải để bật aim
         inputBeganConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if gameProcessed then return end
             if input.UserInputType == Enum.UserInputType.MouseButton2 and getgenv().YeuTuyen.Mode == "Aimlock" then
                 getgenv().YeuTuyen.Status = true
             end
         end)
-        
+
         inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton2 then
                 getgenv().YeuTuyen.Status = false
             end
         end)
+    else
+        -- Khi tắt RightClickAim → luôn bật aim
+        getgenv().YeuTuyen.Status = true
     end
 end
 
