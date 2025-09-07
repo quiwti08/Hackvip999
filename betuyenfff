@@ -541,26 +541,6 @@ local function click()
     end
 end
 
--- Hàm bắn
-local function shoot()
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if playerGui then
-        -- Kiểm tra nếu có MobileControls
-        if playerGui:FindFirstChild("MobileControls") then
-            -- Gọi GunshotRemote nếu có MobileControls
-            GunshotRemote:FireServer()
-        elseif playerGui:FindFirstChild("BlasterTouchGui") then
-            -- Gọi BlasterShootRemote nếu có BlasterTouchGui
-            BlasterShootRemote:FireServer()
-        else
-            -- Ngược lại thì dùng click
-            click()
-        end
-    else
-        click()  -- Nếu không có PlayerGui, vẫn gọi click mặc định
-    end
-end
-
 local function distToCursor(part)
     local v, vis = Camera:WorldToViewportPoint(part.Position)
     if not vis then return math.huge end
@@ -586,6 +566,26 @@ local function GetBestTargetPart()
         end
     end
     return bestPart
+end
+
+-- Hàm bắn
+local function shoot()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        -- Kiểm tra nếu có MobileControls
+        if playerGui:FindFirstChild("MobileControls") then
+            -- Gọi GunshotRemote nếu có MobileControls
+            GunshotRemote:FireServer()
+        elseif playerGui:FindFirstChild("BlasterTouchGui") then
+            -- Gọi BlasterShootRemote nếu có BlasterTouchGui
+            BlasterShootRemote:FireServer()
+        else
+            -- Ngược lại thì dùng click
+            click()
+        end
+    else
+        click()  -- Nếu không có PlayerGui, vẫn gọi click mặc định
+    end
 end
 
 -- Rainbow effect
@@ -645,14 +645,13 @@ end
 getgenv().YeuTuyen.HitSoundEnabled = true
 getgenv().YeuTuyen.HitSoundSelect = "Neverlose"
 
--- Trong Triggerbot loop, thay vì gọi click() thì gọi shoot()
 RunService.RenderStepped:Connect(function()
     if TriggerBotEnabled then
         local part = GetBestTargetPart()
         if part then
             task.spawn(function()
                 local cap = part
-                task.wait()
+                task.wait(0)
                 if distToCursor(cap) <= fovRadius then
                     local origin = Camera.CFrame.Position
                     local direction = (cap.Position - origin)
@@ -661,7 +660,7 @@ RunService.RenderStepped:Connect(function()
                     rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
                     local result = workspace:Raycast(origin, direction, rayParams)
                     if result and result.Instance:IsDescendantOf(cap.Parent) then
-                        shoot() -- thay cho click()
+                        shoot()
                     end
                 end
             end)
