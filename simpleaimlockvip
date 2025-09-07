@@ -541,6 +541,13 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+local function checkTeam(player)
+    if teamCheck and player.Team == LocalPlayer.Team then
+        return true
+    end
+    return false
+end
+
 -- GetBestTarget for Aimlock
 local function GetBestTarget()
     if not getgenv().YeuTuyen or not getgenv().YeuTuyen.SelectedTargets then return end
@@ -548,6 +555,11 @@ local function GetBestTarget()
     local closestDist = math.huge
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] then
+            -- bỏ teammate nếu TeamCheck bật
+            if checkTeam(player) then
+                continue
+            end
+
             local char = player.Character
             local humanoid = char and char:FindFirstChildOfClass("Humanoid")
             local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
@@ -588,6 +600,11 @@ local function GetAimbotTarget()
     local closestScreenDist = AIM_FOV
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
+            -- bỏ teammate nếu TeamCheck bật
+            if checkTeam(player) then
+                continue
+            end
+
             local char = player.Character
             local humanoid = char and char:FindFirstChildOfClass("Humanoid")
             local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
@@ -761,7 +778,6 @@ end
 local aimPage = venyx:addPage("Aimbot", 5012544693)
 local aimSection = aimPage:addSection("Aimbot Settings")
 
--- Aim Mode Toggle
 aimSection:addButton("Switch Aim Mode", function()
     -- Đảo trạng thái giữa 2 mode
     if getgenv().YeuTuyen.Mode == "Aimbot" then
@@ -771,8 +787,11 @@ aimSection:addButton("Switch Aim Mode", function()
         getgenv().YeuTuyen.Mode = "Aimbot"
         fovCircle.Visible = true
     end
-    
-    sendNotification("Mode Switch", "Switched to " .. getgenv().YeuTuyen.Mode, 2)
+
+    -- Xoá hết danh sách target khi đổi mode
+    getgenv().YeuTuyen.SelectedTargets = {}
+
+    sendNotification("Mode Switch", "Switched to " .. getgenv().YeuTuyen.Mode .. " (cleared targets)", 2)
 end)
 
 aimSection:addDropdown("Aim Part", {"Head", "UpperTorso", "HumanoidRootPart", "Torso"}, function(value)
