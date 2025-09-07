@@ -16,6 +16,7 @@ local fovRadius = 20
 local movementEnabled = false
 local jumpPower = 50
 local walkSpeed = 16
+local teamCheck = false
 
 -- Initialize Venyx UI
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
@@ -36,7 +37,7 @@ local TargetNotifications = {}
 
 -- Global settings
 getgenv().YeuTuyen = {
-    Status = false,
+    Status = true,
     Hitpart = "Head",
     SelectedTargets = {},
     ESPEnabled = true,
@@ -541,13 +542,20 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+local function checkTeam(player)
+    if teamCheck and player.Team == LocalPlayer.Team then
+        return true  
+    end
+    return false  
+end
+
 -- GetBestTarget for Aimlock
 local function GetBestTarget()
     if not getgenv().YeuTuyen or not getgenv().YeuTuyen.SelectedTargets then return end
     local bestTarget, bestPart, bestHumanoid = nil, nil, nil
     local closestDist = math.huge
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] then
+        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] and not checkTeam(player) then
             local char = player.Character
             local humanoid = char and char:FindFirstChildOfClass("Humanoid")
             local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
@@ -588,7 +596,7 @@ local function GetBestTarget()
     local bestTarget, bestPart, bestHumanoid = nil, nil, nil
     local closestDist = math.huge
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] then
+        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] and not checkTeam(player) then
             local char = player.Character
             local humanoid = char and char:FindFirstChildOfClass("Humanoid")
             local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
@@ -787,6 +795,11 @@ aimSection:addToggle("Auto Prediction", false, function(value)
     sendNotification("Auto Prediction", value and "Enabled" or "Disabled", 2)
 end)
 
+aimSection:addToggle("TeamCheck", false, function(value)
+    teamCheck = value
+    sendNotification("TeamCheck", value and "Enabled" or "Disabled", 2)
+end)
+
 -- FOV Circle Toggle and Slider
 aimSection:addToggle("FOV Circle", fovCircle.Visible, function(value)
     fovCircle.Visible = value
@@ -979,41 +992,6 @@ end)
 
 -- Select default page
 venyx:SelectPage(venyx.pages[1], true)
-
--- Biến để lưu kết nối
-local inputBeganConnection
-local inputEndedConnection
-
-local function toggleRightClickAim(value)
-    -- Hủy kết nối cũ nếu có
-    if inputBeganConnection then
-        inputBeganConnection:Disconnect()
-        inputBeganConnection = nil
-    end
-    if inputEndedConnection then
-        inputEndedConnection:Disconnect()
-        inputEndedConnection = nil
-    end
-
-    if value then
-        -- Khi bật RightClickAim → giữ chuột phải để bật aim
-        inputBeganConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-            if gameProcessed then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton2 and getgenv().YeuTuyen.Mode == "Aimlock" then
-                getgenv().YeuTuyen.Status = true
-            end
-        end)
-
-        inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton2 then
-                getgenv().YeuTuyen.Status = false
-            end
-        end)
-    else
-        -- Khi tắt RightClickAim → luôn bật aim
-        getgenv().YeuTuyen.Status = true
-    end
-end
 
 -- Aim loop
 local lastTarget = nil
