@@ -543,7 +543,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 local function checkTeam(player)
-    if teamCheck and player.Team == LocalPlayer.Team then
+    if teamCheck and player.Team == plr.Team then
         return true
     end
     return false
@@ -788,11 +788,6 @@ end)
 aimSection:addDropdown("Aim Part", {"Head", "UpperTorso", "HumanoidRootPart", "Torso"}, function(value)
     getgenv().YeuTuyen.Hitpart = value
     sendNotification("Aim Part", "Set to " .. value, 2)
-end)
-
-aimSection:addToggle("TeamCheck", false, function(value)
-    teamCheck = value
-    sendNotification("TeamCheck", value and "Enabled" or "Disabled", 2)
 end)
 
 aimSection:addToggle("Auto Prediction", false, function(value)
