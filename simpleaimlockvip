@@ -555,12 +555,7 @@ local function GetBestTarget()
     local bestTarget, bestPart, bestHumanoid = nil, nil, nil
     local closestDist = math.huge
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] then
-            -- bỏ teammate nếu TeamCheck bật
-            if checkTeam(player) then
-                continue
-            end
-
+        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] and not checkTeam(player) then
             local char = player.Character
             local humanoid = char and char:FindFirstChildOfClass("Humanoid")
             local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
@@ -595,17 +590,13 @@ local function GetBestTarget()
     return bestTarget, bestPart, bestHumanoid
 end
 
--- GetAimbotTarget for Aimbot
-local function GetAimbotTarget()
+-- GetBestTarget for Aimlock
+local function GetBestTarget()
+    if not getgenv().YeuTuyen or not getgenv().YeuTuyen.SelectedTargets then return end
     local bestTarget, bestPart, bestHumanoid = nil, nil, nil
-    local closestScreenDist = AIM_FOV
+    local closestDist = math.huge
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            -- bỏ teammate nếu TeamCheck bật
-            if checkTeam(player) then
-                continue
-            end
-
+        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] and not checkTeam(player) then
             local char = player.Character
             local humanoid = char and char:FindFirstChildOfClass("Humanoid")
             local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
@@ -614,11 +605,10 @@ local function GetAimbotTarget()
                 local isKOd = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
                 local isGrabbed = char:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
                 if not isKOd and not isGrabbed then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen then
-                        local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                        if screenDist <= AIM_FOV and screenDist < closestScreenDist then
+                    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if myRoot then
+                        local dist = (myRoot.Position - part.Position).Magnitude
+                        if dist < closestDist then
                             local origin = Camera.CFrame.Position
                             local direction = (part.Position - origin).Unit * 500
                             local params = RaycastParams.new()
@@ -630,7 +620,7 @@ local function GetAimbotTarget()
                                 bestTarget = player
                                 bestPart = part
                                 bestHumanoid = humanoid
-                                closestScreenDist = screenDist
+                                closestDist = dist
                             end
                         end
                     end
