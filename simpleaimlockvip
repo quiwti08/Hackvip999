@@ -722,6 +722,28 @@ local function GetBestTargetPart()
     return bestPart
 end
 
+-- Kiểm tra sự tồn tại của các RemoteEvent an toàn
+local GunshotRemote, BlasterShootRemote
+
+local success, _ = pcall(function()
+    GunshotRemote = ReplicatedStorage.Remotes.PlayerReQuest:FindFirstChild("Gunshot")
+end)
+
+success, _ = pcall(function()
+    BlasterShootRemote = ReplicatedStorage.Blaster.Remotes:FindFirstChild("Shoot")
+end)
+
+-- Hàm bắn
+local function shoot()
+    if GunshotRemote then
+        GunshotRemote:FireServer()  -- Gọi RemoteGunshot nếu tồn tại
+    elseif BlasterShootRemote then
+        BlasterShootRemote:FireServer()  -- Gọi RemoteShoot nếu tồn tại
+    else
+        click()  -- Nếu không có Remote nào, thực hiện click
+    end
+end
+
 -- Rainbow effect
 local rainbowHue = 0
 task.spawn(function()
@@ -855,10 +877,6 @@ end)
 getgenv().YeuTuyen.HitSoundEnabled = true
 getgenv().YeuTuyen.HitSoundSelect = "Neverlose"
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local GunshotRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("PlayerReQuest"):WaitForChild("Gunshot")
-local BlasterShootRemote = ReplicatedStorage:WaitForChild("Blaster"):WaitForChild("Remotes"):WaitForChild("Shoot")
-
 RunService.RenderStepped:Connect(function()
     if TriggerBotEnabled then
         local part = GetBestTargetPart()
@@ -874,7 +892,7 @@ RunService.RenderStepped:Connect(function()
                     rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
                     local result = workspace:Raycast(origin, direction, rayParams)
                     if result and result.Instance:IsDescendantOf(cap.Parent) then
-                        click()
+                        shoot()
                     end
                 end
             end)
