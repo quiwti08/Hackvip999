@@ -566,7 +566,7 @@ local function GetBestTargetPart()
     return bestPart
 end
 
--- Kiểm tra sự tồn tại của RemoteEvent an toàn bằng pcall (không có cảnh báo)
+-- Kiểm tra sự tồn tại của các RemoteEvent an toàn
 local GunshotRemote, BlasterShootRemote
 
 local success, _ = pcall(function()
@@ -579,26 +579,12 @@ end)
 
 -- Hàm bắn
 local function shoot()
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if playerGui then
-        -- Kiểm tra MobileControls
-        if playerGui:FindFirstChild("MobileControls") then
-            -- Nếu có MobileControls thì gọi Remote Gunshot nếu tồn tại
-            if GunshotRemote then
-                GunshotRemote:FireServer()
-            end
-        elseif playerGui:FindFirstChild("BlasterTouchGui") then
-            -- Nếu có BlasterTouchGui thì gọi Remote Shoot nếu tồn tại
-            if BlasterShootRemote then
-                BlasterShootRemote:FireServer()
-            end
-        else
-            -- Nếu không có, thực hiện click mặc định
-            click()
-        end
+    if GunshotRemote then
+        GunshotRemote:FireServer()  -- Gọi RemoteGunshot nếu tồn tại
+    elseif BlasterShootRemote then
+        BlasterShootRemote:FireServer()  -- Gọi RemoteShoot nếu tồn tại
     else
-        -- Nếu không có PlayerGui, vẫn gọi click()
-        click()
+        click()  -- Nếu không có Remote nào, thực hiện click
     end
 end
 
