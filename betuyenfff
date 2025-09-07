@@ -624,16 +624,25 @@ getgenv().YeuTuyen.HitSoundSelect = "Neverlose"
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GunshotRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("PlayerReQuest"):WaitForChild("Gunshot")
+local BlasterShootRemote = ReplicatedStorage:WaitForChild("Blaster"):WaitForChild("Remotes"):WaitForChild("Shoot")
 
 -- Hàm bắn
 local function shoot()
     local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if playerGui and playerGui:FindFirstChild("MobileControls") then
-        -- Nếu có MobileControls thì dùng Remote
-        GunshotRemote:FireServer()
+    if playerGui then
+        -- Kiểm tra nếu có MobileControls
+        if playerGui:FindFirstChild("MobileControls") then
+            -- Gọi GunshotRemote nếu có MobileControls
+            GunshotRemote:FireServer()
+        elseif playerGui:FindFirstChild("BlasterTouchGui") then
+            -- Gọi BlasterShootRemote nếu có BlasterTouchGui
+            BlasterShootRemote:FireServer()
+        else
+            -- Ngược lại thì dùng click
+            click()
+        end
     else
-        -- Ngược lại thì click như bình thường
-        click()
+        click()  -- Nếu không có PlayerGui, vẫn gọi click mặc định
     end
 end
 
