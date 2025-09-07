@@ -1,7 +1,3 @@
--- WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
--- Converted from Venyx UI to Obsidian UI (LinoriaLib) by following the provided example.
--- Original script logic remains the same, only UI implementation changed.
--- Added resizable window, config management tab, and default UI toggle keybind to LeftAlt.
 
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
@@ -15,8 +11,8 @@ Library.ForceCheckbox = false -- Forces AddToggle to AddCheckbox
 Library.ShowToggleFrameInKeybinds = true -- Make toggle keybinds work inside the keybinds UI (aka adds a toggle to the UI). Good for mobile users (Default value = true)
 
 local Window = Library:CreateWindow({
-	Title = "nigga.lol | vhuy-anhchangm52",
-	Footer = "version: example",
+	Title = "nigga.lol",
+	Footer = "nigga.lol | vhuy-anhchangm52",
 	Icon = 5013109572,
 	NotifySide = "Right",
 	ShowCustomCursor = true,
@@ -62,7 +58,7 @@ getgenv().YeuTuyen = {
     Hitpart = "Head",
     SelectedTargets = {},
     ESPEnabled = true,
-    Mode = "Aimlock",
+    Mode = "Aimbot",
     CheckIfJumped = true,
     CheckIfJumpedAimPart = "HumanoidRootPart",
     AutoPingSets = true,
@@ -139,7 +135,7 @@ end
 -- Update ESP with tracer support
 local tracerEnabled = false
 local tracers = {}
-local rainbowMode = false
+local rainbowMode = true
 local function updateESP(plr)
     if plr == LocalPlayer then return end
     if not plr.Character or not plr.Character:FindFirstChild("Head") then return end
@@ -1205,7 +1201,7 @@ hitSoundGroup:AddToggle("Tracer", {
 -- Rainbow Mode Toggle
 hitSoundGroup:AddToggle("RainbowMode", {
     Text = "Rainbow Mode",
-    Default = false,
+    Default = true,
     Tooltip = "Enable rainbow mode",
     Callback = function(value)
         rainbowMode = value
@@ -1284,24 +1280,21 @@ hitSoundGroup:AddSlider("JumpPower", {
     end,
 })
 
--- UI Settings Tab (includes config management)
-local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
-
-MenuGroup:AddToggle("KeybindMenuOpen", {
+hitSoundGroup:AddToggle("KeybindMenuOpen", {
     Default = Library.KeybindFrame.Visible,
     Text = "Open Keybind Menu",
     Callback = function(value)
         Library.KeybindFrame.Visible = value
     end,
 })
-MenuGroup:AddToggle("ShowCustomCursor", {
+hitSoundGroup:AddToggle("ShowCustomCursor", {
     Text = "Custom Cursor",
     Default = true,
     Callback = function(Value)
         Library.ShowCustomCursor = Value
     end,
 })
-MenuGroup:AddDropdown("NotificationSide", {
+hitSoundGroup:AddDropdown("NotificationSide", {
     Values = { "Left", "Right" },
     Default = "Right",
     Text = "Notification Side",
@@ -1309,7 +1302,7 @@ MenuGroup:AddDropdown("NotificationSide", {
         Library:SetNotifySide(Value)
     end,
 })
-MenuGroup:AddDropdown("DPIDropdown", {
+hitSoundGroup:AddDropdown("DPIDropdown", {
     Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
     Default = "100%",
     Text = "DPI Scale",
@@ -1319,10 +1312,10 @@ MenuGroup:AddDropdown("DPIDropdown", {
         Library:SetDPIScale(DPI)
     end,
 })
-MenuGroup:AddDivider()
-MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { Default = "LeftAlt", NoUI = true, Text = "Menu keybind" })
+hitSoundGroup:AddDivider()
+hitSoundGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { Default = "LeftAlt", NoUI = true, Text = "Menu keybind" })
 
-MenuGroup:AddButton("Unload", function()
+hitSoundGroup:AddButton("Unload", function()
     Library:Unload()
 end)
 
