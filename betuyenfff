@@ -622,13 +622,29 @@ end
 getgenv().YeuTuyen.HitSoundEnabled = true
 getgenv().YeuTuyen.HitSoundSelect = "Neverlose"
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GunshotRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("PlayerReQuest"):WaitForChild("Gunshot")
+
+-- Hàm bắn
+local function shoot()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui and playerGui:FindFirstChild("MobileControls") then
+        -- Nếu có MobileControls thì dùng Remote
+        GunshotRemote:FireServer()
+    else
+        -- Ngược lại thì click như bình thường
+        click()
+    end
+end
+
+-- Trong Triggerbot loop, thay vì gọi click() thì gọi shoot()
 RunService.RenderStepped:Connect(function()
     if TriggerBotEnabled then
         local part = GetBestTargetPart()
         if part then
             task.spawn(function()
                 local cap = part
-                task.wait(0)
+                task.wait()
                 if distToCursor(cap) <= fovRadius then
                     local origin = Camera.CFrame.Position
                     local direction = (cap.Position - origin)
@@ -637,7 +653,7 @@ RunService.RenderStepped:Connect(function()
                     rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
                     local result = workspace:Raycast(origin, direction, rayParams)
                     if result and result.Instance:IsDescendantOf(cap.Parent) then
-                        click()
+                        shoot() -- thay cho click()
                     end
                 end
             end)
