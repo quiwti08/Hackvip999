@@ -555,7 +555,7 @@ local function GetBestTarget()
     local bestTarget, bestPart, bestHumanoid = nil, nil, nil
     local closestDist = math.huge
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] and not checkTeam(player) then
+        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] then
             local char = player.Character
             local humanoid = char and char:FindFirstChildOfClass("Humanoid")
             local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
@@ -596,7 +596,7 @@ local function GetBestTarget()
     local bestTarget, bestPart, bestHumanoid = nil, nil, nil
     local closestDist = math.huge
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] and not checkTeam(player) then
+        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] then
             local char = player.Character
             local humanoid = char and char:FindFirstChildOfClass("Humanoid")
             local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
@@ -669,13 +669,20 @@ end
 local function isAlive(plr)
     if not plr or not plr.Character then return false end
     local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return false end
+    if not hum or hum.Health <= 0 then
+        return false
+    end
+
+    -- Check riêng cho Da Hood (BodyEffects)
     local be = plr.Character:FindFirstChild("BodyEffects")
     if be then
         local ko = be:FindFirstChild("K.O")
         local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
-        if (ko and ko.Value) or (grabbed and grabbed.Value) then return false end
+        if (ko and ko.Value) or (grabbed and grabbed.Value) then
+            return false
+        end
     end
+
     return true
 end
 
