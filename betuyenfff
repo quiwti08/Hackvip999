@@ -1255,13 +1255,10 @@ hitSoundGroup:AddToggle("RainbowMode", {
     end,
 })
 
--- Set Target Keybind
-local targetKey = Enum.KeyCode.Q
-hitSoundGroup:AddKeyPicker("SetTargetKey", {
+hitSoundGroup:AddLabel("Set Target Key"):AddKeyPicker("SetTargetKey", {
     Default = "Q",
     SyncToggleState = false,
     Mode = "Toggle",
-    Text = "Set Target Key",
     NoUI = false,
     Callback = function(Value)
         SelectClosestToMouse()
@@ -1285,12 +1282,10 @@ hitSoundGroup:AddToggle("Movement", {
     end,
 })
 
--- Keybind for Toggle Movement
-hitSoundGroup:AddKeyPicker("ToggleMovementKey", {
+hitSoundGroup:AddLabel("Toggle Movement Key"):AddKeyPicker("ToggleMovementKey", {
     Default = "Z",
     SyncToggleState = false,
     Mode = "Toggle",
-    Text = "Toggle Movement Key",
     NoUI = false,
     Callback = function(Value)
         movementEnabled = not movementEnabled
