@@ -17,6 +17,9 @@ local movementEnabled = false
 local jumpPower = 50
 local walkSpeed = 16
 local teamCheck = false
+local HitboxEnabled = false
+local HitboxTransparency = 0.9
+local HitboxSize = 15
 
 -- Initialize Venyx UI
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
@@ -410,6 +413,9 @@ local function TrackHealth(plr)
     hum.HealthChanged:Connect(function(newHealth)
         if newHealth < lastHealth then
             RainbowHitEffect(char)
+            if getgenv().YeuTuyen.HitSoundEnabled then
+                playHitSound()
+            end
         end
         lastHealth = newHealth
     end)
@@ -882,7 +888,7 @@ aimSection:addDropdown("HitSoundSelect", {"RIFK7", "Bubble", "Minecraft", "Cod",
 end)
 
 -- Global variable to store hit sound settings
-getgenv().YeuTuyen.HitSoundEnabled = false
+getgenv().YeuTuyen.HitSoundEnabled = true
 getgenv().YeuTuyen.HitSoundSelect = "Neverlose"
 
 RunService.RenderStepped:Connect(function()
@@ -904,6 +910,45 @@ RunService.RenderStepped:Connect(function()
                     end
                 end
             end)
+        end
+    end
+end)
+
+combatSection:addToggle("Hitbox", false, function(value)
+    HitboxEnabled = value
+    sendNotification("Hitbox", value and "ON" or "OFF")
+end)
+combatSection:addSlider("Hitbox Transparency", 0.9, 0, 1, function(value)
+    HitboxTransparency = value
+end)
+combatSection:addSlider("Hitbox Size", 15, 5, 50, function(value)
+    HitboxSize = value
+end)
+
+RunService.RenderStepped:Connect(function()
+    if HitboxEnabled then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Name ~= LocalPlayer.Name then
+                pcall(function()
+                    player.Character.HumanoidRootPart.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+                    player.Character.HumanoidRootPart.Transparency = HitboxTransparency
+                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really black")
+                    player.Character.HumanoidRootPart.Material = "Neon"
+                    player.Character.HumanoidRootPart.CanCollide = false
+                end)
+            end
+        end
+    else
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Name ~= LocalPlayer.Name then
+                pcall(function()
+                    player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+                    player.Character.HumanoidRootPart.Transparency = 1
+                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Medium stone grey")
+                    player.Character.HumanoidRootPart.Material = "Plastic"
+                    player.Character.HumanoidRootPart.CanCollide = false
+                end)
+            end
         end
     end
 end)
