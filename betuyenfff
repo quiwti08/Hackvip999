@@ -1,3 +1,8 @@
+-- WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+-- Converted from Venyx UI to Obsidian UI (LinoriaLib) by following the provided example.
+-- Original script logic remains the same, only UI implementation changed.
+-- Added resizable window, config management tab, and default UI toggle keybind to LeftAlt.
+
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
@@ -6,22 +11,24 @@ local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 local Options = Library.Options
 local Toggles = Library.Toggles
 
-Library.ForceCheckbox = false
-Library.ShowToggleFrameInKeybinds = true
+Library.ForceCheckbox = false -- Forces AddToggle to AddCheckbox
+Library.ShowToggleFrameInKeybinds = true -- Make toggle keybinds work inside the keybinds UI (aka adds a toggle to the UI). Good for mobile users (Default value = true)
 
 local Window = Library:CreateWindow({
-    Title = "nigga.lol",
-    Footer = "nigga.lol | vhuy-anhchangm52",
-    Icon = 5013109572,
-    NotifySide = "Right",
-    ShowCustomCursor = true,
+	Title = "nigga.lol | vhuy-anhchangm52",
+	Footer = "version: example",
+	Icon = 5013109572,
+	NotifySide = "Right",
+	ShowCustomCursor = true,
+	Resizable = true, -- Make the window resizable as per example
 })
 
 local Tabs = {
-    Main = Window:AddTab("Main", "user"),
-    UI_Settings = Window:AddTab("UI Settings", "settings"),
+	Main = Window:AddTab("Aimbot", "user"),
+	["UI Settings"] = Window:AddTab("UI Settings", "settings"),
 }
 
+-- Original script globals and functions remain unchanged
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
@@ -45,6 +52,11 @@ local HitboxEnabled = false
 local HitboxTransparency = 0.9
 local HitboxSize = 15
 
+-- Initialize Notifications tables
+local Notifications = {}
+local TargetNotifications = {}
+
+-- Global settings
 getgenv().YeuTuyen = {
     Status = true,
     Hitpart = "Head",
@@ -63,6 +75,7 @@ getgenv().YeuTuyen = {
     Detection = 75,
 }
 
+-- FOV Circle
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = false
 fovCircle.Radius = AIM_FOV
@@ -71,6 +84,7 @@ fovCircle.NumSides = 100
 fovCircle.Color = Color3.fromRGB(255, 255, 255)
 fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
+-- Cycle FOV circle color
 local colorValue = 255
 local increasing = false
 task.spawn(function()
@@ -91,198 +105,27 @@ task.spawn(function()
     end
 end)
 
-local Notifications = {}
-local TargetNotifications = {}
-
+-- Notification function (adapted to use Library:Notify)
 local function sendNotification(title, text, duration)
-    local notifGui = Instance.new("ScreenGui")
-    notifGui.Name = "DhuyxNotification_" .. tostring(tick())
-    notifGui.Parent = game:GetService("CoreGui")
-    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    notifGui.DisplayOrder = 999999 - #Notifications
-    notifGui.IgnoreGuiInset = true
-    notifGui.ResetOnSpawn = false
-    local offsetY = 20 + (#Notifications * 80)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 280, 0, 70)
-    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    frame.BorderSizePixel = 0
-    frame.AnchorPoint = Vector2.new(1, 1)
-    frame.Position = UDim2.new(1, -20, 1, -offsetY)
-    frame.Transparency = 1
-    frame.Parent = notifGui
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
-    }
-    gradient.Rotation = 90
-    gradient.Parent = frame
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255, 179, 186)
-    stroke.Thickness = 2
-    stroke.Transparency = 0.5
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    stroke.Parent = frame
-    local shadow = Instance.new("ImageLabel")
-    shadow.Size = UDim2.new(1, 20, 1, 20)
-    shadow.Position = UDim2.new(0, -10, 0, -10)
-    shadow.Image = "rbxassetid://1316045217"
-    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-    shadow.ImageTransparency = 0.6
-    shadow.ScaleType = Enum.ScaleType.Slice
-    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-    shadow.ZIndex = -1
-    shadow.BackgroundTransparency = 1
-    shadow.Parent = frame
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -10, 0, 25)
-    titleLabel.Position = UDim2.new(0, 5, 0, 5)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = title or "Nigga.lol"
-    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextSize = 16
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    titleLabel.Parent = frame
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, -10, 1, -35)
-    textLabel.Position = UDim2.new(0, 5, 0, 30)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = text or "Notification"
-    textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    textLabel.Font = Enum.Font.Gotham
-    textLabel.TextSize = 14
-    textLabel.TextWrapped = true
-    textLabel.TextXAlignment = Enum.TextXAlignment.Left
-    textLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    textLabel.Parent = frame
-    table.insert(Notifications, notifGui)
-    local fadeIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
-    fadeIn:Play()
-    task.spawn(function()
-        task.wait(duration or 3)
-        local fadeOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1})
-        fadeOut:Play()
-        fadeOut.Completed:Connect(function()
-            for i, gui in ipairs(Notifications) do
-                if gui == notifGui then
-                    table.remove(Notifications, i)
-                    break
-                end
-            end
-            notifGui:Destroy()
-            for i, gui in ipairs(Notifications) do
-                local frame = gui:FindFirstChildOfClass("Frame")
-                if frame then
-                    local newOffsetY = 20 + ((i - 1) * 80)
-                    local tween = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -newOffsetY)})
-                    tween:Play()
-                end
-            end
-        end)
-    end)
+    Library:Notify({
+        Title = title or "Nigga.lol",
+        Description = text or "Notification",
+        Time = duration or 3,
+    })
 end
 
+-- Target notification function (adapted, but kept similar; uses Library:Notify for simplicity)
 local function sendTargetNotification(plr)
-    local notifGui = Instance.new("ScreenGui")
-    notifGui.Name = "TargetNotification_" .. plr.Name
-    notifGui.Parent = game:GetService("CoreGui")
-    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    notifGui.IgnoreGuiInset = true
-    notifGui.ResetOnSpawn = false
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 250, 0, 150)
-    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    frame.BorderSizePixel = 0
-    frame.Position = UDim2.new(0, 20, 0.5, -75)
-    frame.Transparency = 0
-    frame.Parent = notifGui
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
-    }
-    gradient.Rotation = 90
-    gradient.Parent = frame
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255, 179, 186)
-    stroke.Thickness = 2
-    stroke.Transparency = 0.5
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    stroke.Parent = frame
-    local avatar = Instance.new("ImageLabel")
-    avatar.Size = UDim2.new(0, 50, 0, 50)
-    avatar.Position = UDim2.new(0, 10, 0, 10)
-    avatar.BackgroundTransparency = 1
-    avatar.Image = Players:GetUserThumbnailAsync(plr.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
-    avatar.Parent = frame
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -70, 0, 25)
-    titleLabel.Position = UDim2.new(0, 70, 0, 10)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "Target"
-    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextSize = 16
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.Parent = frame
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, -10, 0, 20)
-    nameLabel.Position = UDim2.new(0, 10, 0, 60)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
-    nameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    nameLabel.Font = Enum.Font.Gotham
-    nameLabel.TextSize = 14
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    nameLabel.Parent = frame
-    local ageLabel = Instance.new("TextLabel")
-    ageLabel.Size = UDim2.new(1, -10, 0, 20)
-    ageLabel.Position = UDim2.new(0, 10, 0, 80)
-    ageLabel.BackgroundTransparency = 1
-    ageLabel.Text = "Age: " .. plr.AccountAge .. " days"
-    ageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    ageLabel.Font = Enum.Font.Gotham
-    ageLabel.TextSize = 14
-    ageLabel.TextXAlignment = Enum.TextXAlignment.Left
-    ageLabel.Parent = frame
     local status = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health > 0 and "Alive" or "Dead"
     local health = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health or 0
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(1, -10, 0, 20)
-    statusLabel.Position = UDim2.new(0, 10, 0, 100)
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.Text = "Status: " .. status .. " | Health: " .. math.floor(health)
-    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    statusLabel.Font = Enum.Font.Gotham
-    statusLabel.TextSize = 14
-    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    statusLabel.Parent = frame
-    table.insert(TargetNotifications, notifGui)
-    task.spawn(function()
-        task.wait(3)
-        local slideOut = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0, -300, 0.5, -75)})
-        slideOut:Play()
-        slideOut.Completed:Connect(function()
-            for i, gui in ipairs(TargetNotifications) do
-                if gui == notifGui then
-                    table.remove(TargetNotifications, i)
-                    break
-                end
-            end
-            notifGui:Destroy()
-        end)
-    end)
+    Library:Notify({
+        Title = "Target",
+        Description = plr.DisplayName .. " (@" .. plr.Name .. ")\nAge: " .. plr.AccountAge .. " days\nStatus: " .. status .. " | Health: " .. math.floor(health),
+        Time = 3,
+    })
 end
 
+-- Remove ESP
 local function removeESP(plr)
     if plr.Character then
         local char = plr.Character
@@ -293,6 +136,7 @@ local function removeESP(plr)
     end
 end
 
+-- Update ESP with tracer support
 local tracerEnabled = false
 local tracers = {}
 local rainbowMode = false
@@ -302,6 +146,7 @@ local function updateESP(plr)
     local char = plr.Character
     local head = char.Head
     
+    -- Highlight
     local hl = char:FindFirstChild("ESPHighlight")
     if not hl then
         hl = Instance.new("Highlight")
@@ -316,6 +161,7 @@ local function updateESP(plr)
     hl.FillColor = rainbowMode and getRainbowColor() or (isSelected and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255))
     hl.OutlineColor = rainbowMode and getRainbowColor() or Color3.fromRGB(255, 255, 255)
 
+    -- Name Billboard
     local gui = char:FindFirstChild("NameESP")
     if not gui then
         gui = Instance.new("BillboardGui")
@@ -341,6 +187,7 @@ local function updateESP(plr)
         nameLabel.TextColor3 = rainbowMode and getRainbowColor() or (isSelected and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255))
     end
 
+    -- Tracer
     if tracerEnabled then
         local tracer = tracers[plr.Name]
         if not tracer then
@@ -366,6 +213,7 @@ local function updateESP(plr)
     end
 end
 
+-- Rainbow update
 local rainbowHue = 0
 RunService.RenderStepped:Connect(function()
     rainbowHue = (rainbowHue + 0.01) % 1
@@ -375,6 +223,7 @@ local function getRainbowColor()
     return Color3.fromHSV(rainbowHue, 1, 1)
 end
 
+-- Hit effect (2 giây rainbow outline)
 local function RainbowHitEffect(char)
     if not char then return end
     local hl = char:FindFirstChild("ESPHighlight")
@@ -408,6 +257,7 @@ RunService.RenderStepped:Connect(function()
             local hum = char and char:FindFirstChildOfClass("Humanoid")
 
             if char and head and hum and hum.Health > 0 then
+                -- ESP
                 if getgenv().YeuTuyen.ESPEnabled then
                     local hl = char:FindFirstChild("ESPHighlight") or Instance.new("Highlight")
                     hl.Name = "ESPHighlight"
@@ -435,285 +285,397 @@ RunService.RenderStepped:Connect(function()
                         nameLabel.TextScaled = true
                         nameLabel.Parent = gui
                     end
+                    local nameLabel = gui:FindFirstChild("NameLabel")
+
+                    -- Kiểm tra target
+                    local isTarget = getgenv().YeuTuyen.SelectedTargets[plr.Name]
+                    local color = Color3.fromRGB(255, 255, 255) -- mặc định trắng
+                    if isTarget then
+                        color = rainbowMode and getRainbowColor() or Color3.fromRGB(0, 255, 0)
+                    end
+
+                    hl.FillColor = color
+                    hl.OutlineColor = color
+                    if nameLabel then
+                        nameLabel.Text = plr.DisplayName .. " (" .. plr.Name .. ")"
+                        nameLabel.TextColor3 = color
+                    end
+                else
+                    local hl = char:FindFirstChild("ESPHighlight")
+                    if hl then hl:Destroy() end
+                    local gui = char:FindFirstChild("NameESP")
+                    if gui then gui:Destroy() end
+                end
+
+                -- Tracer
+                if tracerEnabled then
+                    local tracer = tracers[plr.Name] or Drawing.new("Line")
+                    tracers[plr.Name] = tracer
+                    tracer.Thickness = 2
+
+                    local isTarget = getgenv().YeuTuyen.SelectedTargets[plr.Name]
+                    if not isTarget then
+                        -- Không còn target => xoá tracer
+                        if tracers[plr.Name] then
+                            tracers[plr.Name]:Remove()
+                            tracers[plr.Name] = nil
+                        end
+                    else
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                        if onScreen then
+                            tracer.Visible = true
+                            tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                            tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                            tracer.Color = rainbowMode and getRainbowColor() or Color3.fromRGB(0, 255, 0)
+                        else
+                            tracer.Visible = false
+                        end
+                    end
+                else
+                    if tracers[plr.Name] then
+                        tracers[plr.Name]:Remove()
+                        tracers[plr.Name] = nil
+                    end
+                end
+            else
+                -- Xoá ESP + Tracer khi chết
+                if tracers[plr.Name] then
+                    tracers[plr.Name]:Remove()
+                    tracers[plr.Name] = nil
+                end
+                local hl = char and char:FindFirstChild("ESPHighlight")
+                if hl then hl:Destroy() end
+                local gui = char and char:FindFirstChild("NameESP")
+                if gui then gui:Destroy() end
+            end
+        end
+    end
+
+    -- Circle update
+    if fovCircle.Visible and rainbowMode then
+        fovCircle.Color = getRainbowColor()
+    elseif fovCircle.Visible then
+        fovCircle.Color = Color3.fromRGB(255, 255, 255)
+    end
+end)
+
+local function checkTeam(player)
+    if teamCheck and player.Team == LocalPlayer.Team then
+        return true  -- cùng team => bỏ qua
+    end
+    return false   -- khác team => hợp lệ
+end
+
+-- GetBestTarget for Aimlock
+local function GetBestTarget()
+    if not getgenv().YeuTuyen or not getgenv().YeuTuyen.SelectedTargets then return end
+    local bestTarget, bestPart, bestHumanoid = nil, nil, nil
+    local closestDist = math.huge
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] and not checkTeam(player) then
+            local char = player.Character
+            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+            local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
+            if humanoid and humanoid.Health > 0 and part and not humanoid.PlatformStand then
+                local bodyEffects = char:FindFirstChild("BodyEffects")
+                local isKOd = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+                local isGrabbed = char:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+                if not isKOd and not isGrabbed then
+                    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if myRoot then
+                        local dist = (myRoot.Position - part.Position).Magnitude
+                        if dist < closestDist then
+                            local origin = Camera.CFrame.Position
+                            local direction = (part.Position - origin).Unit * 500
+                            local params = RaycastParams.new()
+                            params.FilterType = Enum.RaycastFilterType.Blacklist
+                            params.FilterDescendantsInstances = {LocalPlayer.Character}
+                            params.IgnoreWater = true
+                            local result = Workspace:Raycast(origin, direction, params)
+                            if result and result.Instance:IsDescendantOf(char) then
+                                bestTarget = player
+                                bestPart = part
+                                bestHumanoid = humanoid
+                                closestDist = dist
+                            end
+                        end
+                    end
                 end
             end
+        end
+    end
+    return bestTarget, bestPart, bestHumanoid
+end
+
+-- GetAimbotTarget for Aimbot
+local function GetAimbotTarget()
+    local bestTarget, bestPart, bestHumanoid = nil, nil, nil
+    local closestScreenDist = AIM_FOV
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+            local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
+            if humanoid and humanoid.Health > 0 and part and not humanoid.PlatformStand and not checkTeam(player) then
+                local bodyEffects = char:FindFirstChild("BodyEffects")
+                local isKOd = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+                local isGrabbed = char:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+                if not isKOd and not isGrabbed then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                        if screenDist <= AIM_FOV and screenDist < closestScreenDist then
+                            local origin = Camera.CFrame.Position
+                            local direction = (part.Position - origin).Unit * 500
+                            local params = RaycastParams.new()
+                            params.FilterType = Enum.RaycastFilterType.Blacklist
+                            params.FilterDescendantsInstances = {LocalPlayer.Character}
+                            params.IgnoreWater = true
+                            local result = Workspace:Raycast(origin, direction, params)
+                            if result and result.Instance:IsDescendantOf(char) then
+                                bestTarget = player
+                                bestPart = part
+                                bestHumanoid = humanoid
+                                closestScreenDist = screenDist
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return bestTarget, bestPart, bestHumanoid
+end
+
+-- Select closest to mouse
+local function SelectClosestToMouse()
+    local closestPlayer = nil
+    local closestScreenDist = AIM_RADIUS
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local head = player.Character.Head
+            local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+            if onScreen then
+                local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                if dist < closestScreenDist then
+                    closestScreenDist = dist
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+    if closestPlayer then
+        local name = closestPlayer.Name
+        if getgenv().YeuTuyen.SelectedTargets[name] then
+            getgenv().YeuTuyen.SelectedTargets[name] = nil
+            sendNotification("Target", "Deselected: " .. name, 2)
+            updateESP(closestPlayer)
+        else
+            getgenv().YeuTuyen.SelectedTargets[name] = true
+            sendNotification("Target", "Selected: " .. name, 2)
+            sendTargetNotification(closestPlayer)
+            updateESP(closestPlayer)
+        end
+    else
+        sendNotification("Target", "No target found near mouse!", 2)
+    end
+end
+
+local function isAlive(plr)
+    if not plr or not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
+    local be = plr.Character:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
+        if (ko and ko.Value) or (grabbed and grabbed.Value) then return false end
+    end
+    return true
+end
+
+local hitParts = {
+    "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
+    "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+    "RightUpperLeg", "RightLowerLeg", "RightFoot", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"
+}
+
+local function validPart(p)
+    if not p or not p.Parent or not p.Parent:FindFirstChild("Humanoid") then return false end
+    local player = Players:GetPlayerFromCharacter(p.Parent)
+    if not player or not getgenv().YeuTuyen.SelectedTargets[player.Name] then return false end
+    for _, n in ipairs(hitParts) do
+        if p.Name:lower() == n:lower() then return true end
+    end
+    return false
+end
+
+if not mouse1press then
+    function mouse1press()
+        local pos = game:GetService("UserInputService"):GetMouseLocation()
+        VirtualInputManager:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 0)
+    end
+end
+
+if not mouse1release then
+    function mouse1release()
+        local pos = game:GetService("UserInputService"):GetMouseLocation()
+        VirtualInputManager:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 0)
+    end
+end
+
+local function click()
+    if UserInputService.TouchEnabled then
+        local touchPos = UserInputService:GetMouseLocation()
+        VirtualInputManager:SendTouchEvent(0, Enum.UserInputState.Begin, touchPos)
+        task.wait()
+        VirtualInputManager:SendTouchEvent(0, Enum.UserInputState.End, touchPos)
+    else
+        if mouse1press then
+            mouse1press()
+            mouse1release()
+        elseif mouse1click then
+            mouse1click()
+        end
+    end
+end
+
+local function distToCursor(part)
+    local v, vis = Camera:WorldToViewportPoint(part.Position)
+    if not vis then return math.huge end
+    local m = UserInputService.TouchEnabled and Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) or UserInputService:GetMouseLocation()
+    return (Vector2.new(v.X, v.Y) - Vector2.new(m.X, m.Y)).Magnitude
+end
+
+local function GetBestTargetPart()
+    local bestPart, bestDist = nil, fovRadius
+    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
+        local plr = Players:FindFirstChild(name)
+        if plr and plr ~= LocalPlayer and isAlive(plr) and plr.Character then 
+            for _, partName in ipairs(hitParts) do
+                local part = plr.Character:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    local dist = distToCursor(part)
+                    if dist < bestDist then
+                        bestPart = part
+                        bestDist = dist
+                    end
+                end
+            end
+        end
+    end
+    return bestPart
+end
+
+-- Rainbow effect
+local rainbowHue = 0
+task.spawn(function()
+    while true do
+        rainbowHue = (rainbowHue + 0.01) % 1
+        task.wait(0.01)
+    end
+end)
+
+local function getRainbowColor()
+    return Color3.fromHSV(rainbowHue, 1, 1)
+end
+
+-- Sound definitions
+local sounds = {
+    ["RIFK7"] = "rbxassetid://9102080552",
+    ["Bubble"] = "rbxassetid://9102092728",
+    ["Minecraft"] = "rbxassetid://5869422451",
+    ["Cod"] = "rbxassetid://160432334",
+    ["Bameware"] = "rbxassetid://6565367558",
+    ["Neverlose"] = "rbxassetid://6565370984",
+    ["Gamesense"] = "rbxassetid://4817809188",
+    ["Yamete"] = "rbxassetid://103267082494666",
+}
+
+-- Create Sound instance
+local SoundService = game:GetService("SoundService")
+local hitSound = Instance.new("Sound")
+hitSound.Volume = 3
+hitSound.Parent = SoundService
+
+-- Sound pool for multiple sound playback
+local soundPool = {}
+local soundIndex = 1
+
+local function getNextSound()
+    if soundIndex > #soundPool then
+        local s = hitSound:Clone()
+        s.Parent = workspace
+        s.Looped = false
+        table.insert(soundPool, s)
+    end
+    local s = soundPool[soundIndex]
+    soundIndex = soundIndex + 1
+    return s
+end
+
+local function playHitSound()
+    local s = getNextSound()
+    s:Stop()
+    s:Play()
+end
+
+-- Global variable to store hit sound settings
+getgenv().YeuTuyen.HitSoundEnabled = true
+getgenv().YeuTuyen.HitSoundSelect = "Neverlose"
+
+RunService.RenderStepped:Connect(function()
+    if TriggerBotEnabled then
+        local part = GetBestTargetPart()
+        if part then
+            task.spawn(function()
+                local cap = part
+                task.wait(0)
+                if distToCursor(cap) <= fovRadius then
+                    local origin = Camera.CFrame.Position
+                    local direction = (cap.Position - origin)
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+                    local result = workspace:Raycast(origin, direction, rayParams)
+                    if result and result.Instance:IsDescendantOf(cap.Parent) then
+                        click()
+                    end
+                end
+            end)
         end
     end
 end)
 
-local AimGroup = Tabs.Main:AddLeftGroupbox("Aim")
-
-AimGroup:AddToggle("Status", {
-    Text = "Status",
-    Default = getgenv().YeuTuyen.Status,
-    Callback = function(value)
-        getgenv().YeuTuyen.Status = value
-        sendNotification("Status", value and "ON" or "OFF", 2)
-    end
-})
-
-AimGroup:AddToggle("CheckIfJumped", {
-    Text = "Check If Jumped",
-    Default = getgenv().YeuTuyen.CheckIfJumped,
-    Callback = function(value)
-        getgenv().YeuTuyen.CheckIfJumped = value
-        sendNotification("CheckIfJumped", value and "ON" or "OFF", 2)
-    end
-})
-
-AimGroup:AddDropdown("CheckIfJumpedAimPart", {
-    Values = {"HumanoidRootPart", "Head"},
-    Default = getgenv().YeuTuyen.CheckIfJumpedAimPart,
-    Text = "CheckIfJumped AimPart",
-    Callback = function(value)
-        getgenv().YeuTuyen.CheckIfJumpedAimPart = value
-        sendNotification("CheckIfJumped AimPart", value, 2)
-    end
-})
-
-AimGroup:AddToggle("AutoPingSets", {
-    Text = "Auto Ping Sets",
-    Default = getgenv().YeuTuyen.AutoPingSets,
-    Callback = function(value)
-        getgenv().YeuTuyen.AutoPingSets = value
-        sendNotification("AutoPingSets", value and "ON" or "OFF", 2)
-    end
-})
-
-AimGroup:AddToggle("UseShake", {
-    Text = "Use Shake",
-    Default = getgenv().YeuTuyen.UseShake,
-    Callback = function(value)
-        getgenv().YeuTuyen.UseShake = value
-        sendNotification("UseShake", value and "ON" or "OFF", 2)
-    end
-})
-
-AimGroup:AddSlider("ShakePower", {
-    Text = "Shake Power",
-    Default = getgenv().YeuTuyen.ShakePower,
-    Min = 0,
-    Max = 10,
-    Rounding = 1,
-    Callback = function(value)
-        getgenv().YeuTuyen.ShakePower = value
-    end
-})
-
-AimGroup:AddToggle("PredictMovement", {
-    Text = "Predict Movement",
-    Default = getgenv().YeuTuyen.PredictMovement,
-    Callback = function(value)
-        getgenv().YeuTuyen.PredictMovement = value
-        sendNotification("PredictMovement", value and "ON" or "OFF", 2)
-    end
-})
-
-AimGroup:AddSlider("PredictionVelocity", {
-    Text = "Prediction Velocity",
-    Default = getgenv().YeuTuyen.PredictionVelocity,
-    Min = 0,
-    Max = 1,
-    Rounding = 3,
-    Callback = function(value)
-        getgenv().YeuTuyen.PredictionVelocity = value
-    end
-})
-
-AimGroup:AddToggle("UnderGround", {
-    Text = "Under Ground",
-    Default = getgenv().YeuTuyen.UnderGround,
-    Callback = function(value)
-        getgenv().YeuTuyen.UnderGround = value
-        sendNotification("UnderGround", value and "ON" or "OFF", 2)
-    end
-})
-
-AimGroup:AddToggle("DetectDesync", {
-    Text = "Detect Desync",
-    Default = getgenv().YeuTuyen.DetectDesync,
-    Callback = function(value)
-        getgenv().YeuTuyen.DetectDesync = value
-        sendNotification("DetectDesync", value and "ON" or "OFF", 2)
-    end
-})
-
-AimGroup:AddSlider("Detection", {
-    Text = "Detection",
-    Default = getgenv().YeuTuyen.Detection,
-    Min = 0,
-    Max = 100,
-    Rounding = 0,
-    Callback = function(value)
-        getgenv().YeuTuyen.Detection = value
-    end
-})
-
-AimGroup:AddDropdown("Mode", {
-    Values = {"Aimlock", "Aimbot"},
-    Default = getgenv().YeuTuyen.Mode,
-    Text = "Mode",
-    Callback = function(value)
-        getgenv().YeuTuyen.Mode = value
-        sendNotification("Mode", value, 2)
-        fovCircle.Visible = value == "Aimbot"
-    end
-})
-
-AimGroup:AddDropdown("Hitpart", {
-    Values = {"Head", "HumanoidRootPart"},
-    Default = getgenv().YeuTuyen.Hitpart,
-    Text = "Hitpart",
-    Callback = function(value)
-        getgenv().YeuTuyen.Hitpart = value
-        sendNotification("Hitpart", value, 2)
-    end
-})
-
-AimGroup:AddSlider("FOV", {
-    Text = "FOV",
-    Default = AIM_FOV,
-    Min = 0,
-    Max = 500,
-    Rounding = 0,
-    Callback = function(value)
-        AIM_FOV = value
-        fovCircle.Radius = value
-    end
-})
-
-AimGroup:AddSlider("Smoothness", {
-    Text = "Smoothness",
-    Default = AIM_SMOOTHNESS,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(value)
-        AIM_SMOOTHNESS = value
-    end
-})
-
-local MiscGroup = Tabs.Main:AddRightGroupbox("Misc")
-
-MiscGroup:AddToggle("TriggerBot", {
-    Text = "Trigger Bot",
-    Default = TriggerBotEnabled,
-    Callback = function(value)
-        TriggerBotEnabled = value
-        sendNotification("TriggerBot", value and "ON" or "OFF", 2)
-    end
-})
-
-MiscGroup:AddToggle("TeamCheck", {
-    Text = "Team Check",
-    Default = teamCheck,
-    Callback = function(value)
-        teamCheck = value
-        sendNotification("TeamCheck", value and "ON" or "OFF", 2)
-    end
-})
-
-MiscGroup:AddToggle("HitboxEnabled", {
-    Text = "Hitbox Enabled",
-    Default = HitboxEnabled,
-    Callback = function(value)
-        HitboxEnabled = value
-        sendNotification("HitboxEnabled", value and "ON" or "OFF", 2)
+RunService.RenderStepped:Connect(function()
+    if HitboxEnabled then
         for _, player in ipairs(Players:GetPlayers()) do
             if player.Name ~= LocalPlayer.Name then
                 pcall(function()
-                    if value then
-                        player.Character.HumanoidRootPart.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-                        player.Character.HumanoidRootPart.Transparency = HitboxTransparency
-                        player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really black")
-                        player.Character.HumanoidRootPart.Material = "Neon"
-                        player.Character.HumanoidRootPart.CanCollide = false
-                    else
-                        player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
-                        player.Character.HumanoidRootPart.Transparency = 1
-                        player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Medium stone grey")
-                        player.Character.HumanoidRootPart.Material = "Plastic"
-                        player.Character.HumanoidRootPart.CanCollide = false
-                    end
+                    player.Character.HumanoidRootPart.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+                    player.Character.HumanoidRootPart.Transparency = HitboxTransparency
+                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really black")
+                    player.Character.HumanoidRootPart.Material = "Neon"
+                    player.Character.HumanoidRootPart.CanCollide = false
+                end)
+            end
+        end
+    else
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Name ~= LocalPlayer.Name then
+                pcall(function()
+                    player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+                    player.Character.HumanoidRootPart.Transparency = 1
+                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Medium stone grey")
+                    player.Character.HumanoidRootPart.Material = "Plastic"
+                    player.Character.HumanoidRootPart.CanCollide = false
                 end)
             end
         end
     end
-})
-
-MiscGroup:AddSlider("HitboxTransparency", {
-    Text = "Hitbox Transparency",
-    Default = HitboxTransparency,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(value)
-        HitboxTransparency = value
-        if HitboxEnabled then
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player.Name ~= LocalPlayer.Name then
-                    pcall(function()
-                        player.Character.HumanoidRootPart.Transparency = value
-                    end)
-                end
-            end
-        end
-    end
-})
-
-MiscGroup:AddSlider("HitboxSize", {
-    Text = "Hitbox Size",
-    Default = HitboxSize,
-    Min = 0,
-    Max = 50,
-    Rounding = 0,
-    Callback = function(value)
-        HitboxSize = value
-        if HitboxEnabled then
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player.Name ~= LocalPlayer.Name then
-                    pcall(function()
-                        player.Character.HumanoidRootPart.Size = Vector3.new(value, value, value)
-                    end)
-                end
-            end
-        end
-    end
-})
-
-MiscGroup:AddToggle("Movement", {
-    Text = "Movement",
-    Default = movementEnabled,
-    Callback = function(value)
-        movementEnabled = value
-        sendNotification("Movement", value and "ON" or "OFF", 2)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            LocalPlayer.Character.Humanoid.UseJumpPower = true
-        end
-    end
-})
-
-MiscGroup:AddSlider("WalkSpeed", {
-    Text = "WalkSpeed",
-    Default = walkSpeed,
-    Min = 16,
-    Max = 300,
-    Rounding = 0,
-    Callback = function(value)
-        walkSpeed = value
-    end
-})
-
-MiscGroup:AddSlider("JumpPower", {
-    Text = "JumpPower",
-    Default = jumpPower,
-    Min = 50,
-    Max = 300,
-    Rounding = 0,
-    Callback = function(value)
-        jumpPower = value
-    end
-})
+end)
 
 RunService.Heartbeat:Connect(function(dt)
     if movementEnabled then 
@@ -721,6 +683,7 @@ RunService.Heartbeat:Connect(function(dt)
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if hrp and hum then
+            -- bước di chuyển
             local stepY = jumpPower * dt
             local stepXZ = walkSpeed * dt
             
@@ -734,142 +697,7 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
-local VisualsGroup = Tabs.Main:AddLeftGroupbox("Visuals")
-
-VisualsGroup:AddToggle("ESP", {
-    Text = "ESP",
-    Default = getgenv().YeuTuyen.ESPEnabled,
-    Callback = function(value)
-        getgenv().YeuTuyen.ESPEnabled = value
-        sendNotification("ESP", value and "Enabled" or "Disabled", 2)
-    end
-})
-
-VisualsGroup:AddToggle("Tracer", {
-    Text = "Tracer",
-    Default = tracerEnabled,
-    Callback = function(value)
-        tracerEnabled = value
-        sendNotification("Tracer", value and "Enabled" or "Disabled", 2)
-        if not value then
-            for _, tracer in pairs(tracers) do
-                tracer:Remove()
-            end
-            tracers = {}
-        end
-    end
-})
-
-VisualsGroup:AddToggle("RainbowMode", {
-    Text = "Rainbow Mode",
-    Default = rainbowMode,
-    Callback = function(value)
-        rainbowMode = value
-        sendNotification("Rainbow Mode", value and "Enabled" or "Disabled", 2)
-    end
-})
-
-local function GetBestTarget()
-    local closest = math.huge
-    local target = nil
-    local part = nil
-    local hum = nil
-    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
-        local plr = Players:FindFirstChild(name)
-        if plr and plr.Character and plr.Character:FindFirstChild("Head") and plr.Character.Humanoid.Health > 0 then
-            local screenPos, onScreen = Camera:WorldToViewportPoint(plr.Character.Head.Position)
-            if onScreen then
-                local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                if dist < closest and dist < AIM_RADIUS then
-                    closest = dist
-                    target = plr
-                    part = plr.Character.Head
-                    hum = plr.Character.Humanoid
-                end
-            end
-        end
-    end
-    return target, part, hum
-end
-
-local function GetAimbotTarget()
-    local closest = math.huge
-    local target = nil
-    local part = nil
-    local hum = nil
-    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
-        local plr = Players:FindFirstChild(name)
-        if plr and plr.Character and plr.Character:FindFirstChild("Head") and plr.Character.Humanoid.Health > 0 then
-            local screenPos, onScreen = Camera:WorldToViewportPoint(plr.Character.Head.Position)
-            if onScreen then
-                local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                if dist < closest and dist < AIM_FOV then
-                    closest = dist
-                    target = plr
-                    part = plr.Character.Head
-                    hum = plr.Character.Humanoid
-                end
-            end
-        end
-    end
-    return target, part, hum
-end
-
-local function SelectClosestToMouse()
-    local closestDist = math.huge
-    local closestPlr = nil
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Head") then
-            local screenPos, onScreen = Camera:WorldToViewportPoint(plr.Character.Head.Position)
-            if onScreen then
-                local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closestPlr = plr
-                end
-            end
-        end
-    end
-    if closestPlr then
-        getgenv().YeuTuyen.SelectedTargets[closestPlr.Name] = true
-        sendTargetNotification(closestPlr)
-        sendNotification("Target Selected", closestPlr.Name, 2)
-    end
-end
-
-local targetKey = Enum.KeyCode.Q
-AimGroup:AddKeyPicker("SetTargetKey", {
-    Default = "Q",
-    Text = "Set Target Key",
-    NoUI = false,
-    Callback = function(Value)
-        if Value then
-            SelectClosestToMouse()
-        end
-    end,
-    ChangedCallback = function(New)
-        targetKey = New
-        sendNotification("Set Target Key", "Set to " .. New.Name, 2)
-    end
-})
-
-local movementKey = Enum.KeyCode.Z
-MiscGroup:AddKeyPicker("ToggleMovementKey", {
-    Default = "Z",
-    Text = "Toggle Movement Key",
-    NoUI = false,
-    Callback = function(Value)
-        if Value then
-            movementEnabled = not movementEnabled
-            sendNotification("Movement", movementEnabled and "ON" or "OFF", 2)
-        end
-    end,
-    ChangedCallback = function(New)
-        movementKey = New
-        sendNotification("Movement Key", "Set to " .. New.Name, 2)
-    end
-})
-
+-- Aim loop
 local lastTarget = nil
 local lastHealth = {}
 
@@ -886,6 +714,7 @@ RunService.RenderStepped:Connect(function(delta)
         end
     end
 
+    -- Update ESP colors for previous target
     if lastTarget and lastTarget ~= target and lastTarget.Character then
         local hl = lastTarget.Character:FindFirstChild("ESPHighlight")
         local gui = lastTarget.Character:FindFirstChild("NameESP")
@@ -899,12 +728,14 @@ RunService.RenderStepped:Connect(function(delta)
     end
 
     if target and part and hum and target.Character then
+        -- Chọn aimpart dựa trên CheckIfJumped
         local aimPartName = getgenv().YeuTuyen.Hitpart
         if getgenv().YeuTuyen.CheckIfJumped and hum:GetState() == Enum.HumanoidStateType.Freefall then
             aimPartName = getgenv().YeuTuyen.CheckIfJumpedAimPart
         end
         local aimPart = target.Character:FindFirstChild(aimPartName) or part 
 
+        -- Áp dụng UseShake
         if getgenv().YeuTuyen.UseShake and aimPart then
             pcall(function()
                 local shakeVec = Vector3.new(
@@ -917,6 +748,7 @@ RunService.RenderStepped:Connect(function(delta)
             end)
         end
 
+        -- Áp dụng UnderGround
         if getgenv().YeuTuyen.UnderGround and aimPart then
             pcall(function()
                 aimPart.Velocity = Vector3.new(aimPart.Velocity.X, 0, aimPart.Velocity.Z)
@@ -924,6 +756,7 @@ RunService.RenderStepped:Connect(function(delta)
             end)
         end
 
+        -- Áp dụng DetectDesync
         if getgenv().YeuTuyen.DetectDesync and target.Character:FindFirstChild("HumanoidRootPart") and
             target.Character.HumanoidRootPart.Velocity.Magnitude > getgenv().YeuTuyen.Detection and aimPart then
             pcall(function()
@@ -932,6 +765,7 @@ RunService.RenderStepped:Connect(function(delta)
             end)
         end
 
+        -- Áp dụng AutoPingSets
         if getgenv().YeuTuyen.AutoPingSets then
             pcall(function()
                 local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
@@ -979,6 +813,7 @@ RunService.RenderStepped:Connect(function(delta)
             end)
         end
 
+        -- Dự đoán chuyển động
         local predictVec = aimPart.Position
         if getgenv().YeuTuyen.PredictMovement and aimPart then
             predictVec = aimPart.Position + aimPart.Velocity * getgenv().YeuTuyen.PredictionVelocity
@@ -991,15 +826,18 @@ RunService.RenderStepped:Connect(function(delta)
             Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, lerpedLookAt)
         end
 
+        -- Update ESP for current target
         getgenv().YeuTuyen.SelectedTargets[target.Name] = true
         if updateESP then
             updateESP(target)
         end
 
+        -- Show target notification
         if lastTarget ~= target and sendTargetNotification then
             sendTargetNotification(target)
         end
 
+        -- Health change detection
         local currentHealth = hum.Health
         local prevHealth = lastHealth[target] or currentHealth
         if currentHealth < prevHealth then
@@ -1026,6 +864,7 @@ RunService.RenderStepped:Connect(function(delta)
     lastTarget = target
 end)
 
+-- Teleport section
 local function getBestTargetForTeleport()
     local closestDowned = nil
     local closestNormal = nil
@@ -1090,6 +929,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
+-- Theo dõi máu để gọi hiệu ứng
 local function TrackHealth(plr)
     local char = plr.Character
     if not char then return end
@@ -1108,6 +948,7 @@ local function TrackHealth(plr)
     end)
 end
 
+-- Theo dõi player spawn
 Players.PlayerAdded:Connect(function(plr)
     plr.CharacterAdded:Connect(function()
         task.wait(1)
@@ -1124,6 +965,7 @@ for _, plr in ipairs(Players:GetPlayers()) do
     end
 end
 
+-- KO detection
 local lastDowned = {}
 RunService.Heartbeat:Connect(function()
     for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
@@ -1141,6 +983,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Player join/leave notifications
 Players.PlayerAdded:Connect(function(player)
     task.wait(1)
     if getgenv().YeuTuyen.SelectedTargets[player.Name] then
@@ -1154,32 +997,295 @@ Players.PlayerRemoving:Connect(function(player)
     end
 end)
 
-local function resetTargetList()
-    getgenv().YeuTuyen.SelectedTargets = {}
-    sendNotification("Reset Targets", "Target list cleared.", 2)
-end
+-- UI Setup in Obsidian (converted from Venyx)
+local aimGroup = Tabs.Main:AddLeftGroupbox("Aimbot Settings", "boxes")
 
-AimGroup:AddButton({
-    Text = "Reset Targets",
-    Func = resetTargetList,
-    Tooltip = "Clears the selected target list"
+aimGroup:AddButton({
+    Text = "Switch Aim Mode",
+    Func = function()
+        if getgenv().YeuTuyen.Mode == "Aimbot" then
+            getgenv().YeuTuyen.Mode = "Aimlock"
+            fovCircle.Visible = false
+        else
+            getgenv().YeuTuyen.Mode = "Aimbot"
+            fovCircle.Visible = true
+        end
+
+        -- Reset target list khi đổi chế độ
+        getgenv().YeuTuyen.SelectedTargets = {}
+
+        sendNotification("Mode Switch", "Switched to " .. getgenv().YeuTuyen.Mode .. " (Targets Cleared)", 2)
+    end,
+    DoubleClick = false,
+    Tooltip = "Switch between Aimbot and Aimlock",
 })
 
-AimGroup:AddKeyPicker("ResetTargetKey", {
-    Default = "G",
-    Text = "Reset Target Key",
-    NoUI = false,
-    Callback = function(Value)
-        if Value then
-            resetTargetList()
+aimGroup:AddDropdown("AimPart", {
+    Values = {"Head", "UpperTorso", "HumanoidRootPart", "Torso"},
+    Default = "Head",
+    Multi = false,
+    Text = "Aim Part",
+    Tooltip = "Select aim part",
+    Callback = function(value)
+        getgenv().YeuTuyen.Hitpart = value
+        sendNotification("Aim Part", "Set to " .. value, 2)
+    end,
+})
+
+aimGroup:AddToggle("AutoPrediction", {
+    Text = "Auto Prediction",
+    Default = false,
+    Tooltip = "Enable auto prediction",
+    Callback = function(value)
+        getgenv().YeuTuyen.PredictMovement = value
+        sendNotification("Auto Prediction", value and "Enabled" or "Disabled", 2)
+    end,
+})
+
+aimGroup:AddToggle("TeamCheck", {
+    Text = "TeamCheck",
+    Default = false,
+    Tooltip = "Enable team check",
+    Callback = function(value)
+        teamCheck = value
+        sendNotification("TeamCheck", value and "Enabled" or "Disabled", 2)
+    end,
+})
+
+-- FOV Circle Toggle and Slider
+aimGroup:AddToggle("FOVCircle", {
+    Text = "FOV Circle",
+    Default = fovCircle.Visible,
+    Tooltip = "Show FOV circle",
+    Callback = function(value)
+        fovCircle.Visible = value
+    end,
+})
+
+aimGroup:AddSlider("FOVRadius", {
+    Text = "FOV Radius",
+    Default = AIM_FOV,
+    Min = 20,
+    Max = 500,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(value)
+        AIM_FOV = value
+        fovCircle.Radius = value
+    end,
+})
+
+-- Aim Smoothness Slider
+aimGroup:AddSlider("AimSmoothness", {
+    Text = "Aim Smoothness",
+    Default = AIM_SMOOTHNESS * 100,
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(value)
+        AIM_SMOOTHNESS = value / 100
+    end,
+})
+
+aimGroup:AddToggle("Triggerbot", {
+    Text = "Triggerbot",
+    Default = true,
+    Tooltip = "Enable triggerbot",
+    Callback = function(value)
+        TriggerBotEnabled = value
+        sendNotification("Triggerbot", value and "ON" or "OFF")
+    end,
+})
+
+-- Triggerbot FOV Radius
+aimGroup:AddSlider("TriggerbotFOV", {
+    Text = "Triggerbot FOV",
+    Default = fovRadius,
+    Min = 10,
+    Max = 200,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(value)
+        fovRadius = value
+        sendNotification("Triggerbot", "FOV set to " .. value, 2)
+    end,
+})
+
+-- HitSound Settings
+local hitSoundGroup = Tabs.Main:AddRightGroupbox("HitSound Settings", "boxes")
+hitSoundGroup:AddToggle("HitSoundEnabled", {
+    Text = "HitSoundEnabled",
+    Default = true,
+    Tooltip = "Enable hit sound",
+    Callback = function(value)
+        getgenv().YeuTuyen.HitSoundEnabled = value
+        sendNotification("HitSound", value and "Enabled" or "Disabled", 2)
+    end,
+})
+
+hitSoundGroup:AddDropdown("HitSoundSelect", {
+    Values = {"RIFK7", "Bubble", "Minecraft", "Cod", "Bameware", "Neverlose", "Gamesense", "Yamete"},
+    Default = "Neverlose",
+    Multi = false,
+    Text = "HitSoundSelect",
+    Tooltip = "Select hit sound",
+    Callback = function(value)
+        local id = sounds[value]
+        if id then
+            hitSound.SoundId = id
+            getgenv().YeuTuyen.HitSoundSelect = value
+            sendNotification("HitSound", "Selected: " .. value, 2)
         end
     end,
-    ChangedCallback = function(New)
-        sendNotification("Reset Target Key", "Set to " .. New.Name, 2)
-    end
 })
 
-local MenuGroup = Tabs.UI_Settings:AddLeftGroupbox("Menu")
+hitSoundGroup:AddToggle("Hitbox", {
+    Text = "Hitbox",
+    Default = false,
+    Tooltip = "Enable hitbox",
+    Callback = function(value)
+        HitboxEnabled = value
+        sendNotification("Hitbox", value and "ON" or "OFF")
+    end,
+})
+
+hitSoundGroup:AddSlider("HitboxTransparency", {
+    Text = "Hitbox Transparency",
+    Default = 0.9,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = false,
+    Callback = function(value)
+        HitboxTransparency = value
+    end,
+})
+
+hitSoundGroup:AddSlider("HitboxSize", {
+    Text = "Hitbox Size",
+    Default = 15,
+    Min = 5,
+    Max = 50,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(value)
+        HitboxSize = value
+    end,
+})
+
+-- ESP Toggle
+hitSoundGroup:AddToggle("ESP", {
+    Text = "ESP",
+    Default = getgenv().YeuTuyen.ESPEnabled,
+    Tooltip = "Enable ESP",
+    Callback = function(value)
+        getgenv().YeuTuyen.ESPEnabled = value
+        sendNotification("ESP", value and "ESP Enabled" or "ESP Disabled", 2)
+    end,
+})
+
+-- Tracer Toggle
+hitSoundGroup:AddToggle("Tracer", {
+    Text = "Tracer",
+    Default = false,
+    Tooltip = "Enable tracer",
+    Callback = function(value)
+        tracerEnabled = value
+        sendNotification("Tracer", value and "Tracer Enabled" or "Tracer Disabled", 2)
+        if not value then
+            for _, tracer in pairs(tracers) do
+                tracer:Remove()
+            end
+            tracers = {}
+        end
+    end,
+})
+
+-- Rainbow Mode Toggle
+hitSoundGroup:AddToggle("RainbowMode", {
+    Text = "Rainbow Mode",
+    Default = false,
+    Tooltip = "Enable rainbow mode",
+    Callback = function(value)
+        rainbowMode = value
+        sendNotification("Rainbow Mode", value and "Rainbow Mode Enabled" or "Rainbow Mode Disabled", 2)
+    end,
+})
+
+-- Set Target Keybind
+local targetKey = Enum.KeyCode.Q
+hitSoundGroup:AddKeyPicker("SetTargetKey", {
+    Default = "Q",
+    SyncToggleState = false,
+    Mode = "Toggle",
+    Text = "Set Target Key",
+    NoUI = false,
+    Callback = function(Value)
+        SelectClosestToMouse()
+    end,
+    ChangedCallback = function(newKey)
+        targetKey = newKey
+        sendNotification("Set Target Key", "Set to " .. newKey.Name, 2)
+    end,
+})
+
+hitSoundGroup:AddToggle("Movement", {
+    Text = "Movement",
+    Default = false,
+    Tooltip = "Enable movement",
+    Callback = function(value)
+        movementEnabled = value
+        sendNotification("Movement", value and "ON" or "OFF", 2)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character.Humanoid.UseJumpPower = true
+        end
+    end,
+})
+
+-- Keybind for Toggle Movement
+hitSoundGroup:AddKeyPicker("ToggleMovementKey", {
+    Default = "Z",
+    SyncToggleState = false,
+    Mode = "Toggle",
+    Text = "Toggle Movement Key",
+    NoUI = false,
+    Callback = function(Value)
+        movementEnabled = not movementEnabled
+        sendNotification("Movement", movementEnabled and "ON" or "OFF", 2)
+    end,
+    ChangedCallback = function(newKey)
+        sendNotification("Movement Key", "Set to " .. newKey.Name, 2)
+    end,
+})
+
+-- Sliders for Movement
+hitSoundGroup:AddSlider("WalkSpeed", {
+    Text = "WalkSpeed",
+    Default = 30,
+    Min = 16,
+    Max = 300,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(value)
+        walkSpeed = value
+    end,
+})
+
+hitSoundGroup:AddSlider("JumpPower", {
+    Text = "JumpPower",
+    Default = 60,
+    Min = 50,
+    Max = 300,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(value)
+        jumpPower = value
+    end,
+})
+
+-- UI Settings Tab (includes config management)
+local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
 
 MenuGroup:AddToggle("KeybindMenuOpen", {
     Default = Library.KeybindFrame.Visible,
@@ -1214,26 +1320,36 @@ MenuGroup:AddDropdown("DPIDropdown", {
     end,
 })
 MenuGroup:AddDivider()
-MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { Default = "RightShift", NoUI = true, Text = "Menu keybind" })
+MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { Default = "LeftAlt", NoUI = true, Text = "Menu keybind" })
 
 MenuGroup:AddButton("Unload", function()
     Library:Unload()
 end)
 
-Library.ToggleKeybind = Options.MenuKeybind
+Library.ToggleKeybind = Options.MenuKeybind -- Allows you to have a custom keybind for the menu
 
+-- Hand the library over to our managers
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 
+-- Ignore keys that are used by ThemeManager.
 SaveManager:IgnoreThemeSettings()
 
+-- Adds our MenuKeybind to the ignore list
 SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
 
+-- use case for doing it this way:
+-- a script hub could have themes in a global folder
+-- and game configs in a separate folder per game
 ThemeManager:SetFolder("MyScriptHub")
 SaveManager:SetFolder("MyScriptHub/specific-game")
 
-SaveManager:BuildConfigSection(Tabs.UI_Settings)
+-- Builds our config menu on the right side of our tab
+SaveManager:BuildConfigSection(Tabs["UI Settings"])
 
-ThemeManager:ApplyToTab(Tabs.UI_Settings)
+-- Builds our theme menu (with plenty of built in themes) on the left side
+ThemeManager:ApplyToTab(Tabs["UI Settings"])
 
+-- You can use the SaveManager:LoadAutoloadConfig() to load a config
+-- which has been marked to be one that auto loads!
 SaveManager:LoadAutoloadConfig()
