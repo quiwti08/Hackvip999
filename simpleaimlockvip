@@ -790,6 +790,11 @@ aimSection:addDropdown("Aim Part", {"Head", "UpperTorso", "HumanoidRootPart", "T
     sendNotification("Aim Part", "Set to " .. value, 2)
 end)
 
+aimSection:addToggle("TeamCheck", false, function(value)
+    teamCheck = value
+    sendNotification("TeamCheck", value and "Enabled" or "Disabled", 2)
+end)
+
 aimSection:addToggle("Auto Prediction", false, function(value)
     getgenv().YeuTuyen.PredictMovement = value
     sendNotification("Auto Prediction", value and "Enabled" or "Disabled", 2)
