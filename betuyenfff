@@ -566,51 +566,6 @@ local function GetBestTargetPart()
     return bestPart
 end
 
--- Hàm bắn
-local function shoot()
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    
-    if playerGui then
-        -- Kiểm tra MobileControls và Fire button
-        local mobileControls = playerGui:FindFirstChild("MobileControls")
-        if mobileControls then
-            local touchControlFrame = mobileControls:FindFirstChild("TouchControlFrame")
-            if touchControlFrame then
-                local frame = touchControlFrame:FindFirstChild("Frame")
-                if frame then
-                    local fireButton = frame:FindFirstChild("Fire")
-                    if fireButton then
-                        -- Debugging: In ra thông tin
-                        print("Đã tìm thấy Fire button!")
-                        -- Gửi sự kiện click thủ công
-                        fireButton.MouseButton1Click:Fire()
-                        return
-                    end
-                end
-            end
-        end
-
-        -- Kiểm tra BlasterGui và ShootButton
-        local blasterGui = playerGui:FindFirstChild("BlasterGui")
-        if blasterGui then
-            local buttons = blasterGui:FindFirstChild("Buttons")
-            if buttons then
-                local shootButton = buttons:FindFirstChild("ShootButton")
-                if shootButton then
-                    -- Debugging: In ra thông tin
-                    print("Đã tìm thấy ShootButton!")
-                    -- Gửi sự kiện click thủ công
-                    shootButton.MouseButton1Click:Fire()
-                    return
-                end
-            end
-        end
-    end
-
-    -- Nếu không có nút nào thì thực hiện click mặc định
-    click()
-end
-
 -- Rainbow effect
 local rainbowHue = 0
 task.spawn(function()
@@ -683,7 +638,7 @@ RunService.RenderStepped:Connect(function()
                     rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
                     local result = workspace:Raycast(origin, direction, rayParams)
                     if result and result.Instance:IsDescendantOf(cap.Parent) then
-                        shoot()
+                        click()
                     end
                 end
             end)
