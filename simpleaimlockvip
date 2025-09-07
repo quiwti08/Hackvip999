@@ -12,6 +12,827 @@ local AIM_RADIUS = 300
 local AIM_FOV = 100
 local AIM_SMOOTHNESS = 0.9
 local TriggerBotEnabled = true
+local fovRadius = 15
+local movementEnabled = false
+local jumpPower = 50
+local walkSpeed = 16
+local teamCheck = false
+
+-- Initialize Venyx UI
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zxciaz/VenyxUI/main/Reuploaded"))()
+local venyx = library.new("nigga.lol | vhuy-anhchangm52", 5013109572)
+
+local themes = {
+Background = Color3.fromRGB(24, 24, 24),
+Glow = Color3.fromRGB(255, 179, 186),
+Accent = Color3.fromRGB(10, 10, 10),
+LightContrast = Color3.fromRGB(20, 20, 20),
+DarkContrast = Color3.fromRGB(14, 14, 14),
+TextColor = Color3.fromRGB(255, 179, 186)
+}
+
+-- Initialize Notifications tables
+local Notifications = {}
+local TargetNotifications = {}
+
+-- Global settings
+getgenv().YeuTuyen = {
+    Status = true,
+    Hitpart = "Head",
+    SelectedTargets = {},
+    ESPEnabled = true,
+    Mode = "Aimlock",
+    CheckIfJumped = true,
+    CheckIfJumpedAimPart = "HumanoidRootPart",
+    AutoPingSets = true,
+    UseShake = true,
+    ShakePower = 1,
+    PredictMovement = false,
+    PredictionVelocity = 0.17221418,
+    UnderGround = false,
+    DetectDesync = true,
+    Detection = 75,
+}
+
+-- FOV Circle
+local fovCircle = Drawing.new("Circle")
+fovCircle.Visible = false
+fovCircle.Radius = AIM_FOV
+fovCircle.Thickness = 2
+fovCircle.NumSides = 100
+fovCircle.Color = Color3.fromRGB(255, 255, 255)
+fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+-- Cycle FOV circle color
+local colorValue = 255
+local increasing = false
+task.spawn(function()
+    while true do
+        task.wait(0)
+        if increasing then
+            colorValue = colorValue + 1
+            if colorValue >= 255 then
+                increasing = false
+            end
+        else
+            colorValue = colorValue - 1
+            if colorValue <= 0 then
+                increasing = true
+            end
+        end
+        fovCircle.Color = Color3.fromRGB(colorValue, colorValue, colorValue)
+    end
+end)
+
+-- Notification function
+local function sendNotification(title, text, duration)
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "DhuyxNotification_" .. tostring(tick())
+    notifGui.Parent = game:GetService("CoreGui")
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    notifGui.DisplayOrder = 999999 - #Notifications
+    notifGui.IgnoreGuiInset = true
+    notifGui.ResetOnSpawn = false
+    local offsetY = 20 + (#Notifications * 80)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 280, 0, 70)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 0
+    frame.AnchorPoint = Vector2.new(1, 1)
+    frame.Position = UDim2.new(1, -20, 1, -offsetY)
+    frame.Transparency = 1
+    frame.Parent = notifGui
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+    }
+    gradient.Rotation = 90
+    gradient.Parent = frame
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 179, 186)
+    stroke.Thickness = 2
+    stroke.Transparency = 0.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = frame
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0, -10, 0, -10)
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.6
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.ZIndex = -1
+    shadow.BackgroundTransparency = 1
+    shadow.Parent = frame
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -10, 0, 25)
+    titleLabel.Position = UDim2.new(0, 5, 0, 5)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title or "Nigga.lol"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    titleLabel.Parent = frame
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -10, 1, -35)
+    textLabel.Position = UDim2.new(0, 5, 0, 30)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = text or "Notification"
+    textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    textLabel.Font = Enum.Font.Gotham
+    textLabel.TextSize = 14
+    textLabel.TextWrapped = true
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    textLabel.Parent = frame
+    table.insert(Notifications, notifGui)
+    local fadeIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
+    fadeIn:Play()
+    task.spawn(function()
+        task.wait(duration or 3)
+        local fadeOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1})
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            for i, gui in ipairs(Notifications) do
+                if gui == notifGui then
+                    table.remove(Notifications, i)
+                    break
+                end
+            end
+            notifGui:Destroy()
+            for i, gui in ipairs(Notifications) do
+                local frame = gui:FindFirstChildOfClass("Frame")
+                if frame then
+                    local newOffsetY = 20 + ((i - 1) * 80)
+                    local tween = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -newOffsetY)})
+                    tween:Play()
+                end
+            end
+        end)
+    end)
+end
+
+-- Target notification function
+local function sendTargetNotification(plr)
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "TargetNotification_" .. plr.Name
+    notifGui.Parent = game:GetService("CoreGui")
+    notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    notifGui.IgnoreGuiInset = true
+    notifGui.ResetOnSpawn = false
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 250, 0, 150)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 0
+    frame.Position = UDim2.new(0, 20, 0.5, -75)
+    frame.Transparency = 0
+    frame.Parent = notifGui
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+    }
+    gradient.Rotation = 90
+    gradient.Parent = frame
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 179, 186)
+    stroke.Thickness = 2
+    stroke.Transparency = 0.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = frame
+    local avatar = Instance.new("ImageLabel")
+    avatar.Size = UDim2.new(0, 50, 0, 50)
+    avatar.Position = UDim2.new(0, 10, 0, 10)
+    avatar.BackgroundTransparency = 1
+    avatar.Image = Players:GetUserThumbnailAsync(plr.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+    avatar.Parent = frame
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -70, 0, 25)
+    titleLabel.Position = UDim2.new(0, 70, 0, 10)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Target"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = frame
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, -10, 0, 20)
+    nameLabel.Position = UDim2.new(0, 10, 0, 60)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
+    nameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    nameLabel.Font = Enum.Font.Gotham
+    nameLabel.TextSize = 14
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = frame
+    local ageLabel = Instance.new("TextLabel")
+    ageLabel.Size = UDim2.new(1, -10, 0, 20)
+    ageLabel.Position = UDim2.new(0, 10, 0, 80)
+    ageLabel.BackgroundTransparency = 1
+    ageLabel.Text = "Age: " .. plr.AccountAge .. " days"
+    ageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    ageLabel.Font = Enum.Font.Gotham
+    ageLabel.TextSize = 14
+    ageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ageLabel.Parent = frame
+    local status = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health > 0 and "Alive" or "Dead"
+    local health = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health or 0
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, -10, 0, 20)
+    statusLabel.Position = UDim2.new(0, 10, 0, 100)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "Status: " .. status .. " | Health: " .. math.floor(health)
+    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.TextSize = 14
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = frame
+    table.insert(TargetNotifications, notifGui)
+    task.spawn(function()
+        task.wait(3)
+        local slideOut = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0, -300, 0.5, -75)})
+        slideOut:Play()
+        slideOut.Completed:Connect(function()
+            for i, gui in ipairs(TargetNotifications) do
+                if gui == notifGui then
+                    table.remove(TargetNotifications, i)
+                    break
+                end
+            end
+            notifGui:Destroy()
+        end)
+    end)
+end
+
+-- Remove ESP
+local function removeESP(plr)
+    if plr.Character then
+        local char = plr.Character
+        local hl = char:FindFirstChild("ESPHighlight")
+        if hl then hl:Destroy() end
+        local gui = char:FindFirstChild("NameESP")
+        if gui then gui:Destroy() end
+    end
+end
+
+-- Update ESP with tracer support
+local tracerEnabled = false
+local tracers = {}
+local rainbowMode = false
+local function updateESP(plr)
+    if plr == LocalPlayer then return end
+    if not plr.Character or not plr.Character:FindFirstChild("Head") then return end
+    local char = plr.Character
+    local head = char.Head
+    
+    -- Highlight
+    local hl = char:FindFirstChild("ESPHighlight")
+    if not hl then
+        hl = Instance.new("Highlight")
+        hl.Name = "ESPHighlight"
+        hl.Adornee = char
+        hl.FillTransparency = 0.4
+        hl.OutlineTransparency = 0
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Parent = char
+    end
+    local isSelected = getgenv().YeuTuyen.SelectedTargets[plr.Name]
+    hl.FillColor = rainbowMode and getRainbowColor() or (isSelected and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255))
+    hl.OutlineColor = rainbowMode and getRainbowColor() or Color3.fromRGB(255, 255, 255)
+
+    -- Name Billboard
+    local gui = char:FindFirstChild("NameESP")
+    if not gui then
+        gui = Instance.new("BillboardGui")
+        gui.Name = "NameESP"
+        gui.Adornee = head
+        gui.Size = UDim2.new(0, 200, 0, 30)
+        gui.StudsOffset = Vector3.new(0, 2.5, 0)
+        gui.AlwaysOnTop = true
+        gui.Parent = char
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Name = "NameLabel"
+        nameLabel.Size = UDim2.new(1, 0, 1, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.TextStrokeTransparency = 0.5
+        nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+        nameLabel.Font = Enum.Font.SourceSansBold
+        nameLabel.TextScaled = true
+        nameLabel.Parent = gui
+    end
+    local nameLabel = gui:FindFirstChild("NameLabel")
+    if nameLabel then
+        nameLabel.Text = plr.DisplayName .. " (" .. plr.Name .. ")"
+        nameLabel.TextColor3 = rainbowMode and getRainbowColor() or (isSelected and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255))
+    end
+
+    -- Tracer
+    if tracerEnabled then
+        local tracer = tracers[plr.Name]
+        if not tracer then
+            tracer = Drawing.new("Line")
+            tracer.Thickness = 2
+            tracer.Transparency = 1
+            tracers[plr.Name] = tracer
+        end
+        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+        if onScreen then
+            tracer.Visible = true
+            tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+            tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+            tracer.Color = rainbowMode and getRainbowColor() or (isSelected and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255))
+        else
+            tracer.Visible = false
+        end
+    else
+        if tracers[plr.Name] then
+            tracers[plr.Name]:Remove()
+            tracers[plr.Name] = nil
+        end
+    end
+end
+
+-- Rainbow update
+local rainbowHue = 0
+RunService.RenderStepped:Connect(function()
+    rainbowHue = (rainbowHue + 0.01) % 1
+end)
+
+local function getRainbowColor()
+    return Color3.fromHSV(rainbowHue, 1, 1)
+end
+
+-- Hit effect (2 giây rainbow outline)
+local function RainbowHitEffect(char)
+    if not char then return end
+    local hl = char:FindFirstChild("ESPHighlight")
+    if not hl then return end
+
+    local effect = Instance.new("Highlight")
+    effect.Adornee = char
+    effect.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    effect.FillTransparency = 1
+    effect.OutlineTransparency = 0
+    effect.Parent = char
+
+    local t = 0
+    local conn
+    conn = RunService.RenderStepped:Connect(function(dt)
+        if t > 2 then
+            effect:Destroy()
+            conn:Disconnect()
+        else
+            t += dt
+            effect.OutlineColor = getRainbowColor()
+        end
+    end)
+end
+
+-- Theo dõi máu để gọi hiệu ứng
+local function TrackHealth(plr)
+    local char = plr.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    local lastHealth = hum.Health
+    hum.HealthChanged:Connect(function(newHealth)
+        if newHealth < lastHealth then
+            RainbowHitEffect(char)
+        end
+        lastHealth = newHealth
+    end)
+end
+
+-- Theo dõi player spawn
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(1)
+        TrackHealth(plr)
+    end)
+end)
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= LocalPlayer then
+        if plr.Character then TrackHealth(plr) end
+        plr.CharacterAdded:Connect(function()
+            task.wait(1)
+            TrackHealth(plr)
+        end)
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local char = plr.Character
+            local head = char and char:FindFirstChild("Head")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+            if char and head and hum and hum.Health > 0 then
+                -- ESP
+                if getgenv().YeuTuyen.ESPEnabled then
+                    local hl = char:FindFirstChild("ESPHighlight") or Instance.new("Highlight")
+                    hl.Name = "ESPHighlight"
+                    hl.Adornee = char
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    hl.FillTransparency = 0.4
+                    hl.OutlineTransparency = 0
+                    hl.Parent = char
+
+                    local gui = char:FindFirstChild("NameESP") or Instance.new("BillboardGui")
+                    if not char:FindFirstChild("NameESP") then
+                        gui.Name = "NameESP"
+                        gui.Adornee = head
+                        gui.Size = UDim2.new(0, 200, 0, 30)
+                        gui.StudsOffset = Vector3.new(0, 2.5, 0)
+                        gui.AlwaysOnTop = true
+                        gui.Parent = char
+                        local nameLabel = Instance.new("TextLabel")
+                        nameLabel.Name = "NameLabel"
+                        nameLabel.Size = UDim2.new(1, 0, 1, 0)
+                        nameLabel.BackgroundTransparency = 1
+                        nameLabel.TextStrokeTransparency = 0.5
+                        nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+                        nameLabel.Font = Enum.Font.SourceSansBold
+                        nameLabel.TextScaled = true
+                        nameLabel.Parent = gui
+                    end
+                    local nameLabel = gui:FindFirstChild("NameLabel")
+
+                    -- Kiểm tra target
+                    local isTarget = getgenv().YeuTuyen.SelectedTargets[plr.Name]
+                    local color = Color3.fromRGB(255, 255, 255) -- mặc định trắng
+                    if isTarget then
+                        color = rainbowMode and getRainbowColor() or Color3.fromRGB(0, 255, 0)
+                    end
+
+                    hl.FillColor = color
+                    hl.OutlineColor = color
+                    if nameLabel then
+                        nameLabel.Text = plr.DisplayName .. " (" .. plr.Name .. ")"
+                        nameLabel.TextColor3 = color
+                    end
+                else
+                    local hl = char:FindFirstChild("ESPHighlight")
+                    if hl then hl:Destroy() end
+                    local gui = char:FindFirstChild("NameESP")
+                    if gui then gui:Destroy() end
+                end
+
+                -- Tracer
+                if tracerEnabled then
+                    local tracer = tracers[plr.Name] or Drawing.new("Line")
+                    tracers[plr.Name] = tracer
+                    tracer.Thickness = 2
+
+                    local isTarget = getgenv().YeuTuyen.SelectedTargets[plr.Name]
+                    if not isTarget then
+                        -- Không còn target => xoá tracer
+                        if tracers[plr.Name] then
+                            tracers[plr.Name]:Remove()
+                            tracers[plr.Name] = nil
+                        end
+                    else
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                        if onScreen then
+                            tracer.Visible = true
+                            tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                            tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                            tracer.Color = rainbowMode and getRainbowColor() or Color3.fromRGB(0, 255, 0)
+                        else
+                            tracer.Visible = false
+                        end
+                    end
+                else
+                    if tracers[plr.Name] then
+                        tracers[plr.Name]:Remove()
+                        tracers[plr.Name] = nil
+                    end
+                end
+            else
+                -- Xoá ESP + Tracer khi chết
+                if tracers[plr.Name] then
+                    tracers[plr.Name]:Remove()
+                    tracers[plr.Name] = nil
+                end
+                local hl = char and char:FindFirstChild("ESPHighlight")
+                if hl then hl:Destroy() end
+                local gui = char and char:FindFirstChild("NameESP")
+                if gui then gui:Destroy() end
+            end
+        end
+    end
+
+    -- Circle update
+    if fovCircle.Visible and rainbowMode then
+        fovCircle.Color = getRainbowColor()
+    elseif fovCircle.Visible then
+        fovCircle.Color = Color3.fromRGB(255, 255, 255)
+    end
+end)
+
+local function checkTeam(player)
+    if teamCheck and player.Team == LocalPlayer.Team then
+        return true 
+    end
+    return false
+end
+
+-- GetBestTarget for Aimlock
+local function GetBestTarget()
+    if not getgenv().YeuTuyen or not getgenv().YeuTuyen.SelectedTargets then return end
+    local bestTarget, bestPart, bestHumanoid = nil, nil, nil
+    local closestDist = math.huge
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and getgenv().YeuTuyen.SelectedTargets[player.Name] and not checkTeam(player) then
+            local char = player.Character
+            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+            local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
+            if humanoid and humanoid.Health > 0 and part and not humanoid.PlatformStand then
+                local bodyEffects = char:FindFirstChild("BodyEffects")
+                local isKOd = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+                local isGrabbed = char:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+                if not isKOd and not isGrabbed then
+                    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if myRoot then
+                        local dist = (myRoot.Position - part.Position).Magnitude
+                        if dist < closestDist then
+                            local origin = Camera.CFrame.Position
+                            local direction = (part.Position - origin).Unit * 500
+                            local params = RaycastParams.new()
+                            params.FilterType = Enum.RaycastFilterType.Blacklist
+                            params.FilterDescendantsInstances = {LocalPlayer.Character}
+                            params.IgnoreWater = true
+                            local result = Workspace:Raycast(origin, direction, params)
+                            if result and result.Instance:IsDescendantOf(char) then
+                                bestTarget = player
+                                bestPart = part
+                                bestHumanoid = humanoid
+                                closestDist = dist
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return bestTarget, bestPart, bestHumanoid
+end
+
+-- GetAimbotTarget for Aimbot
+local function GetAimbotTarget()
+    local bestTarget, bestPart, bestHumanoid = nil, nil, nil
+    local closestScreenDist = AIM_FOV
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+            local part = char and char:FindFirstChild(getgenv().YeuTuyen.Hitpart)
+            if humanoid and humanoid.Health > 0 and part and not humanoid.PlatformStand and not checkTeam(player) then
+                local bodyEffects = char:FindFirstChild("BodyEffects")
+                local isKOd = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+                local isGrabbed = char:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+                if not isKOd and not isGrabbed then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                        if screenDist <= AIM_FOV and screenDist < closestScreenDist then
+                            local origin = Camera.CFrame.Position
+                            local direction = (part.Position - origin).Unit * 500
+                            local params = RaycastParams.new()
+                            params.FilterType = Enum.RaycastFilterType.Blacklist
+                            params.FilterDescendantsInstances = {LocalPlayer.Character}
+                            params.IgnoreWater = true
+                            local result = Workspace:Raycast(origin, direction, params)
+                            if result and result.Instance:IsDescendantOf(char) then
+                                bestTarget = player
+                                bestPart = part
+                                bestHumanoid = humanoid
+                                closestScreenDist = screenDist
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return bestTarget, bestPart, bestHumanoid
+end
+
+-- Select closest to mouse
+local function SelectClosestToMouse()
+    local closestPlayer = nil
+    local closestScreenDist = AIM_RADIUS
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local head = player.Character.Head
+            local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+            if onScreen then
+                local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                if dist < closestScreenDist then
+                    closestScreenDist = dist
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+    if closestPlayer then
+        local name = closestPlayer.Name
+        if getgenv().YeuTuyen.SelectedTargets[name] then
+            getgenv().YeuTuyen.SelectedTargets[name] = nil
+            sendNotification("Target", "Deselected: " .. name, 2)
+            updateESP(closestPlayer)
+        else
+            getgenv().YeuTuyen.SelectedTargets[name] = true
+            sendNotification("Target", "Selected: " .. name, 2)
+            sendTargetNotification(closestPlayer)
+            updateESP(closestPlayer)
+        end
+    else
+        sendNotification("Target", "No target found near mouse!", 2)
+    end
+end
+
+local function isAlive(plr)
+    if not plr or not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
+    local be = plr.Character:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
+        if (ko and ko.Value) or (grabbed and grabbed.Value) then return false end
+    end
+    return true
+end
+
+local hitParts = {
+    "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
+    "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+    "RightUpperLeg", "RightLowerLeg", "RightFoot", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"
+}
+
+local function validPart(p)
+    if not p or not p.Parent or not p.Parent:FindFirstChild("Humanoid") then return false end
+    local player = Players:GetPlayerFromCharacter(p.Parent)
+    if not player or not getgenv().YeuTuyen.SelectedTargets[player.Name] then return false end
+    for _, n in ipairs(hitParts) do
+        if p.Name:lower() == n:lower() then return true end
+    end
+    return false
+end
+
+if not mouse1press then
+    function mouse1press()
+        local pos = game:GetService("UserInputService"):GetMouseLocation()
+        VirtualInputManager:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 0)
+    end
+end
+
+if not mouse1release then
+    function mouse1release()
+        local pos = game:GetService("UserInputService"):GetMouseLocation()
+        VirtualInputManager:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 0)
+    end
+end
+
+local function click()
+    if UserInputService.TouchEnabled then
+        local touchPos = UserInputService:GetMouseLocation()
+        VirtualInputManager:SendTouchEvent(0, Enum.UserInputState.Begin, touchPos)
+        task.wait()
+        VirtualInputManager:SendTouchEvent(0, Enum.UserInputState.End, touchPos)
+    else
+        if mouse1press then
+            mouse1press()
+            mouse1release()
+        elseif mouse1click then
+            mouse1click()
+        end
+    end
+end
+
+local function distToCursor(part)
+    local v, vis = Camera:WorldToViewportPoint(part.Position)
+    if not vis then return math.huge end
+    local m = UserInputService.TouchEnabled and Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) or UserInputService:GetMouseLocation()
+    return (Vector2.new(v.X, v.Y) - Vector2.new(m.X, m.Y)).Magnitude
+end
+
+local function GetBestTargetPart()
+    local bestPart, bestDist = nil, fovRadius
+    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
+        local plr = Players:FindFirstChild(name)
+        if plr and plr ~= LocalPlayer and isAlive(plr) and plr.Character then 
+            for _, partName in ipairs(hitParts) do
+                local part = plr.Character:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    local dist = distToCursor(part)
+                    if dist < bestDist then
+                        bestPart = part
+                        bestDist = dist
+                    end
+                end
+            end
+        end
+    end
+    return bestPart
+end
+
+-- Rainbow effect
+local rainbowHue = 0
+task.spawn(function()
+    while true do
+        rainbowHue = (rainbowHue + 0.01) % 1
+        task.wait(0.01)
+    end
+end)
+
+local function getRainbowColor()
+    return Color3.fromHSV(rainbowHue, 1, 1)
+end
+
+-- UI Setup
+local aimPage = venyx:addPage("Aimbot", 5012544693)
+local aimSection = aimPage:addSection("Aimbot Settings")
+
+aimSection:addButton("Switch Aim Mode", function()
+    if getgenv().YeuTuyen.Mode == "Aimbot" then
+        getgenv().YeuTuyen.Mode = "Aimlock"
+        fovCircle.Visible = false
+    else
+        getgenv().YeuTuyen.Mode = "Aimbot"
+        fovCircle.Visible = true
+    end
+
+    -- Reset target list khi đổi chế độ
+    getgenv().YeuTuyen.SelectedTargets = {}
+
+    sendNotification("Mode Switch", "Switched to " .. getgenv().YeuTuyen.Mode .. " (Targets Cleared)", 2)
+end)
+
+aimSection:addDropdown("Aim Part", {"Head", "UpperTorso", "HumanoidRootPart", "Torso"}, function(value)
+    getgenv().YeuTuyen.Hitpart = value
+    sendNotification("Aim Part", "Set to " .. value, 2)
+end)
+
+aimSection:addToggle("Auto Prediction", false, function(value)
+    getgenv().YeuTuyen.PredictMovement = value
+    sendNotification("Auto Prediction", value and "Enabled" or "Disabled", 2)
+end)
+
+aimSection:addToggle("TeamCheck", false, function(value)
+    teamCheck = value
+    sendNotification("TeamCheck", value and "Enabled" or "Disabled", 2)
+end)
+
+-- FOV Circle Toggle and Slider
+aimSection:addToggle("FOV Circle", fovCircle.Visible, function(value)
+    fovCircle.Visible = value
+end)
+
+aimSection:addSlider("FOV Radius", AIM_FOV, 20, 500, function(value)
+    AIM_FOV = value
+    fovCircle.Radius = value
+end)
+
+-- Aim Smoothness Slider
+aimSection:addSlider("Aim Smoothness", AIM_SMOOTHNESS * 100, 0, 100, function(value)
+    AIM_SMOOTHNESS = value / 100
+end)
+
+aimSection:addToggle("Triggerbot", true, function(value)
+    TriggerBotEnabled = value
+    sendNotification("Triggerbot", value and "ON" or "OFF")
+end)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+local AIM_RADIUS = 300
+local AIM_FOV = 100
+local AIM_SMOOTHNESS = 0.9
+local TriggerBotEnabled = true
 local fovRadius = 20
 local movementEnabled = false
 local jumpPower = 50
@@ -817,6 +1638,480 @@ end)
 aimSection:addToggle("Triggerbot", true, function(value)
     TriggerBotEnabled = value
     sendNotification("Triggerbot", value and "ON" or "OFF")
+end)
+
+-- Sound definitions
+local sounds = {
+    ["RIFK7"] = "rbxassetid://9102080552",
+    ["Bubble"] = "rbxassetid://9102092728",
+    ["Minecraft"] = "rbxassetid://5869422451",
+    ["Cod"] = "rbxassetid://160432334",
+    ["Bameware"] = "rbxassetid://6565367558",
+    ["Neverlose"] = "rbxassetid://6565370984",
+    ["Gamesense"] = "rbxassetid://4817809188",
+    ["Rust"] = "rbxassetid://6565371338",
+}
+
+-- Create Sound instance
+local SoundService = game:GetService("SoundService")
+local hitSound = Instance.new("Sound")
+hitSound.Volume = 3
+hitSound.Parent = SoundService
+
+-- Sound pool for multiple sound playback
+local soundPool = {}
+local soundIndex = 1
+
+local function getNextSound()
+    if soundIndex > #soundPool then
+        local s = hitSound:Clone()
+        s.Parent = workspace
+        s.Looped = false
+        table.insert(soundPool, s)
+    end
+    local s = soundPool[soundIndex]
+    soundIndex = soundIndex + 1
+    return s
+end
+
+local function playHitSound()
+    local s = getNextSound()
+    s:Stop()
+    s:Play()
+end
+
+-- UI Setup for HitSound
+local aimSection = aimPage:addSection("HitSound Settings")
+aimSection:addToggle("HitSoundEnabled", false, function(value)
+    getgenv().YeuTuyen.HitSoundEnabled = value
+    sendNotification("HitSound", value and "Enabled" or "Disabled", 2)
+end)
+
+aimSection:addDropdown("HitSoundSelect", {"RIFK7", "Bubble", "Minecraft", "Cod", "Bameware", "Neverlose", "Gamesense", "Rust"}, function(value)
+    local id = sounds[value]
+    if id then
+        hitSound.SoundId = id
+        getgenv().YeuTuyen.HitSoundSelect = value
+        sendNotification("HitSound", "Selected: " .. value, 2)
+    end
+end)
+
+-- Global variable to store hit sound settings
+getgenv().YeuTuyen.HitSoundEnabled = false
+getgenv().YeuTuyen.HitSoundSelect = "Neverlose"
+
+RunService.RenderStepped:Connect(function()
+    if TriggerBotEnabled then
+        local part = GetBestTargetPart()
+        if part then
+            task.spawn(function()
+                local cap = part
+                task.wait(0)
+                if distToCursor(cap) <= fovRadius then
+                    local origin = Camera.CFrame.Position
+                    local direction = (cap.Position - origin)
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+                    local result = workspace:Raycast(origin, direction, rayParams)
+                    if result and result.Instance:IsDescendantOf(cap.Parent) then
+                        click()
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- ESP Toggle
+aimSection:addToggle("ESP", getgenv().YeuTuyen.ESPEnabled, function(value)
+    getgenv().YeuTuyen.ESPEnabled = value
+    sendNotification("ESP", value and "ESP Enabled" or "ESP Disabled", 2)
+end)
+
+-- Tracer Toggle
+aimSection:addToggle("Tracer", false, function(value)
+    tracerEnabled = value
+    sendNotification("Tracer", value and "Tracer Enabled" or "Tracer Disabled", 2)
+    if not value then
+        for _, tracer in pairs(tracers) do
+            tracer:Remove()
+        end
+        tracers = {}
+    end
+end)
+
+-- Rainbow Mode Toggle
+aimSection:addToggle("Rainbow Mode", false, function(value)
+    rainbowMode = value
+    sendNotification("Rainbow Mode", value and "Rainbow Mode Enabled" or "Rainbow Mode Disabled", 2)
+end)
+
+-- Set Target Keybind
+local targetKey = Enum.KeyCode.Q
+aimSection:addKeybind("Set Target Key", targetKey, function()
+    SelectClosestToMouse()
+end, function(newKey)
+    targetKey = newKey
+    sendNotification("Set Target Key", "Set to " .. newKey.Name, 2)
+end)
+
+aimSection:addToggle("Movement", false, function(value)
+    movementEnabled = value
+    sendNotification("Movement", value and "ON" or "OFF", 2)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character.Humanoid.UseJumpPower = true
+    end
+end)
+
+-- Keybind
+aimSection:addKeybind("Toggle Movement Key", Enum.KeyCode.Z, function()
+    movementEnabled = not movementEnabled
+    sendNotification("Movement", movementEnabled and "ON" or "OFF", 2)
+end, function(newKey)
+    movementKey = newKey
+    sendNotification("Movement Key", "Set to " .. newKey.Name, 2)
+end)
+
+-- Sliders
+aimSection:addSlider("WalkSpeed", 30, 16, 300, function(value)
+    walkSpeed = value
+end)
+
+aimSection:addSlider("JumpPower", 60, 50, 300, function(value)
+    jumpPower = value
+end)
+
+RunService.Heartbeat:Connect(function(dt)
+    if movementEnabled then 
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hrp and hum then
+            -- bước di chuyển
+            local stepY = jumpPower * dt
+            local stepXZ = walkSpeed * dt
+            
+            local moveDir = hum.MoveDirection
+            if moveDir.Magnitude > 0 then
+                hrp.CFrame = hrp.CFrame + (moveDir * stepXZ) + Vector3.new(0, stepY, 0)
+            else
+                hrp.CFrame = hrp.CFrame + Vector3.new(0, stepY, 0)
+            end
+        end
+    end
+end)
+
+-- GUI Toggle Keybind
+aimSection:addKeybind("Toggle GUI", Enum.KeyCode.RightShift, function()
+    venyx:toggle()
+    sendNotification("GUI", venyx.isEnabled and "GUI Shown" or "GUI Hidden", 2)
+end, function()
+    sendNotification("GUI Keybind", "Changed GUI toggle keybind", 2)
+end)
+
+-- Select default page
+venyx:SelectPage(venyx.pages[1], true)
+
+-- Aimlock activation
+-- Biến để theo dõi trạng thái RightClickAim
+local rightClickAimEnabled = false
+local inputBeganConnection = nil
+local inputEndedConnection = nil
+
+-- Hàm để bật/tắt sự kiện Aimlock
+local function toggleRightClickAim(value)
+    rightClickAimEnabled = value
+    
+    -- Ngắt kết nối sự kiện nếu đang bật
+    if inputBeganConnection then
+        inputBeganConnection:Disconnect()
+        inputBeganConnection = nil
+    end
+    if inputEndedConnection then
+        inputEndedConnection:Disconnect()
+        inputEndedConnection = nil
+    end
+    
+    -- Kích hoạt sự kiện nếu toggle bật
+    if value then
+        inputBeganConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton2 and getgenv().YeuTuyen.Mode == "Aimlock" then
+                getgenv().YeuTuyen.Status = true
+            end
+        end)
+        
+        inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton2 then
+                getgenv().YeuTuyen.Status = false
+            end
+        end)
+    end
+end
+
+-- Aim loop
+local lastTarget = nil
+local lastHealth = {}
+
+RunService.RenderStepped:Connect(function(delta)
+    local target, part, hum = nil, nil, nil
+    if getgenv().YeuTuyen.Mode == "Aimlock" then
+        if getgenv().YeuTuyen.Status then
+            target, part, hum = GetBestTarget()
+        end
+    elseif getgenv().YeuTuyen.Mode == "Aimbot" then
+        target, part, hum = GetAimbotTarget()
+        if fovCircle then
+            fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        end
+    end
+
+    -- Update ESP colors for previous target
+    if lastTarget and lastTarget ~= target and lastTarget.Character then
+        local hl = lastTarget.Character:FindFirstChild("ESPHighlight")
+        local gui = lastTarget.Character:FindFirstChild("NameESP")
+        if hl then
+            hl.FillColor = rainbowMode and getRainbowColor() or Color3.fromRGB(255, 255, 255)
+            hl.OutlineColor = rainbowMode and getRainbowColor() or Color3.fromRGB(255, 255, 255)
+        end
+        if gui and gui:FindFirstChild("NameLabel") then
+            gui.NameLabel.TextColor3 = rainbowMode and getRainbowColor() or Color3.fromRGB(255, 255, 255)
+        end
+    end
+
+    if target and part and hum and target.Character then
+        -- Chọn aimpart dựa trên CheckIfJumped
+        local aimPartName = getgenv().YeuTuyen.Hitpart
+        if getgenv().YeuTuyen.CheckIfJumped and hum:GetState() == Enum.HumanoidStateType.Freefall then
+            aimPartName = getgenv().YeuTuyen.CheckIfJumpedAimPart
+        end
+        local aimPart = target.Character:FindFirstChild(aimPartName) or part 
+
+        -- Áp dụng UseShake
+        if getgenv().YeuTuyen.UseShake and aimPart then
+            pcall(function()
+                local shakeVec = Vector3.new(
+                    math.random(-getgenv().YeuTuyen.ShakePower, getgenv().YeuTuyen.ShakePower),
+                    math.random(-getgenv().YeuTuyen.ShakePower, getgenv().YeuTuyen.ShakePower),
+                    math.random(-getgenv().YeuTuyen.ShakePower, getgenv().YeuTuyen.ShakePower)
+                ) * 0.1
+                aimPart.Velocity = aimPart.Velocity + shakeVec
+                aimPart.AssemblyLinearVelocity = aimPart.AssemblyLinearVelocity + shakeVec
+            end)
+        end
+
+        -- Áp dụng UnderGround
+        if getgenv().YeuTuyen.UnderGround and aimPart then
+            pcall(function()
+                aimPart.Velocity = Vector3.new(aimPart.Velocity.X, 0, aimPart.Velocity.Z)
+                aimPart.AssemblyLinearVelocity = Vector3.new(aimPart.AssemblyLinearVelocity.X, 0, aimPart.AssemblyLinearVelocity.Z)
+            end)
+        end
+
+        -- Áp dụng DetectDesync
+        if getgenv().YeuTuyen.DetectDesync and target.Character:FindFirstChild("HumanoidRootPart") and
+            target.Character.HumanoidRootPart.Velocity.Magnitude > getgenv().YeuTuyen.Detection and aimPart then
+            pcall(function()
+                aimPart.Velocity = Vector3.new(0, 0, 0)
+                aimPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            end)
+        end
+
+        -- Áp dụng AutoPingSets
+        if getgenv().YeuTuyen.AutoPingSets then
+            pcall(function()
+                local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
+                local split = string.split(pingvalue, "(")
+                local ping = tonumber(split[1]) or 0
+                if ping > 190 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.206547
+                elseif ping > 180 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.19284
+                elseif ping > 170 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.1923111
+                elseif ping > 160 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.1823111
+                elseif ping > 150 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.171
+                elseif ping > 140 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.165773
+                elseif ping > 130 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.1223333
+                elseif ping > 120 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.143765
+                elseif ping > 110 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.1455
+                elseif ping > 100 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.130340
+                elseif ping > 90 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.136
+                elseif ping > 80 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.1347
+                elseif ping > 70 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.119
+                elseif ping > 60 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.12731
+                elseif ping > 50 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.127668
+                elseif ping > 40 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.125
+                elseif ping > 30 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.11
+                elseif ping > 20 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.12588
+                elseif ping > 10 then
+                    getgenv().YeuTuyen.PredictionVelocity = 0.9
+                end
+            end)
+        end
+
+        -- Dự đoán chuyển động
+        local predictVec = aimPart.Position
+        if getgenv().YeuTuyen.PredictMovement and aimPart then
+            predictVec = aimPart.Position + aimPart.Velocity * getgenv().YeuTuyen.PredictionVelocity
+        end
+
+        if getgenv().YeuTuyen.Status then
+            local currentLookAt = Camera.CFrame.LookVector * 1000 + Camera.CFrame.Position
+            local targetLookAt = predictVec
+            local lerpedLookAt = currentLookAt:Lerp(targetLookAt, AIM_SMOOTHNESS)
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, lerpedLookAt)
+        end
+
+        -- Update ESP for current target
+        getgenv().YeuTuyen.SelectedTargets[target.Name] = true
+        if updateESP then
+            updateESP(target)
+        end
+
+        -- Show target notification
+        if lastTarget ~= target and sendTargetNotification then
+            sendTargetNotification(target)
+        end
+
+        -- Health change detection
+        local currentHealth = hum.Health
+        local prevHealth = lastHealth[target] or currentHealth
+        if currentHealth < prevHealth then
+            local hl = target.Character:FindFirstChild("ESPHighlight")
+            if hl and getRainbowColor then
+                local originalOutlineColor = hl.OutlineColor
+                local originalFillColor = hl.FillColor
+                hl.OutlineColor = getRainbowColor()
+                if getgenv().YeuTuyen.ESPEnabled then
+                    hl.FillTransparency = 0.4
+                end
+                task.delay(2, function()
+                    if hl and hl.Parent then
+                        hl.OutlineColor = originalOutlineColor
+                        hl.FillColor = originalFillColor
+                        hl.FillTransparency = 0.4
+                    end
+                end)
+            end
+        end
+        lastHealth[target] = currentHealth
+    end
+
+    lastTarget = target
+end)
+
+-- Teleport section
+local function getBestTargetForTeleport()
+    local closestDowned = nil
+    local closestNormal = nil
+    local downedDist = math.huge
+    local normalDist = math.huge
+    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
+        local plr = Players:FindFirstChild(name)
+        if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = plr.Character.HumanoidRootPart
+            local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myHrp then
+                local dist = (myHrp.Position - hrp.Position).Magnitude
+                local bodyEffects = plr.Character:FindFirstChild("BodyEffects")
+                local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+                if isKO and dist < downedDist then
+                    closestDowned = plr
+                    downedDist = dist
+                elseif not isKO and dist < normalDist then
+                    closestNormal = plr
+                    normalDist = dist
+                end
+            end
+        end
+    end
+    return closestDowned or closestNormal
+end
+
+local function teleportToTarget()
+    local target = getBestTargetForTeleport()
+    if not target or not getgenv().YeuTuyen.SelectedTargets[target.Name] then
+        sendNotification("Teleport", "No valid target in selected list.", 2)
+        return
+    end
+    local char = target.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then
+        sendNotification("Teleport", "Cannot teleport to " .. target.Name, 2)
+        return
+    end
+    local myChar = LocalPlayer.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local targetHRP = char:FindFirstChild("HumanoidRootPart")
+    if not myHRP or not targetHRP then return end
+    local bodyEffects = char:FindFirstChild("BodyEffects")
+    local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+    if isKO then
+        myHRP.CFrame = CFrame.new(targetHRP.Position)
+        sendNotification("Teleport", "Teleported to downed: " .. target.Name, 2)
+        local VirtualInputManager = game:GetService("VirtualInputManager")
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    else
+        myHRP.CFrame = CFrame.new(targetHRP.Position + Vector3.new(2, 0, 0))
+        sendNotification("Teleport", "Teleported above alive target: " .. target.Name, 2)
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.T then
+        teleportToTarget()
+    end
+end)
+
+-- KO detection
+local lastDowned = {}
+RunService.Heartbeat:Connect(function()
+    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
+        local plr = Players:FindFirstChild(name)
+        if plr and plr.Character then
+            local bodyEffects = plr.Character:FindFirstChild("BodyEffects")
+            local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+            if isKO and not lastDowned[name] then
+                lastDowned[name] = true
+                sendNotification("KO Alert", name .. " just got knocked out!", 2)
+            elseif not isKO then
+                lastDowned[name] = false
+            end
+        end
+    end
+end)
+
+-- Player join/leave notifications
+Players.PlayerAdded:Connect(function(player)
+    task.wait(1)
+    if getgenv().YeuTuyen.SelectedTargets[player.Name] then
+        sendNotification("Player", player.Name .. " rejoined the game.", 2)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if getgenv().YeuTuyen.SelectedTargets[player.Name] then
+        sendNotification("Player", player.Name .. " left the game.", 2)
+    end
 end)
 
 -- Sound definitions
