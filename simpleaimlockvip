@@ -402,42 +402,6 @@ local function RainbowHitEffect(char)
     end)
 end
 
--- Theo dõi máu để gọi hiệu ứng
-local function TrackHealth(plr)
-    local char = plr.Character
-    if not char then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then return end
-
-    local lastHealth = hum.Health
-    hum.HealthChanged:Connect(function(newHealth)
-        if newHealth < lastHealth then
-            RainbowHitEffect(char)
-            if getgenv().YeuTuyen.HitSoundEnabled then
-                playHitSound()
-            end
-        end
-        lastHealth = newHealth
-    end)
-end
-
--- Theo dõi player spawn
-Players.PlayerAdded:Connect(function(plr)
-    plr.CharacterAdded:Connect(function()
-        task.wait(1)
-        TrackHealth(plr)
-    end)
-end)
-for _, plr in ipairs(Players:GetPlayers()) do
-    if plr ~= LocalPlayer then
-        if plr.Character then TrackHealth(plr) end
-        plr.CharacterAdded:Connect(function()
-            task.wait(1)
-            TrackHealth(plr)
-        end)
-    end
-end
-
 RunService.RenderStepped:Connect(function()
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then
@@ -873,7 +837,7 @@ end
 
 -- UI Setup for HitSound
 local aimSection = aimPage:addSection("HitSound Settings")
-aimSection:addToggle("HitSoundEnabled", false, function(value)
+aimSection:addToggle("HitSoundEnabled", true, function(value)
     getgenv().YeuTuyen.HitSoundEnabled = value
     sendNotification("HitSound", value and "Enabled" or "Disabled", 2)
 end)
@@ -1274,6 +1238,42 @@ UserInputService.InputBegan:Connect(function(input, gp)
         teleportToTarget()
     end
 end)
+
+-- Theo dõi máu để gọi hiệu ứng
+local function TrackHealth(plr)
+    local char = plr.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    local lastHealth = hum.Health
+    hum.HealthChanged:Connect(function(newHealth)
+        if newHealth < lastHealth then
+            RainbowHitEffect(char)
+            if getgenv().YeuTuyen.HitSoundEnabled then
+                playHitSound()
+            end
+        end
+        lastHealth = newHealth
+    end)
+end
+
+-- Theo dõi player spawn
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(1)
+        TrackHealth(plr)
+    end)
+end)
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= LocalPlayer then
+        if plr.Character then TrackHealth(plr) end
+        plr.CharacterAdded:Connect(function()
+            task.wait(1)
+            TrackHealth(plr)
+        end)
+    end
+end
 
 -- KO detection
 local lastDowned = {}
