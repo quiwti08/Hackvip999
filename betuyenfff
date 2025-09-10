@@ -54,7 +54,7 @@ local Notifications = {}
 local TargetNotifications = {}
 local lastSubject = nil
 local lastPosition = nil  -- Lưu vị trí cũ khi bật Kill Mode
-local defaultFOV = Camera.FieldOfView  -- Lưu FOV ban đầu
+local defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance ban đầu
 local defaultCameraType = Camera.CameraType  -- Lưu CameraType ban đầu
 
 -- Global settings
@@ -690,9 +690,10 @@ RunService.RenderStepped:Connect(function()
                 if Camera.CameraSubject ~= target.Character.Head then
                     lastSubject = Camera.CameraSubject
                     Camera.CameraSubject = target.Character.Head
+                    sendNotification("View", "Đang xem " .. target.DisplayName, 2)
                 end
-                -- Zoom gần (FOV = 5) và chuyển sang Classic nếu ở First Person
-                Camera.FieldOfView = 5
+                -- Zoom gần (MinZoomDistance = 5) và chuyển sang Classic nếu ở First Person
+                Camera.MinZoomDistance = 5
                 if Camera.CameraType == Enum.CameraType.Fixed or Camera.CameraType == Enum.CameraType.FirstPerson then
                     Camera.CameraType = Enum.CameraType.Classic
                 end
@@ -705,8 +706,9 @@ RunService.RenderStepped:Connect(function()
             end
             if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
                 Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
-                Camera.FieldOfView = defaultFOV
+                Camera.MinZoomDistance = defaultMinDistance
                 Camera.CameraType = defaultCameraType
+                sendNotification("View", "Tắt view", 2)
             end
         end
     end
@@ -1128,12 +1130,12 @@ aimGroup:AddToggle("KillMode", {
             if myHRP then
                 lastPosition = myHRP.CFrame  -- Lưu vị trí cũ khi bật
             end
-            defaultFOV = Camera.FieldOfView  -- Lưu FOV ban đầu
+            defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance ban đầu
             defaultCameraType = Camera.CameraType  -- Lưu CameraType ban đầu
         else
-            -- Khi tắt Kill Mode, khôi phục CameraSubject, vị trí, FOV và CameraType
+            -- Khi tắt Kill Mode, khôi phục CameraSubject, vị trí, MinZoomDistance và CameraType
             Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
-            Camera.FieldOfView = defaultFOV
+            Camera.MinZoomDistance = defaultMinDistance
             Camera.CameraType = defaultCameraType
             local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if myHRP and lastPosition then
