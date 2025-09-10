@@ -702,17 +702,37 @@ end
 local function integrateKillMode()
     if getgenv().YeuTuyen.KillMode then
         pcall(function()
-            local target = getBestTargetForKill()
+            local target = getBestTargetForKill()  -- Hoặc getBestInvalidTargetForKill() nếu bạn muốn fallback
             if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
                 local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if myHRP then
                     local targetHRP = target.Character.HumanoidRootPart
-                    -- Dịch chuyển xuống dưới mục tiêu 8 studs
-                    myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 8, 0))
+                    local targetPos = targetHRP.Position
+                    
+                    local offset = Vector3.new(0, CsyncHeight, 0)  -- Default cho Below
+                    
+                    if KillModeType == "Orbit" then
+                        local t = tick() * CsyncSpeed
+                        offset = Vector3.new(
+                            math.cos(t) * CsyncRadius,
+                            CsyncHeight,
+                            math.sin(t) * CsyncRadius
+                        )
+                    elseif KillModeType == "Random" then
+                        offset = Vector3.new(
+                            math.random(-CsyncRadius, CsyncRadius),
+                            CsyncHeight,
+                            math.random(-CsyncRadius, CsyncRadius)
+                        )
+                    end
+                    
+                    myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
+                    
                     -- Khóa camera vào đầu của mục tiêu
                     if Camera.CameraSubject ~= target.Character.Head then
                         lastSubject = Camera.CameraSubject
                         Camera.CameraSubject = target.Character.Head
+                        sendNotification("View", "Đang xem " .. target.DisplayName, 2)
                     end
                     -- Zoom gần (MinZoomDistance = 5) và chuyển sang Classic nếu ở First Person
                     Camera.MinZoomDistance = 5
@@ -721,16 +741,7 @@ local function integrateKillMode()
                     end
                 end
             else
-                -- Không có mục tiêu hợp lệ, teleport về vị trí cũ và khôi phục camera
-                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myHRP and lastPosition then
-                    myHRP.CFrame = lastPosition
-                end
-                if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
-                    Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
-                    Camera.MinZoomDistance = defaultMinDistance or 0.5
-                    Camera.CameraType = defaultCameraType or Enum.CameraType.Custom
-                end
+                -- Không có mục tiêu: Dừng (không làm gì, không restore)
             end
         end)
     end
@@ -861,28 +872,42 @@ aimSection:addToggle("FOV Circle", fovCircle.Visible, function(value)
     fovCircle.Visible = value
 end)
 
+-- Toggle KillMode (giữ nguyên hoặc thay bằng cái mới nếu cần)
 aimSection:addToggle("Kill Mode", false, function(value)
     getgenv().YeuTuyen.KillMode = value
     sendNotification("Kill Mode", value and "Enabled" or "Disabled", 2)
-    if value then
-        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if myHRP then
-            lastPosition = myHRP.CFrame  -- Lưu vị trí cũ khi bật
-        end
-        defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance khi bật
-        defaultCameraType = Camera.CameraType  -- Lưu CameraType khi bật
-    else
-        -- Khi tắt Kill Mode, khôi phục CameraSubject, vị trí, MinZoomDistance và CameraType
+    if not value then
+        -- Khi tắt, khôi phục camera (không teleport vị trí)
         pcall(function()
             Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
             Camera.MinZoomDistance = defaultMinDistance or 0.5
             Camera.CameraType = defaultCameraType or Enum.CameraType.Custom
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myHRP and lastPosition then
-                myHRP.CFrame = lastPosition
-            end
         end)
+        sendNotification("View", "Tắt view", 2)
+    else
+        -- Lưu default camera khi bật (nếu cần)
+        defaultMinDistance = Camera.MinZoomDistance
+        defaultCameraType = Camera.CameraType
     end
+end)
+
+-- Dropdown cho chế độ
+aimSection:addDropdown("Kill Mode Type", {"Below", "Orbit", "Random"}, function(value)
+    KillModeType = value
+    sendNotification("Kill Mode Type", "Set to " .. value, 2)
+end)
+
+-- Sliders
+aimSection:addSlider("Csync Radius", 10, 1, 200, function(value)
+    CsyncRadius = value
+end)
+
+aimSection:addSlider("Csync Height", -8, -50, 200, function(value)
+    CsyncHeight = value
+end)
+
+aimSection:addSlider("Csync Speed", 1, 1, 200, function(value)
+    CsyncSpeed = value
 end)
 
 aimSection:addSlider("FOV Radius", AIM_FOV, 20, 500, function(value)
