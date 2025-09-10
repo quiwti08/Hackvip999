@@ -28,6 +28,7 @@ local venyx = library.new("nigga.lol | vhuy-anhchangm52", 5013109572)
 -- Initialize Notifications tables
 local Notifications = {}
 local TargetNotifications = {}
+local lastSubject = nil
 
 -- Global settings
 getgenv().YeuTuyen = {
@@ -46,6 +47,7 @@ getgenv().YeuTuyen = {
     UnderGround = true,
     DetectDesync = true,
     Detection = 75,
+    KillMode = false,
 }
 
 -- FOV Circle
@@ -803,6 +805,11 @@ end)
 aimSection:addToggle("Kill Mode", false, function(value)
     getgenv().YeuTuyen.KillMode = value
     sendNotification("Kill Mode", value and "Enabled" or "Disabled", 2)
+    if not value then
+        -- Khi tắt Kill Mode, khôi phục CameraSubject về mặc định
+        Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
+        sendNotification("View", "Tắt view", 2)
+    end
 end)
 
 aimSection:addToggle("Triggerbot", true, function(value)
@@ -939,22 +946,26 @@ RunService.RenderStepped:Connect(function()
 
     if getgenv().YeuTuyen.KillMode then
         local target = getBestTargetForKill()
-        if target and target.Character then
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
             local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if myHRP then
-                local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
-                local targetPart = target.Character:FindFirstChild("UpperTorso") or target.Character:FindFirstChild("Torso")
-                if targetHRP and targetPart then
-                    -- Dịch chuyển xuống dưới mục tiêu 3 studs
-                    myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 3, 0))
-                    -- Điều chỉnh camera nhìn vào UpperTorso hoặc Torso
-                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+                local targetHRP = target.Character.HumanoidRootPart
+                -- Dịch chuyển xuống dưới mục tiêu 3 studs
+                myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 3, 0))
+                -- Khóa camera vào đầu của mục tiêu
+                if Camera.CameraSubject ~= target.Character.Head then
+                    lastSubject = Camera.CameraSubject
+                    Camera.CameraSubject = target.Character.Head
                 end
             end
         else
-            -- Nếu không có mục tiêu hợp lệ, dịch chuyển đến (0, 0, 0)
+            -- Nếu không có mục tiêu hợp lệ, dịch chuyển đến (0, 0, 0) và khôi phục camera
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if myHRP then
                 myHRP.CFrame = CFrame.new(Vector3.new(0, 0, 0))
+            end
+            if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
+                Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
             end
         end
     end
