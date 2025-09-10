@@ -30,8 +30,8 @@ local Notifications = {}
 local TargetNotifications = {}
 local lastSubject = nil
 local lastPosition = nil  -- Lưu vị trí cũ khi bật Kill Mode
-local defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance ban đầu
-local defaultCameraType = Camera.CameraType  -- Lưu CameraType ban đầu
+local defaultMinDistance = nil 
+local defaultCameraType = nil  
 
 -- Global settings
 getgenv().YeuTuyen = {
@@ -699,6 +699,43 @@ local function getBestInvalidTargetForKill()
     return closestTarget
 end
 
+local function integrateKillMode()
+    if getgenv().YeuTuyen.KillMode then
+        pcall(function()
+            local target = getBestTargetForKill()
+            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
+                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if myHRP then
+                    local targetHRP = target.Character.HumanoidRootPart
+                    -- Dịch chuyển xuống dưới mục tiêu 8 studs
+                    myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 8, 0))
+                    -- Khóa camera vào đầu của mục tiêu
+                    if Camera.CameraSubject ~= target.Character.Head then
+                        lastSubject = Camera.CameraSubject
+                        Camera.CameraSubject = target.Character.Head
+                    end
+                    -- Zoom gần (MinZoomDistance = 5) và chuyển sang Classic nếu ở First Person
+                    Camera.MinZoomDistance = 5
+                    if Camera.CameraType == Enum.CameraType.Fixed or Camera.CameraType == Enum.CameraType.FirstPerson then
+                        Camera.CameraType = Enum.CameraType.Classic
+                    end
+                end
+            else
+                -- Không có mục tiêu hợp lệ, teleport về vị trí cũ và khôi phục camera
+                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if myHRP and lastPosition then
+                    myHRP.CFrame = lastPosition
+                end
+                if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
+                    Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
+                    Camera.MinZoomDistance = defaultMinDistance or 0.5
+                    Camera.CameraType = defaultCameraType or Enum.CameraType.Custom
+                end
+            end
+        end)
+    end
+end
+
 local hitParts = {
     "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
     "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
@@ -826,22 +863,25 @@ end)
 
 aimSection:addToggle("Kill Mode", false, function(value)
     getgenv().YeuTuyen.KillMode = value
+    sendNotification("Kill Mode", value and "Enabled" or "Disabled", 2)
     if value then
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if myHRP then
             lastPosition = myHRP.CFrame  -- Lưu vị trí cũ khi bật
         end
-        defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance ban đầu
-        defaultCameraType = Camera.CameraType  -- Lưu CameraType ban đầu
+        defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance khi bật
+        defaultCameraType = Camera.CameraType  -- Lưu CameraType khi bật
     else
         -- Khi tắt Kill Mode, khôi phục CameraSubject, vị trí, MinZoomDistance và CameraType
-        Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
-        Camera.MinZoomDistance = defaultMinDistance
-        Camera.CameraType = defaultCameraType
-        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if myHRP and lastPosition then
-            myHRP.CFrame = lastPosition
-        end
+        pcall(function()
+            Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
+            Camera.MinZoomDistance = defaultMinDistance or 0.5
+            Camera.CameraType = defaultCameraType or Enum.CameraType.Custom
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myHRP and lastPosition then
+                myHRP.CFrame = lastPosition
+            end
+        end)
     end
 end)
 
@@ -1126,6 +1166,8 @@ local lastTarget = nil
 local lastHealth = {}
 
 RunService.RenderStepped:Connect(function(delta)
+    integrateKillMode()
+
     local target, part, hum = nil, nil, nil
     if getgenv().YeuTuyen.Mode == "Aimlock" then
         if getgenv().YeuTuyen.Status then
