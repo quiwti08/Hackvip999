@@ -18,6 +18,7 @@ local currentTrack = nil
 local AIM_SMOOTHNESS = 0.9
 local TriggerBotEnabled = true
 local fovRadius = 20
+local BringEnabled = false
 local movementEnabled = false
 local jumpPower = 50
 local walkSpeed = 16
@@ -48,6 +49,8 @@ local RightUpperLegAccessories = {
 }
 local FlyEnabled = false
 local FlySpeed = 35
+local AntiLockEnabled = false
+local AntiLockType = "Behind" -- Chế độ mặc định
 local AntiLockModes = {
     "Behind",
     "Down",
@@ -749,17 +752,37 @@ local function getBestInvalidTargetForKill()
     return closestTarget
 end
 
+local function integrateBring()
+    if BringEnabled then
+        pcall(function()
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not myHRP then return end
+
+            for name, selected in pairs(getgenv().YeuTuyen.SelectedTargets) do
+                if selected then
+                    local target = Players:FindFirstChild(name)
+                    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                        local hrp = target.Character.HumanoidRootPart
+                        hrp.CFrame = myHRP.CFrame * CFrame.new(0, 0, -2)  -- Cách 2 stud phía trước
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end
+
 local function integrateKillMode()
     if getgenv().YeuTuyen.KillMode then
         pcall(function()
-            local target = getBestTargetForKill()  -- Hoặc getBestInvalidTargetForKill() nếu bạn muốn fallback
+            local target = getBestTargetForKill()
             if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
                 local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if myHRP then
                     local targetHRP = target.Character.HumanoidRootPart
                     local targetPos = targetHRP.Position
                     
-                    local offset = Vector3.new(0, CsyncHeight, 0)  -- Default cho Below
+                    local offset = Vector3.new(0, CsyncHeight, 0)
                     
                     if KillModeType == "Orbit" then
                         local t = tick() * CsyncSpeed
@@ -769,29 +792,31 @@ local function integrateKillMode()
                             math.sin(t) * CsyncRadius
                         )
                     elseif KillModeType == "Random" then
-                        offset = Vector3.new(
-                            math.random(-CsyncRadius, CsyncRadius),
-                            CsyncHeight,
-                            math.random(-CsyncRadius, CsyncRadius)
-                        )
+                        local randX = (math.random() * 2 - 1) * CsyncRadius
+                        local randZ = (math.random() * 2 - 1) * CsyncRadius
+                        offset = Vector3.new(randX, CsyncHeight, randZ)
                     end
                     
                     myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
                     
-                    -- Khóa camera vào đầu của mục tiêu
                     if Camera.CameraSubject ~= target.Character.Head then
                         lastSubject = Camera.CameraSubject
                         Camera.CameraSubject = target.Character.Head
-                        sendNotification("View", "Đang xem " .. target.DisplayName, 2)
                     end
-                    -- Zoom gần (MinZoomDistance = 5) và chuyển sang Classic nếu ở First Person
                     Camera.MinZoomDistance = 5
                     if Camera.CameraType == Enum.CameraType.Fixed or Camera.CameraType == Enum.CameraType.FirstPerson then
                         Camera.CameraType = Enum.CameraType.Classic
                     end
                 end
             else
-                -- Không có mục tiêu: Dừng (không làm gì, không restore)
+                pcall(function()
+                    Camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") or lastSubject
+                    Camera.CameraType = Enum.CameraType.Custom
+                    Camera.MinZoomDistance = defaultMinDistance or 0.5
+                    if LocalPlayer.Character then
+                        LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
+                    end
+                end)
             end
         end)
     end
@@ -936,6 +961,16 @@ aimSection:addToggle("FOV Circle", fovCircle.Visible, function(value)
     fovCircle.Visible = value
 end)
 
+aimSection:addSlider("FOV Radius", AIM_FOV, 20, 500, function(value)
+    AIM_FOV = value
+    fovCircle.Radius = value
+end)
+
+-- Aim Smoothness Slider
+aimSection:addSlider("Aim Smoothness", AIM_SMOOTHNESS * 100, 0, 100, function(value)
+    AIM_SMOOTHNESS = value / 100
+end)
+
 aimSection:addToggle("Kill Mode", false, function(value)
     getgenv().YeuTuyen.KillMode = value
     sendNotification("Kill Mode", value and "Enabled" or "Disabled", 2)
@@ -982,16 +1017,6 @@ aimSection:addSlider("Csync Speed", 1, 1, 200, function(value)
     CsyncSpeed = value
 end)
 
-aimSection:addSlider("FOV Radius", AIM_FOV, 20, 500, function(value)
-    AIM_FOV = value
-    fovCircle.Radius = value
-end)
-
--- Aim Smoothness Slider
-aimSection:addSlider("Aim Smoothness", AIM_SMOOTHNESS * 100, 0, 100, function(value)
-    AIM_SMOOTHNESS = value / 100
-end)
-
 aimSection:addToggle("Triggerbot", true, function(value)
     TriggerBotEnabled = value
     sendNotification("Triggerbot", value and "ON" or "OFF")
@@ -1000,6 +1025,36 @@ end)
 -- Triggerbot FOV Radius
 aimSection:addSlider("Triggerbot FOV", fovRadius, 10, 200, function(value)
     fovRadius = value
+end)
+
+aimSection:addToggle("Bring", false, function(value)
+    BringEnabled = value
+    sendNotification("Bring", value and "Enabled" or "Disabled", 2)
+    if value and getgenv().YeuTuyen.KillMode then
+        getgenv().YeuTuyen.KillMode = false
+        sendNotification("Kill Mode", "Tự tắt vì Bring được bật", 2)
+        pcall(function()
+            Camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") or lastSubject
+            Camera.CameraType = Enum.CameraType.Custom
+            Camera.MinZoomDistance = defaultMinDistance or 0.5
+            if LocalPlayer.Character then
+                LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
+            end
+        end)
+    end
+end)
+
+aimSection:addToggle("AntiLock", false, function(value)
+    AntiLockEnabled = value
+    sendNotification("AntiLock", value and "ON (" .. AntiLockType .. ")" or "OFF")
+end)
+
+-- Dropdown cho các chế độ AntiLock
+aimSection:addDropdown("AntiLock Mode", AntiLockModes, function(mode)
+    AntiLockType = mode
+    if AntiLockEnabled then
+        sendNotification("AntiLock", "Mode set to: " .. mode)
+    end
 end)
 
 -- Sound definitions
@@ -1249,6 +1304,7 @@ local lastHealth = {}
 
 RunService.RenderStepped:Connect(function(delta)
     integrateKillMode()
+    integrateBring()
 
     local target, part, hum = nil, nil, nil
     if getgenv().YeuTuyen.Mode == "Aimlock" then
