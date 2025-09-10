@@ -640,6 +640,31 @@ local function isAlive(plr)
     return true
 end
 
+local function getBestTargetForKill()
+    local closestTarget = nil
+    local closestDist = math.huge
+    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return nil end
+
+    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
+        local plr = Players:FindFirstChild(name)
+        if plr and plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local bodyEffects = plr.Character:FindFirstChild("BodyEffects")
+            local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+            local isGrabbed = plr.Character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+            if hum and hum.Health > 0 and not isKO and not isGrabbed then
+                local dist = (myHRP.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+                if dist < closestDist then
+                    closestTarget = plr
+                    closestDist = dist
+                end
+            end
+        end
+    end
+    return closestTarget
+end
+
 local hitParts = {
     "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
     "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
@@ -775,6 +800,11 @@ aimSection:addSlider("Aim Smoothness", AIM_SMOOTHNESS * 100, 0, 100, function(va
     AIM_SMOOTHNESS = value / 100
 end)
 
+aimSection:addToggle("Kill Mode", false, function(value)
+    getgenv().YeuTuyen.KillMode = value
+    sendNotification("Kill Mode", value and "Enabled" or "Disabled", 2)
+end)
+
 aimSection:addToggle("Triggerbot", true, function(value)
     TriggerBotEnabled = value
     sendNotification("Triggerbot", value and "ON" or "OFF")
@@ -903,6 +933,28 @@ RunService.RenderStepped:Connect(function()
                     player.Character.HumanoidRootPart.Material = "Plastic"
                     player.Character.HumanoidRootPart.CanCollide = false
                 end)
+            end
+        end
+    end
+
+    if getgenv().YeuTuyen.KillMode then
+        local target = getBestTargetForKill()
+        if target and target.Character then
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myHRP then
+                local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+                local targetPart = target.Character:FindFirstChild("UpperTorso") or target.Character:FindFirstChild("Torso")
+                if targetHRP and targetPart then
+                    -- Dịch chuyển xuống dưới mục tiêu 3 studs
+                    myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 3, 0))
+                    -- Điều chỉnh camera nhìn vào UpperTorso hoặc Torso
+                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+                end
+            end
+        else
+            -- Nếu không có mục tiêu hợp lệ, dịch chuyển đến (0, 0, 0)
+            if myHRP then
+                myHRP.CFrame = CFrame.new(Vector3.new(0, 0, 0))
             end
         end
     end
