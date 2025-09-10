@@ -678,27 +678,24 @@ RunService.RenderStepped:Connect(function()
     if getgenv().YeuTuyen.KillMode then
         local target = getBestTargetForKill()
         if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("UpperTorso")
             if myHRP then
                 local targetHRP = target.Character.HumanoidRootPart
                 -- Dịch chuyển xuống dưới mục tiêu 3 studs
-                myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 3, 0))
+                myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 5, 0))
                 -- Khóa camera vào đầu của mục tiêu
                 if Camera.CameraSubject ~= target.Character.Head then
                     lastSubject = Camera.CameraSubject
                     Camera.CameraSubject = target.Character.Head
-                    sendNotification("View", "Đang xem " .. target.DisplayName, 2)
                 end
             end
         else
-            -- Nếu không có mục tiêu hợp lệ, dịch chuyển đến (0, 0, 0) và khôi phục camera
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("UpperTorso")
             if myHRP then
-                myHRP.CFrame = CFrame.new(Vector3.new(0, 0, 0))
+                myHRP.CFrame = CFrame.new(Vector3.new(0, 6, 0))
             end
             if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
                 Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
-                sendNotification("View", "Tắt view", 2)
             end
         end
     end
