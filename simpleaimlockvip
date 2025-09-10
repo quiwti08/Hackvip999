@@ -29,8 +29,9 @@ local venyx = library.new("nigga.lol | vhuy-anhchangm52", 5013109572)
 local Notifications = {}
 local TargetNotifications = {}
 local lastSubject = nil
-local lastPosition = nil 
-local teleportedToZero = false  
+local lastPosition = nil  -- Lưu vị trí cũ khi bật Kill Mode
+local defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance ban đầu
+local defaultCameraType = Camera.CameraType  -- Lưu CameraType ban đầu
 
 -- Global settings
 getgenv().YeuTuyen = {
@@ -830,15 +831,17 @@ aimSection:addToggle("Kill Mode", false, function(value)
         if myHRP then
             lastPosition = myHRP.CFrame  -- Lưu vị trí cũ khi bật
         end
-        teleportedToZero = false  -- Reset flag khi bật
+        defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance ban đầu
+        defaultCameraType = Camera.CameraType  -- Lưu CameraType ban đầu
     else
-        -- Khi tắt Kill Mode, khôi phục CameraSubject và teleport về vị trí cũ
+        -- Khi tắt Kill Mode, khôi phục CameraSubject, vị trí, MinZoomDistance và CameraType
         Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
+        Camera.MinZoomDistance = defaultMinDistance
+        Camera.CameraType = defaultCameraType
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if myHRP and lastPosition then
             myHRP.CFrame = lastPosition
         end
-        teleportedToZero = false  -- Reset flag
     end
 end)
 
@@ -1000,49 +1003,29 @@ RunService.RenderStepped:Connect(function()
             local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if myHRP then
                 local targetHRP = target.Character.HumanoidRootPart
-                -- Dịch chuyển xuống dưới mục tiêu 3 studs
-                myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 3, 0))
+                -- Dịch chuyển xuống dưới mục tiêu 8 studs
+                myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 8, 0))
                 -- Khóa camera vào đầu của mục tiêu
                 if Camera.CameraSubject ~= target.Character.Head then
                     lastSubject = Camera.CameraSubject
                     Camera.CameraSubject = target.Character.Head
-                    sendNotification("View", "Đang xem " .. target.DisplayName, 2)
+                end
+                -- Zoom gần (MinZoomDistance = 5) và chuyển sang Classic nếu ở First Person
+                Camera.MinZoomDistance = 5
+                if Camera.CameraType == Enum.CameraType.Fixed or Camera.CameraType == Enum.CameraType.FirstPerson then
+                    Camera.CameraType = Enum.CameraType.Classic
                 end
             end
-            teleportedToZero = false  -- Reset flag nếu có mục tiêu hợp lệ
         else
-            -- Không có mục tiêu hợp lệ
-            local invalidTarget = getBestInvalidTargetForKill()
-            if invalidTarget and invalidTarget.Character then
-                -- Nếu có mục tiêu bị K.O/grab, kiểm tra xem game có mechanic K.O/grab
-                if hasKOOrGrabMechanic(invalidTarget.Character) then
-                    if not teleportedToZero then  -- Chỉ teleport một lần
-                        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        if myHRP then
-                            local targetPart = invalidTarget.Character:FindFirstChild("UpperTorso") or invalidTarget.Character:FindFirstChild("Torso")
-                            if targetPart then
-                                myHRP.CFrame = CFrame.new(targetPart.Position)  -- Teleport đến (0,0,0) so với UpperTorso/Torso
-                            end
-                        end
-                        teleportedToZero = true  -- Set flag để không loop
-                    end
-                else
-                    -- Game không có K.O/grab, teleport về vị trí cũ
-                    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                    if myHRP and lastPosition then
-                        myHRP.CFrame = lastPosition
-                    end
-                end
-            else
-                -- Không có mục tiêu nào, teleport về vị trí cũ
-                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myHRP and lastPosition then
-                    myHRP.CFrame = lastPosition
-                end
+            -- Không có mục tiêu hợp lệ, teleport về vị trí cũ và khôi phục camera
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myHRP and lastPosition then
+                myHRP.CFrame = lastPosition
             end
-            -- Khôi phục camera nếu không có mục tiêu
             if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
                 Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
+                Camera.MinZoomDistance = defaultMinDistance
+                Camera.CameraType = defaultCameraType
             end
         end
     end
