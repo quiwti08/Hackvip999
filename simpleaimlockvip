@@ -29,6 +29,8 @@ local venyx = library.new("nigga.lol | vhuy-anhchangm52", 5013109572)
 local Notifications = {}
 local TargetNotifications = {}
 local lastSubject = nil
+local lastPosition = nil 
+local teleportedToZero = false  
 
 -- Global settings
 getgenv().YeuTuyen = {
@@ -667,6 +669,31 @@ local function getBestTargetForKill()
     return closestTarget
 end
 
+local function getBestInvalidTargetForKill()
+    local closestTarget = nil
+    local closestDist = math.huge
+    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return nil end
+
+    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
+        local plr = Players:FindFirstChild(name)
+        if plr and plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local bodyEffects = plr.Character:FindFirstChild("BodyEffects")
+            local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+            local isGrabbed = plr.Character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+            if hum and hum.Health > 0 and (isKO or isGrabbed) then
+                local dist = (myHRP.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+                if dist < closestDist then
+                    closestTarget = plr
+                    closestDist = dist
+                end
+            end
+        end
+    end
+    return closestTarget
+end
+
 local hitParts = {
     "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
     "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
@@ -790,6 +817,25 @@ end)
 -- FOV Circle Toggle and Slider
 aimSection:addToggle("FOV Circle", fovCircle.Visible, function(value)
     fovCircle.Visible = value
+end)
+
+aimSection:addToggle("Kill Mode", false, function(value)
+    getgenv().YeuTuyen.KillMode = value
+    if value then
+        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if myHRP then
+            lastPosition = myHRP.CFrame  -- Lưu vị trí cũ khi bật
+        end
+        teleportedToZero = false  -- Reset flag khi bật
+    else
+        -- Khi tắt Kill Mode, khôi phục CameraSubject và teleport về vị trí cũ
+        Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
+        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if myHRP and lastPosition then
+            myHRP.CFrame = lastPosition
+        end
+        teleportedToZero = false  -- Reset flag
+    end
 end)
 
 aimSection:addSlider("FOV Radius", AIM_FOV, 20, 500, function(value)
@@ -956,14 +1002,41 @@ RunService.RenderStepped:Connect(function()
                 if Camera.CameraSubject ~= target.Character.Head then
                     lastSubject = Camera.CameraSubject
                     Camera.CameraSubject = target.Character.Head
+                    sendNotification("View", "Đang xem " .. target.DisplayName, 2)
                 end
             end
+            teleportedToZero = false  -- Reset flag nếu có mục tiêu hợp lệ
         else
-            -- Nếu không có mục tiêu hợp lệ, dịch chuyển đến (0, 0, 0) và khôi phục camera
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myHRP then
-                myHRP.CFrame = CFrame.new(Vector3.new(0, 0, 0))
+            -- Không có mục tiêu hợp lệ
+            local invalidTarget = getBestInvalidTargetForKill()
+            if invalidTarget and invalidTarget.Character then
+                -- Nếu có mục tiêu bị K.O/grab, kiểm tra xem game có mechanic K.O/grab
+                if hasKOOrGrabMechanic(invalidTarget.Character) then
+                    if not teleportedToZero then  -- Chỉ teleport một lần
+                        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        if myHRP then
+                            local targetPart = invalidTarget.Character:FindFirstChild("UpperTorso") or invalidTarget.Character:FindFirstChild("Torso")
+                            if targetPart then
+                                myHRP.CFrame = CFrame.new(targetPart.Position)  -- Teleport đến (0,0,0) so với UpperTorso/Torso
+                            end
+                        end
+                        teleportedToZero = true  -- Set flag để không loop
+                    end
+                else
+                    -- Game không có K.O/grab, teleport về vị trí cũ
+                    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if myHRP and lastPosition then
+                        myHRP.CFrame = lastPosition
+                    end
+                end
+            else
+                -- Không có mục tiêu nào, teleport về vị trí cũ
+                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if myHRP and lastPosition then
+                    myHRP.CFrame = lastPosition
+                end
             end
+            -- Khôi phục camera nếu không có mục tiêu
             if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
                 Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
             end
