@@ -48,6 +48,10 @@ local teamCheck = false
 local HitboxEnabled = false
 local HitboxTransparency = 0.9
 local HitboxSize = 15
+local KillModeType = "Below"  -- Default chế độ
+local CsyncRadius = 10        -- Default radius
+local CsyncHeight = -8        -- Default height (âm cho Below)
+local CsyncSpeed = 1          -- Default speed
 
 -- Initialize Notifications tables
 local Notifications = {}
@@ -501,13 +505,32 @@ end
 local function integrateKillMode()
     if getgenv().YeuTuyen.KillMode then
         pcall(function()
-            local target = getBestTargetForKill()
+            local target = getBestTargetForKill()  -- Hoặc getBestInvalidTargetForKill() nếu bạn muốn fallback
             if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
                 local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if myHRP then
                     local targetHRP = target.Character.HumanoidRootPart
-                    -- Dịch chuyển xuống dưới mục tiêu 8 studs
-                    myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 8, 0))
+                    local targetPos = targetHRP.Position
+                    
+                    local offset = Vector3.new(0, CsyncHeight, 0)  -- Default cho Below
+                    
+                    if KillModeType == "Orbit" then
+                        local t = tick() * CsyncSpeed
+                        offset = Vector3.new(
+                            math.cos(t) * CsyncRadius,
+                            CsyncHeight,
+                            math.sin(t) * CsyncRadius
+                        )
+                    elseif KillModeType == "Random" then
+                        offset = Vector3.new(
+                            math.random(-CsyncRadius, CsyncRadius),
+                            CsyncHeight,
+                            math.random(-CsyncRadius, CsyncRadius)
+                        )
+                    end
+                    
+                    myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
+                    
                     -- Khóa camera vào đầu của mục tiêu
                     if Camera.CameraSubject ~= target.Character.Head then
                         lastSubject = Camera.CameraSubject
@@ -521,17 +544,7 @@ local function integrateKillMode()
                     end
                 end
             else
-                -- Không có mục tiêu hợp lệ, teleport về vị trí cũ và khôi phục camera
-                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myHRP and lastPosition then
-                    myHRP.CFrame = lastPosition
-                end
-                if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
-                    Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
-                    Camera.MinZoomDistance = defaultMinDistance or 0.5
-                    Camera.CameraType = defaultCameraType or Enum.CameraType.Custom
-                    sendNotification("View", "Tắt view", 2)
-                end
+                -- Không có mục tiêu: Dừng (không làm gì, không restore)
             end
         end)
     end
@@ -1124,36 +1137,79 @@ aimGroup:AddSlider("AimSmoothness", {
     end,
 })
 
--- Thêm toggle Kill Mode vào UI
 aimGroup:AddToggle("KillMode", {
     Text = "Kill Mode",
     Default = false,
-    Tooltip = "Enable Kill Mode (teleport below target and lock camera to their head)",
+    Tooltip = "Enable Kill Mode (teleport with selected mode and lock camera to their head)",
     Callback = function(value)
         getgenv().YeuTuyen.KillMode = value
         sendNotification("Kill Mode", value and "Enabled" or "Disabled", 2)
-        if value then
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myHRP then
-                lastPosition = myHRP.CFrame  -- Lưu vị trí cũ khi bật
-            end
-            defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance khi bật
-            defaultCameraType = Camera.CameraType  -- Lưu CameraType khi bật
-        else
-            -- Khi tắt Kill Mode, khôi phục CameraSubject, vị trí, MinZoomDistance và CameraType
+        if not value then
+            -- Khi tắt, khôi phục camera (không teleport vị trí)
             pcall(function()
                 Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
                 Camera.MinZoomDistance = defaultMinDistance or 0.5
                 Camera.CameraType = defaultCameraType or Enum.CameraType.Custom
-                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myHRP and lastPosition then
-                    myHRP.CFrame = lastPosition
-                end
             end)
             sendNotification("View", "Tắt view", 2)
+        else
+            -- Lưu default camera khi bật (nếu cần)
+            defaultMinDistance = Camera.MinZoomDistance
+            defaultCameraType = Camera.CameraType
         end
     end,
 })
+
+-- Dropdown cho chế độ
+aimGroup:AddDropdown("KillModeType", {
+    Values = {"Below", "Orbit", "Random"},
+    Default = "Below",
+    Multi = false,
+    Text = "Kill Mode Type",
+    Tooltip = "Select Kill Mode type",
+    Callback = function(value)
+        KillModeType = value
+        sendNotification("Kill Mode Type", "Set to " .. value, 2)
+    end,
+})
+
+-- Sliders
+aimGroup:AddSlider("CsyncRadius", {
+    Text = "Csync Radius",
+    Default = 10,
+    Min = 1,
+    Max = 200,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(value)
+        CsyncRadius = value
+    end,
+})
+
+aimGroup:AddSlider("CsyncHeight", {
+    Text = "Csync Height",
+    Default = -8,
+    Min = -50,
+    Max = 200,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(value)
+        CsyncHeight = value
+    end,
+})
+
+aimGroup:AddSlider("CsyncSpeed", {
+    Text = "Csync Speed",
+    Default = 1,
+    Min = 1,
+    Max = 200,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(value)
+        CsyncSpeed = value
+    end,
+})
+
 aimGroup:AddToggle("Triggerbot", {
     Text = "Triggerbot",
     Default = true,
