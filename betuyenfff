@@ -1070,7 +1070,7 @@ aimGroup:AddSlider("AimSmoothness", {
     end,
 })
 
-hitSoundGroup:AddToggle("KillMode", {
+aimGroup:AddToggle("KillMode", {
     Text = "Kill Mode",
     Default = false,
     Tooltip = "Enable Kill Mode (teleport below target and lock camera)",
