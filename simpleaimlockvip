@@ -1036,39 +1036,6 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-
-    if getgenv().YeuTuyen.KillMode then
-        local target = getBestTargetForKill()
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myHRP then
-                local targetHRP = target.Character.HumanoidRootPart
-                -- Dịch chuyển xuống dưới mục tiêu 8 studs
-                myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, 8, 0))
-                -- Khóa camera vào đầu của mục tiêu
-                if Camera.CameraSubject ~= target.Character.Head then
-                    lastSubject = Camera.CameraSubject
-                    Camera.CameraSubject = target.Character.Head
-                end
-                -- Zoom gần (MinZoomDistance = 5) và chuyển sang Classic nếu ở First Person
-                Camera.MinZoomDistance = 5
-                if Camera.CameraType == Enum.CameraType.Fixed or Camera.CameraType == Enum.CameraType.FirstPerson then
-                    Camera.CameraType = Enum.CameraType.Classic
-                end
-            end
-        else
-            -- Không có mục tiêu hợp lệ, teleport về vị trí cũ và khôi phục camera
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myHRP and lastPosition then
-                myHRP.CFrame = lastPosition
-            end
-            if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
-                Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
-                Camera.MinZoomDistance = defaultMinDistance
-                Camera.CameraType = defaultCameraType
-            end
-        end
-    end
 end)
 
 -- ESP Toggle
