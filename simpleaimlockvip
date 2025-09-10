@@ -644,6 +644,10 @@ local function isAlive(plr)
     return true
 end
 
+local function hasKOOrGrabMechanic(char)
+    return char:FindFirstChild("BodyEffects") or char:FindFirstChild("GRABBING_CONSTRAINT")
+end
+
 local function getBestTargetForKill()
     local closestTarget = nil
     local closestDist = math.huge
