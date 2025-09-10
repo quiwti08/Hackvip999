@@ -18,7 +18,6 @@ local currentTrack = nil
 local AIM_SMOOTHNESS = 0.9
 local TriggerBotEnabled = true
 local fovRadius = 20
-local BringEnabled = false
 local movementEnabled = false
 local jumpPower = 50
 local walkSpeed = 16
@@ -752,26 +751,6 @@ local function getBestInvalidTargetForKill()
     return closestTarget
 end
 
-local function integrateBring()
-    if BringEnabled then
-        pcall(function()
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not myHRP then return end
-
-            for name, selected in pairs(getgenv().YeuTuyen.SelectedTargets) do
-                if selected then
-                    local target = Players:FindFirstChild(name)
-                    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                        local hrp = target.Character.HumanoidRootPart
-                        hrp.CFrame = myHRP.CFrame * CFrame.new(0, 0, -2)  -- Cách 2 stud phía trước
-                        end
-                    end
-                end
-            end
-        end)
-    end
-end
-
 local function integrateKillMode()
     if getgenv().YeuTuyen.KillMode then
         pcall(function()
@@ -1027,22 +1006,7 @@ aimSection:addSlider("Triggerbot FOV", fovRadius, 10, 200, function(value)
     fovRadius = value
 end)
 
-aimSection:addToggle("Bring", false, function(value)
-    BringEnabled = value
-    sendNotification("Bring", value and "Enabled" or "Disabled", 2)
-    if value and getgenv().YeuTuyen.KillMode then
-        getgenv().YeuTuyen.KillMode = false
-        sendNotification("Kill Mode", "Tự tắt vì Bring được bật", 2)
-        pcall(function()
-            Camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") or lastSubject
-            Camera.CameraType = Enum.CameraType.Custom
-            Camera.MinZoomDistance = defaultMinDistance or 0.5
-            if LocalPlayer.Character then
-                LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
-            end
-        end)
-    end
-end)
+
 
 aimSection:addToggle("AntiLock", false, function(value)
     AntiLockEnabled = value
@@ -1304,7 +1268,6 @@ local lastHealth = {}
 
 RunService.RenderStepped:Connect(function(delta)
     integrateKillMode()
-    integrateBring()
 
     local target, part, hum = nil, nil, nil
     if getgenv().YeuTuyen.Mode == "Aimlock" then
