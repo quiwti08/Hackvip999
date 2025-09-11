@@ -772,7 +772,7 @@ local function integrateKillMode()
                         local targetUpperTorso = targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso")
                         if targetUpperTorso then
                             -- Teleport đến UpperTorso
-                            myHRP.CFrame = CFrame.new(targetUpperTorso.Position + Vector3.new(0, 0, 0))  -- +3 Y để tránh chìm đất
+                            myHRP.CFrame = CFrame.new(targetUpperTorso.Position + Vector3.new(0, 2, 0))
 
                             -- Giả lập bấm 'E' 5 lần
                             local vim = game:GetService("VirtualInputManager")
