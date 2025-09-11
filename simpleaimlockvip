@@ -29,7 +29,7 @@ local aimStatusKey = Enum.KeyCode.H  -- Default H cho Aim Status
 local killModeKey = Enum.KeyCode.Y   -- Default Y cho Kill Mode
 local KillModeType = "Below"  -- Default chế độ
 local CsyncRadius = 10        -- Default radius
-local CsyncHeight = -8        -- Default height (âm cho Below)
+local CsyncHeight = 8        -- Default height (âm cho Below)
 local CsyncSpeed = 1          -- Default speed
 local awEnabled = false
 local awInstances = {}
@@ -697,10 +697,6 @@ local function UpdateFly(deltaTime)
     end
 end
 
-local function hasKOOrGrabMechanic(char)
-    return char:FindFirstChild("BodyEffects") or char:FindFirstChild("GRABBING_CONSTRAINT")
-end
-
 local function getBestTargetForKill()
     local closestTarget = nil
     local closestDist = math.huge
@@ -754,41 +750,84 @@ end
 local function integrateKillMode()
     if getgenv().YeuTuyen.KillMode then
         pcall(function()
+            local myChar = LocalPlayer.Character
+            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if not myHRP then return end
+
+            -- Kiểm tra mục tiêu hợp lệ trước
             local target = getBestTargetForKill()
-            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
-                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myHRP then
-                    local targetHRP = target.Character.HumanoidRootPart
-                    local targetPos = targetHRP.Position
-                    
-                    local offset = Vector3.new(0, CsyncHeight, 0)
-                    
-                    if KillModeType == "Orbit" then
-                        local t = tick() * CsyncSpeed
-                        offset = Vector3.new(
-                            math.cos(t) * CsyncRadius,
-                            CsyncHeight,
-                            math.sin(t) * CsyncRadius
-                        )
-                    elseif KillModeType == "Random" then
-                        local randX = (math.random() * 2 - 1) * CsyncRadius
-                        local randZ = (math.random() * 2 - 1) * CsyncRadius
-                        offset = Vector3.new(randX, CsyncHeight, randZ)
-                    end
-                    
-                    myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
-                    
-                    if Camera.CameraSubject ~= target.Character.Head then
-                        lastSubject = Camera.CameraSubject
-                        Camera.CameraSubject = target.Character.Head
-                    end
-                    Camera.MinZoomDistance = 5
-                    if Camera.CameraType == Enum.CameraType.Fixed or Camera.CameraType == Enum.CameraType.FirstPerson then
-                        Camera.CameraType = Enum.CameraType.Classic
+            -- Chỉ lưu vị trí gốc nếu không có mục tiêu hợp lệ
+            if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") or not target.Character:FindFirstChild("Head") then
+                if not originalPosition then
+                    originalPosition = myHRP.CFrame
+                end
+
+                -- Kiểm tra target bị K.O. (chỉ check K.O., không check grab)
+                local invalidTarget = getBestInvalidTargetForKill()
+                if invalidTarget and invalidTarget.Character then
+                    local targetChar = invalidTarget.Character
+                    local bodyEffects = targetChar:FindFirstChild("BodyEffects")
+                    local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+                    if isKO then  -- Chỉ xử lý nếu target bị K.O.
+                        local targetUpperTorso = targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso")
+                        if targetUpperTorso then
+                            -- Teleport đến UpperTorso
+                            myHRP.CFrame = CFrame.new(targetUpperTorso.Position + Vector3.new(0, 0, 0))  -- +3 Y để tránh chìm đất
+
+                            -- Giả lập bấm 'E' 5 lần
+                            local vim = game:GetService("VirtualInputManager")
+                            for i = 1, 5 do
+                                vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)  
+                                task.wait(0.1)  -- Delay nhỏ giữa các lần bấm
+                                vim:SendKeyEvent(false, Enum.KeyCode.E, false, game) 
+                            end
+
+                            -- Đợi 1.5 giây
+                            task.wait(1.5)
+
+                            -- Trở về vị trí cũ
+                            myHRP.CFrame = originalPosition
+                        end
                     end
                 end
+            end
+
+            -- Logic cho mục tiêu hợp lệ (positioning quanh target alive)
+            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
+                local targetHRP = target.Character.HumanoidRootPart
+                local targetPos = targetHRP.Position
+                
+                local offset = Vector3.new(0, CsyncHeight, 0)
+                
+                if KillModeType == "Orbit" then
+                    local t = tick() * CsyncSpeed
+                    offset = Vector3.new(
+                        math.cos(t) * CsyncRadius,
+                        CsyncHeight,
+                        math.sin(t) * CsyncRadius
+                    )
+                elseif KillModeType == "Random" then
+                    local randX = (math.random() * 2 - 1) * CsyncRadius
+                    local randZ = (math.random() * 2 - 1) * CsyncRadius
+                    offset = Vector3.new(randX, CsyncHeight, randZ)
+                end
+                
+                myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
+                
+                if Camera.CameraSubject ~= target.Character.Head then
+                    lastSubject = Camera.CameraSubject
+                    Camera.CameraSubject = target.Character.Head
+                end
+                Camera.MinZoomDistance = 5
+                if Camera.CameraType == Enum.CameraType.Fixed or Camera.CameraType == Enum.CameraType.FirstPerson then
+                    Camera.CameraType = Enum.CameraType.Classic
+                end
             else
+                -- Nếu không có mục tiêu hợp lệ, teleport về vị trí cũ và reset camera
                 pcall(function()
+                    if originalPosition then
+                        myHRP.CFrame = originalPosition
+                    end
                     Camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") or lastSubject
                     Camera.CameraType = Enum.CameraType.Custom
                     Camera.MinZoomDistance = defaultMinDistance or 0.5
@@ -954,7 +993,6 @@ aimSection:addToggle("Kill Mode", false, function(value)
     getgenv().YeuTuyen.KillMode = value
     sendNotification("Kill Mode", value and "Enabled" or "Disabled", 2)
     if not value then
-        -- Reset camera và movement để fix "không di chuyển được"
         pcall(function()
             Camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") or lastSubject
             Camera.CameraType = Enum.CameraType.Custom  -- Reset về default để cho phép di chuyển và focus nhân vật
@@ -1431,32 +1469,27 @@ RunService.RenderStepped:Connect(function(delta)
     lastTarget = target
 end)
 
--- Teleport section
+-- Teleport Section (simplified)
 local function getBestTargetForTeleport()
-    local closestDowned = nil
-    local closestNormal = nil
-    local downedDist = math.huge
-    local normalDist = math.huge
+    local closestTarget, closestDist = nil, math.huge
+    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return nil end
+
     for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
         local plr = Players:FindFirstChild(name)
-        if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = plr.Character.HumanoidRootPart
-            local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myHrp then
-                local dist = (myHrp.Position - hrp.Position).Magnitude
-                local bodyEffects = plr.Character:FindFirstChild("BodyEffects")
-                local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
-                if isKO and dist < downedDist then
-                    closestDowned = plr
-                    downedDist = dist
-                elseif not isKO and dist < normalDist then
-                    closestNormal = plr
-                    normalDist = dist
+        if plr and plr.Character then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local dist = (myHRP.Position - hrp.Position).Magnitude
+                if dist < closestDist then
+                    closestTarget = plr
+                    closestDist = dist
                 end
             end
         end
     end
-    return closestDowned or closestNormal
+
+    return closestTarget
 end
 
 local function teleportToTarget()
@@ -1465,30 +1498,23 @@ local function teleportToTarget()
         sendNotification("Teleport", "No valid target in selected list.", 2)
         return
     end
+
     local char = target.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then
+    if not char then return end
+
+    local targetPart = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+    if not targetPart or not myHRP then
         sendNotification("Teleport", "Cannot teleport to " .. target.Name, 2)
         return
     end
-    local myChar = LocalPlayer.Character
-    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local targetHRP = char:FindFirstChild("HumanoidRootPart")
-    if not myHRP or not targetHRP then return end
-    local bodyEffects = char:FindFirstChild("BodyEffects")
-    local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
-    if isKO then
-        myHRP.CFrame = CFrame.new(targetHRP.Position)
-        sendNotification("Teleport", "Teleported to downed: " .. target.Name, 2)
-        local VirtualInputManager = game:GetService("VirtualInputManager")
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-        task.wait(0.1)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-    else
-        myHRP.CFrame = CFrame.new(targetHRP.Position + Vector3.new(2, 0, 0))
-        sendNotification("Teleport", "Teleported above alive target: " .. target.Name, 2)
-    end
+
+    myHRP.CFrame = CFrame.new(targetPart.Position + Vector3.new(0, 0, 0))
+    sendNotification("Teleport", "Teleported to: " .. target.Name, 2)
 end
 
+-- Hotkey: T to teleport
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.T then
