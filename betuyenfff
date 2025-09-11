@@ -1,4 +1,3 @@
-
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
@@ -48,10 +47,13 @@ local teamCheck = false
 local HitboxEnabled = false
 local HitboxTransparency = 0.9
 local HitboxSize = 15
-local KillModeType = "Below"  -- Default chế độ
-local CsyncRadius = 10        -- Default radius
-local CsyncHeight = -8        -- Default height (âm cho Below)
-local CsyncSpeed = 1          -- Default speed
+local korbloxEnabled = true
+local addedAccessories = {}
+local runServiceConn
+local Time = 1
+local RightUpperLegAccessories = {
+    {id = 18457575895}, 
+}
 
 -- Initialize Notifications tables
 local Notifications = {}
@@ -79,6 +81,7 @@ getgenv().YeuTuyen = {
     DetectDesync = true,
     Detection = 75,
     KillMode = false,
+    KillModeOffsetY = -8,
 }
 
 -- FOV Circle
@@ -505,32 +508,13 @@ end
 local function integrateKillMode()
     if getgenv().YeuTuyen.KillMode then
         pcall(function()
-            local target = getBestTargetForKill()  -- Hoặc getBestInvalidTargetForKill() nếu bạn muốn fallback
+            local target = getBestTargetForKill()
             if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
                 local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if myHRP then
                     local targetHRP = target.Character.HumanoidRootPart
-                    local targetPos = targetHRP.Position
-                    
-                    local offset = Vector3.new(0, CsyncHeight, 0)  -- Default cho Below
-                    
-                    if KillModeType == "Orbit" then
-                        local t = tick() * CsyncSpeed
-                        offset = Vector3.new(
-                            math.cos(t) * CsyncRadius,
-                            CsyncHeight,
-                            math.sin(t) * CsyncRadius
-                        )
-                    elseif KillModeType == "Random" then
-                        offset = Vector3.new(
-                            math.random(-CsyncRadius, CsyncRadius),
-                            CsyncHeight,
-                            math.random(-CsyncRadius, CsyncRadius)
-                        )
-                    end
-                    
-                    myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
-                    
+                    -- Dịch chuyển xuống dưới mục tiêu 8 studs
+                    myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, getgenv().YeuTuyen.KillModeOffsetY, 0))
                     -- Khóa camera vào đầu của mục tiêu
                     if Camera.CameraSubject ~= target.Character.Head then
                         lastSubject = Camera.CameraSubject
@@ -544,7 +528,17 @@ local function integrateKillMode()
                     end
                 end
             else
-                -- Không có mục tiêu: Dừng (không làm gì, không restore)
+                -- Không có mục tiêu hợp lệ, teleport về vị trí cũ và khôi phục camera
+                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if myHRP and lastPosition then
+                    myHRP.CFrame = lastPosition
+                end
+                if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
+                    Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
+                    Camera.MinZoomDistance = defaultMinDistance or 0.5
+                    Camera.CameraType = defaultCameraType or Enum.CameraType.Custom
+                    sendNotification("View", "Tắt view", 2)
+                end
             end
         end)
     end
@@ -622,6 +616,89 @@ local function GetBestTargetPart()
     end
     return bestPart
 end
+
+local function hideRightLegAndAddAccessories(character)
+    local rightUpperLeg = character:FindFirstChild("RightUpperLeg")
+
+    if rightUpperLeg then
+        rightUpperLeg.Transparency = 1
+        local rightLowerLeg = character:FindFirstChild("RightLowerLeg")
+        local rightFoot = character:FindFirstChild("RightFoot")
+        if rightLowerLeg then rightLowerLeg:Destroy() end
+        if rightFoot then rightFoot:Destroy() end
+
+        for _, accessory in ipairs(RightUpperLegAccessories) do
+            local obj = game:GetObjects("rbxassetid://" .. tostring(accessory.id))[1]
+            if obj then
+                obj.Parent = workspace
+                local handle = obj:FindFirstChild("Handle")
+                if handle then
+                    handle.CFrame = rightUpperLeg.CFrame
+                    local weld = Instance.new("Weld")
+                    weld.Part0 = handle
+                    weld.Part1 = rightUpperLeg
+                    weld.C0 = CFrame.new(0, -0.12, 0)
+                    weld.Parent = handle
+                    obj.Parent = character
+                    table.insert(addedAccessories, obj)
+                end
+            end
+        end
+    end
+end
+
+local function restoreRightLeg(character)
+    local rightUpperLeg = character:FindFirstChild("RightUpperLeg")
+    if rightUpperLeg then
+        rightUpperLeg.Transparency = 0
+    end
+    for _, acc in ipairs(addedAccessories) do
+        if acc and acc.Parent then
+            acc:Destroy()
+        end
+    end
+    addedAccessories = {}
+end
+
+local function applyKorbloxAnimations()
+    if runServiceConn then runServiceConn:Disconnect() end
+    runServiceConn = RunService.Stepped:Connect(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Animate") then
+            local animate = char.Animate
+            animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+            animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
+            animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+        end
+    end)
+end
+
+local function restoreAnimations()
+    if runServiceConn then
+        runServiceConn:Disconnect()
+        runServiceConn = nil
+    end
+end
+
+local function enableKorblox(character)
+    task.wait(Time)
+    hideRightLegAndAddAccessories(character)
+    applyKorbloxAnimations()
+end
+
+local function disableKorblox(character)
+    restoreRightLeg(character)
+    restoreAnimations()
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if korbloxEnabled then
+        task.wait(1)
+        enableKorblox(char)
+    else
+        disableKorblox(char)
+    end
+end)
 
 -- Rainbow effect
 local rainbowHue = 0
@@ -1137,76 +1214,47 @@ aimGroup:AddSlider("AimSmoothness", {
     end,
 })
 
+-- Thêm toggle Kill Mode vào UI
 aimGroup:AddToggle("KillMode", {
     Text = "Kill Mode",
     Default = false,
-    Tooltip = "Enable Kill Mode (teleport with selected mode and lock camera to their head)",
+    Tooltip = "Enable Kill Mode (teleport below target and lock camera to their head)",
     Callback = function(value)
         getgenv().YeuTuyen.KillMode = value
         sendNotification("Kill Mode", value and "Enabled" or "Disabled", 2)
-        if not value then
-            -- Khi tắt, khôi phục camera (không teleport vị trí)
+        if value then
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myHRP then
+                lastPosition = myHRP.CFrame  -- Lưu vị trí cũ khi bật
+            end
+            defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance khi bật
+            defaultCameraType = Camera.CameraType  -- Lưu CameraType khi bật
+        else
+            -- Khi tắt Kill Mode, khôi phục CameraSubject, vị trí, MinZoomDistance và CameraType
             pcall(function()
                 Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
                 Camera.MinZoomDistance = defaultMinDistance or 0.5
                 Camera.CameraType = defaultCameraType or Enum.CameraType.Custom
+                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if myHRP and lastPosition then
+                    myHRP.CFrame = lastPosition
+                end
             end)
             sendNotification("View", "Tắt view", 2)
-        else
-            -- Lưu default camera khi bật (nếu cần)
-            defaultMinDistance = Camera.MinZoomDistance
-            defaultCameraType = Camera.CameraType
         end
     end,
 })
 
--- Dropdown cho chế độ
-aimGroup:AddDropdown("KillModeType", {
-    Values = {"Below", "Orbit", "Random"},
-    Default = "Below",
-    Multi = false,
-    Text = "Kill Mode Type",
-    Tooltip = "Select Kill Mode type",
-    Callback = function(value)
-        KillModeType = value
-        sendNotification("Kill Mode Type", "Set to " .. value, 2)
-    end,
-})
-
--- Sliders
-aimGroup:AddSlider("CsyncRadius", {
-    Text = "Csync Radius",
-    Default = 10,
-    Min = 1,
-    Max = 200,
-    Rounding = 0,
+aimGroup:AddSlider("KillModeOffsetY", {
+    Text = "Kill Mode Y Offset",
+    Default = -8, -- Giá trị mặc định, khớp với giá trị ban đầu của KillModeOffsetY
+    Min = -50, -- Giá trị tối thiểu
+    Max = 200, -- Giá trị tối đa
+    Rounding = 0, -- Không làm tròn (giữ số nguyên)
     Compact = false,
     Callback = function(value)
-        CsyncRadius = value
-    end,
-})
-
-aimGroup:AddSlider("CsyncHeight", {
-    Text = "Csync Height",
-    Default = -8,
-    Min = -50,
-    Max = 200,
-    Rounding = 0,
-    Compact = false,
-    Callback = function(value)
-        CsyncHeight = value
-    end,
-})
-
-aimGroup:AddSlider("CsyncSpeed", {
-    Text = "Csync Speed",
-    Default = 1,
-    Min = 1,
-    Max = 200,
-    Rounding = 0,
-    Compact = false,
-    Callback = function(value)
-        CsyncSpeed = value
+        getgenv().YeuTuyen.KillModeOffsetY = value
+        sendNotification("Kill Mode Offset", "Y Offset set to " .. value .. " studs", 2)
     end,
 })
 
