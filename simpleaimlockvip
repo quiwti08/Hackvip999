@@ -15,22 +15,31 @@ local AIM_FOV = 100
 local jumpHappierKey = Enum.KeyCode.C
 local jumpHappierAnim = "http://www.roblox.com/asset/?id=15609995579"
 local currentTrack = nil
+local autostomp = false
 local AIM_SMOOTHNESS = 0.9
 local TriggerBotEnabled = true
+local tracerEnabled = false
+local tracers = {}
+local rainbowMode = false
+local increasing = false
+local autobringplayer = true
+local colorValue = 255
 local fovRadius = 20
 local movementEnabled = false
 local jumpPower = 50
 local walkSpeed = 16
 local teamCheck = false
 local HitboxEnabled = false
+local bringEnabled = false
+local originalCollides = {}  -- Table lưu {part = originalCanCollide}
 local HitboxTransparency = 1
 local HitboxSize = 15
 local aimStatusKey = Enum.KeyCode.H  -- Default H cho Aim Status
 local killModeKey = Enum.KeyCode.Y   -- Default Y cho Kill Mode
-local KillModeType = "Below"  -- Default chế độ
-local CsyncRadius = 10        -- Default radius
-local CsyncHeight = 8        -- Default height (âm cho Below)
-local CsyncSpeed = 1          -- Default speed
+local KillModeType = "Below"  
+local CsyncRadius = 10        
+local CsyncHeight = -8     
+local CsyncSpeed = 1        
 local awEnabled = false
 local awInstances = {}
 local awHrp = nil
@@ -69,7 +78,6 @@ local venyx = library.new("nigga.lol | vhuy-anhchangm52", 5013109572)
 local Notifications = {}
 local TargetNotifications = {}
 local lastSubject = nil
-local lastPosition = nil  -- Lưu vị trí cũ khi bật Kill Mode
 local defaultMinDistance = nil 
 local defaultCameraType = nil  
 
@@ -90,7 +98,6 @@ getgenv().YeuTuyen = {
     UnderGround = true,
     DetectDesync = true,
     Detection = 75,
-    KillMode = false,
 }
 
 -- FOV Circle
@@ -102,24 +109,29 @@ fovCircle.NumSides = 100
 fovCircle.Color = Color3.fromRGB(255, 255, 255)
 fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
--- Cycle FOV circle color
-local colorValue = 255
-local increasing = false
 task.spawn(function()
     while true do
-        task.wait(0)
-        if increasing then
-            colorValue = colorValue + 1
-            if colorValue >= 255 then
-                increasing = false
+        task.wait(0.01)
+        
+        if not rainbowMode then
+            -- Đổi trắng <-> đen
+            if increasing then
+                colorValue = colorValue + 1
+                if colorValue >= 255 then
+                    increasing = false
+                end
+            else
+                colorValue = colorValue - 1
+                if colorValue <= 0 then
+                    increasing = true
+                end
             end
+            fovCircle.Color = Color3.fromRGB(colorValue, colorValue, colorValue)
         else
-            colorValue = colorValue - 1
-            if colorValue <= 0 then
-                increasing = true
-            end
+            -- Rainbow Mode
+            local hue = tick() % 5 / 5
+            fovCircle.Color = Color3.fromHSV(hue, 1, 1)
         end
-        fovCircle.Color = Color3.fromRGB(colorValue, colorValue, colorValue)
     end
 end)
 
@@ -325,10 +337,6 @@ local function removeESP(plr)
     end
 end
 
--- Update ESP with tracer support
-local tracerEnabled = false
-local tracers = {}
-local rainbowMode = false
 local function updateESP(plr)
     if plr == LocalPlayer then return end
     if not plr.Character or not plr.Character:FindFirstChild("Head") then return end
@@ -555,6 +563,24 @@ local function checkTeam(player)
     return false   -- khác team => hợp lệ
 end
 
+local function getPlayerList()
+    local list = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local display = plr.DisplayName .. " (@" .. plr.Name .. ")"
+            if getgenv().YeuTuyen.SelectedTargets[plr.Name] then
+                display = display .. " ✔"
+            end
+            table.insert(list, display)
+        end
+    end
+    return list
+end
+
+-- Refresh dropdown khi player join/leave
+Players.PlayerAdded:Connect(function() venyx:RefreshDropdown("Player List", getPlayerList()) end)
+Players.PlayerRemoving:Connect(function() venyx:RefreshDropdown("Player List", getPlayerList()) end)
+
 -- GetBestTarget for Aimlock
 local function GetBestTarget()
     if not getgenv().YeuTuyen or not getgenv().YeuTuyen.SelectedTargets then return end
@@ -685,7 +711,7 @@ local function isAlive(plr)
     return true
 end
 
-local function UpdateFly(deltaTime)
+local function UpdateFly()
     if FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local root = LocalPlayer.Character.HumanoidRootPart
         local moveDirection = LocalPlayer.Character.Humanoid.MoveDirection
@@ -754,39 +780,61 @@ local function integrateKillMode()
             local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
             if not myHRP then return end
 
+            if originalPosition == nil then
+                originalPosition = myHRP.CFrame
+            end
+
             -- Kiểm tra mục tiêu hợp lệ trước
             local target = getBestTargetForKill()
-            -- Chỉ lưu vị trí gốc nếu không có mục tiêu hợp lệ
-            if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") or not target.Character:FindFirstChild("Head") then
-                if not originalPosition then
-                    originalPosition = myHRP.CFrame
-                end
 
-                -- Kiểm tra target bị K.O. (chỉ check K.O., không check grab)
+            -- Nếu không có target hợp lệ thì check target bị K.O.
+            if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") or not target.Character:FindFirstChild("Head") then
                 local invalidTarget = getBestInvalidTargetForKill()
                 if invalidTarget and invalidTarget.Character then
                     local targetChar = invalidTarget.Character
                     local bodyEffects = targetChar:FindFirstChild("BodyEffects")
                     local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+
                     if isKO then  -- Chỉ xử lý nếu target bị K.O.
                         local targetUpperTorso = targetChar:FindFirstChild("UpperTorso") or targetChar:FindFirstChild("Torso")
                         if targetUpperTorso then
                             -- Teleport đến UpperTorso
                             myHRP.CFrame = CFrame.new(targetUpperTorso.Position + Vector3.new(0, 2, 0))
 
-                            -- Giả lập bấm 'E' 5 lần
-                            local vim = game:GetService("VirtualInputManager")
-                            for i = 1, 5 do
-                                vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)  
-                                task.wait(0.1)  -- Delay nhỏ giữa các lần bấm
-                                vim:SendKeyEvent(false, Enum.KeyCode.E, false, game) 
+                            -- AutoBring
+                            if autobringplayer then
+                                local vim = game:GetService("VirtualInputManager")
+                                for i = 1, 1 do
+                                    vim:SendKeyEvent(true, Enum.KeyCode.G, false, game)  
+                                    task.wait(0.1)  
+                                    vim:SendKeyEvent(false, Enum.KeyCode.G, false, game) 
+                                end
                             end
 
-                            -- Đợi 1.5 giây
-                            task.wait(1.5)
+                            -- AutoStomp
+                            if autostomp then
+                                local vim = game:GetService("VirtualInputManager")
+                                for i = 1, 5 do
+                                    vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)  
+                                    task.wait(0.1)  
+                                    vim:SendKeyEvent(false, Enum.KeyCode.E, false, game) 
+                                end
+                            end
 
-                            -- Trở về vị trí cũ
+                            task.wait(1.5)
                             myHRP.CFrame = originalPosition
+                            task.wait(0.4)
+
+                            if autobringplayer then
+                                local vim = game:GetService("VirtualInputManager")
+                                for i = 1, 1 do
+                                    vim:SendKeyEvent(true, Enum.KeyCode.G, false, game)  
+                                    task.wait(0.1)  
+                                    vim:SendKeyEvent(false, Enum.KeyCode.G, false, game) 
+                                end
+                            end
+                            originalPosition = nil
+                            getgenv().YeuTuyen.KillMode = false
                         end
                     end
                 end
@@ -796,9 +844,9 @@ local function integrateKillMode()
             if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
                 local targetHRP = target.Character.HumanoidRootPart
                 local targetPos = targetHRP.Position
-                
+
                 local offset = Vector3.new(0, CsyncHeight, 0)
-                
+
                 if KillModeType == "Orbit" then
                     local t = tick() * CsyncSpeed
                     offset = Vector3.new(
@@ -811,9 +859,9 @@ local function integrateKillMode()
                     local randZ = (math.random() * 2 - 1) * CsyncRadius
                     offset = Vector3.new(randX, CsyncHeight, randZ)
                 end
-                
+
                 myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
-                
+
                 if Camera.CameraSubject ~= target.Character.Head then
                     lastSubject = Camera.CameraSubject
                     Camera.CameraSubject = target.Character.Head
@@ -824,17 +872,12 @@ local function integrateKillMode()
                 end
             else
                 -- Nếu không có mục tiêu hợp lệ, teleport về vị trí cũ và reset camera
-                pcall(function()
-                    if originalPosition then
-                        myHRP.CFrame = originalPosition
-                    end
-                    Camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") or lastSubject
-                    Camera.CameraType = Enum.CameraType.Custom
-                    Camera.MinZoomDistance = defaultMinDistance or 0.5
-                    if LocalPlayer.Character then
-                        LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
-                    end
-                end)
+                Camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") or lastSubject
+                Camera.CameraType = Enum.CameraType.Custom
+                Camera.MinZoomDistance = defaultMinDistance or 0.5
+                if LocalPlayer.Character then
+                    LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
+                end
             end
         end)
     end
@@ -989,21 +1032,96 @@ aimSection:addSlider("Aim Smoothness", AIM_SMOOTHNESS * 100, 0, 100, function(va
     AIM_SMOOTHNESS = value / 100
 end)
 
+aimSection:addToggle("Triggerbot", true, function(value)
+    TriggerBotEnabled = value
+    sendNotification("Triggerbot", value and "ON" or "OFF")
+end)
+
+-- Triggerbot FOV Radius
+aimSection:addSlider("Triggerbot FOV", fovRadius, 10, 200, function(value)
+    fovRadius = value
+end)
+
+aimSection:addToggle("AntiLock", false, function(value)
+    AntiLockEnabled = value
+    sendNotification("AntiLock", value and "ON (" .. AntiLockType .. ")" or "OFF")
+end)
+
+-- Dropdown cho các chế độ AntiLock
+aimSection:addDropdown("AntiLock Mode", AntiLockModes, function(mode)
+    AntiLockType = mode
+    if AntiLockEnabled then
+        sendNotification("AntiLock", "Mode set to: " .. mode)
+    end
+end)
+
+local selectedPlayerDisplay = nil
+aimSection:addDropdown("Player List", getPlayerList(), function(value)
+    selectedPlayerDisplay = value
+end)
+
+aimSection:addButton("Select Player", function()
+    if not selectedPlayerDisplay then return end
+    -- Parse username từ display (ví dụ: tìm phần giữa @ và ) )
+    local username = selectedPlayerDisplay:match("@(.-)%)")
+    if username then
+        if getgenv().YeuTuyen.SelectedTargets[username] then
+            getgenv().YeuTuyen.SelectedTargets[username] = nil
+            sendNotification("Target", "Deselected: " .. username)
+        else
+            getgenv().YeuTuyen.SelectedTargets[username] = true
+            sendNotification("Target", "Selected: " .. username)
+            sendTargetNotification(Players[username])
+        end
+        -- Refresh dropdown để cập nhật tích
+        venyx:RefreshDropdown("Player List", getPlayerList())
+        updateESP(Players[username])  -- Nếu cần update ESP ngay
+    end
+end)
+
+aimSection:addToggle("Bring Selected Players", false, function(value)
+    bringEnabled = value
+    sendNotification("Bring", value and "Enabled" or "Disabled")
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    if value then
+        -- Lưu và set CanCollide false
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                originalCollides[part] = part.CanCollide
+                part.CanCollide = false
+            end
+        end
+    else
+        -- Khôi phục
+        for part, orig in pairs(originalCollides) do
+            if part.Parent then  -- Kiểm tra part còn tồn tại
+                part.CanCollide = orig
+            end
+        end
+        originalCollides = {}
+    end
+end)
+
 aimSection:addToggle("Kill Mode", false, function(value)
     getgenv().YeuTuyen.KillMode = value
     sendNotification("Kill Mode", value and "Enabled" or "Disabled", 2)
+
     if not value then
         pcall(function()
             Camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") or lastSubject
-            Camera.CameraType = Enum.CameraType.Custom  -- Reset về default để cho phép di chuyển và focus nhân vật
+            Camera.CameraType = Enum.CameraType.Custom
             Camera.MinZoomDistance = defaultMinDistance or 0.5
             if LocalPlayer.Character then
-                LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)  -- Reset offset nếu bị lệch
+                LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
             end
         end)
     else
         defaultMinDistance = Camera.MinZoomDistance
         defaultCameraType = Camera.CameraType
+
+        originalPosition = nil
     end
 end)
 
@@ -1021,6 +1139,20 @@ aimSection:addDropdown("Kill Mode Type", {"Below", "Orbit", "Random"}, function(
     sendNotification("Kill Mode Type", "Set to " .. value, 2)
 end)
 
+aimSection:addToggle("AutoBring", true, function(value)
+    autobringplayer = value
+    if value then
+        autostomp = false
+    end
+end)
+
+aimSection:addToggle("AutoStomp", false, function(value)
+    autostomp = value
+    if value then
+        autobringplayer = false
+    end
+end)
+
 -- Sliders
 aimSection:addSlider("Csync Radius", 10, 1, 200, function(value)
     CsyncRadius = value
@@ -1032,31 +1164,6 @@ end)
 
 aimSection:addSlider("Csync Speed", 1, 1, 200, function(value)
     CsyncSpeed = value
-end)
-
-aimSection:addToggle("Triggerbot", true, function(value)
-    TriggerBotEnabled = value
-    sendNotification("Triggerbot", value and "ON" or "OFF")
-end)
-
--- Triggerbot FOV Radius
-aimSection:addSlider("Triggerbot FOV", fovRadius, 10, 200, function(value)
-    fovRadius = value
-end)
-
-
-
-aimSection:addToggle("AntiLock", false, function(value)
-    AntiLockEnabled = value
-    sendNotification("AntiLock", value and "ON (" .. AntiLockType .. ")" or "OFF")
-end)
-
--- Dropdown cho các chế độ AntiLock
-aimSection:addDropdown("AntiLock Mode", AntiLockModes, function(mode)
-    AntiLockType = mode
-    if AntiLockEnabled then
-        sendNotification("AntiLock", "Mode set to: " .. mode)
-    end
 end)
 
 -- Sound definitions
@@ -1127,6 +1234,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     elseif input.KeyCode == killModeKey then
         getgenv().YeuTuyen.KillMode = not getgenv().YeuTuyen.KillMode
         sendNotification("Kill Mode", getgenv().YeuTuyen.KillMode and "Enabled" or "Disabled", 2)
+
         if not getgenv().YeuTuyen.KillMode then
             -- Reset camera và movement (sửa vấn đề không di chuyển được)
             pcall(function()
@@ -1134,13 +1242,13 @@ UserInputService.InputBegan:Connect(function(input, gp)
                 Camera.CameraType = Enum.CameraType.Custom  -- Reset về default để cho phép di chuyển
                 Camera.MinZoomDistance = defaultMinDistance or 0.5
                 if LocalPlayer.Character then
-                    LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)  -- Reset offset nếu bị lệch
+                    LocalPlayer.Character.Humanoid.CameraOffset = Vector3.new(0, 0, 0)  
                 end
             end)
-            sendNotification("View", "Tắt view và reset camera", 2)
         else
             defaultMinDistance = Camera.MinZoomDistance
             defaultCameraType = Camera.CameraType
+            originalPosition = nil
         end
     end
 end)
@@ -1243,60 +1351,6 @@ end, function(newKey)
     sendNotification("Set Target Key", "Set to " .. newKey.Name, 2)
 end)
 
-aimSection:addToggle("Movement", false, function(value)
-    movementEnabled = value
-    sendNotification("Movement", value and "ON" or "OFF", 2)
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        LocalPlayer.Character.Humanoid.UseJumpPower = true
-    end
-end)
-
--- Keybind
-aimSection:addKeybind("Toggle Movement Key", Enum.KeyCode.Z, function()
-    movementEnabled = not movementEnabled
-    sendNotification("Movement", movementEnabled and "ON" or "OFF", 2)
-end, function(newKey)
-    movementKey = newKey
-    sendNotification("Movement Key", "Set to " .. newKey.Name, 2)
-end)
-
--- Sliders
-aimSection:addSlider("WalkSpeed", 30, 16, 300, function(value)
-    walkSpeed = value
-end)
-
-aimSection:addSlider("JumpPower", 60, 50, 300, function(value)
-    jumpPower = value
-end)
-
-RunService.Heartbeat:Connect(function(dt)
-    if movementEnabled then 
-        local char = LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        if hrp and hum then
-            -- bước di chuyển
-            local stepY = jumpPower * dt
-            local stepXZ = walkSpeed * dt
-            
-            local moveDir = hum.MoveDirection
-            if moveDir.Magnitude > 0 then
-                hrp.CFrame = hrp.CFrame + (moveDir * stepXZ) + Vector3.new(0, stepY, 0)
-            else
-                hrp.CFrame = hrp.CFrame + Vector3.new(0, stepY, 0)
-            end
-        end
-    end
-end)
-
--- GUI Toggle Keybind
-aimSection:addKeybind("Toggle GUI", Enum.KeyCode.RightShift, function()
-    venyx:toggle()
-    sendNotification("GUI", venyx.isEnabled and "GUI Shown" or "GUI Hidden", 2)
-end, function()
-    sendNotification("GUI Keybind", "Changed GUI toggle keybind", 2)
-end)
-
 -- Select default page
 venyx:SelectPage(venyx.pages[1], true)
 
@@ -1305,8 +1359,6 @@ local lastTarget = nil
 local lastHealth = {}
 
 RunService.RenderStepped:Connect(function(delta)
-    integrateKillMode()
-
     local target, part, hum = nil, nil, nil
     if getgenv().YeuTuyen.Mode == "Aimlock" then
         if getgenv().YeuTuyen.Status then
@@ -1573,6 +1625,9 @@ RunService.Heartbeat:Connect(function()
                 lastDowned[name] = false
             end
         end
+    end
+    if getgenv().YeuTuyen.KillMode then
+        integrateKillMode()
     end
 end)
 
@@ -1974,6 +2029,77 @@ end, function()
 end)
 miscSection:addSlider("Fly Speed", 35, 1, 100, function(value)
     FlySpeed = value
+end)
+
+miscSection:addToggle("Movement", false, function(value)
+    movementEnabled = value
+    sendNotification("Movement", value and "ON" or "OFF", 2)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character.Humanoid.UseJumpPower = true
+    end
+end)
+
+-- Keybind
+miscSection:addKeybind("Toggle Movement Key", Enum.KeyCode.Z, function()
+    movementEnabled = not movementEnabled
+    sendNotification("Movement", movementEnabled and "ON" or "OFF", 2)
+end, function(newKey)
+    movementKey = newKey
+    sendNotification("Movement Key", "Set to " .. newKey.Name, 2)
+end)
+
+-- Sliders
+miscSection:addSlider("WalkSpeed", 30, 16, 300, function(value)
+    walkSpeed = value
+end)
+
+miscSection:addSlider("JumpPower", 60, 50, 300, function(value)
+    jumpPower = value
+end)
+
+RunService.Heartbeat:Connect(function(dt)
+    if movementEnabled then 
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hrp and hum then
+            -- bước di chuyển
+            local stepY = jumpPower * dt
+            local stepXZ = walkSpeed * dt
+            
+            local moveDir = hum.MoveDirection
+            if moveDir.Magnitude > 0 then
+                hrp.CFrame = hrp.CFrame + (moveDir * stepXZ) + Vector3.new(0, stepY, 0)
+            else
+                hrp.CFrame = hrp.CFrame + Vector3.new(0, stepY, 0)
+            end
+        end
+    end
+
+if not bringEnabled then return end
+    local myChar = LocalPlayer.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+    
+    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
+        local plr = Players:FindFirstChild(name)
+        if plr and plr.Character and isAlive(plr) then
+            local targetHRP = plr.Character:FindFirstChild("HumanoidRootPart")
+            if targetHRP then
+                -- Bring đến trước mặt cách 2 stud
+                local bringPos = myHRP.CFrame * CFrame.new(0, 0, -2)
+                targetHRP.CFrame = bringPos
+            end
+        end
+    end
+end)
+
+-- GUI Toggle Keybind
+miscSection:addKeybind("Toggle GUI", Enum.KeyCode.RightShift, function()
+    venyx:toggle()
+    sendNotification("GUI", venyx.isEnabled and "GUI Shown" or "GUI Hidden", 2)
+end, function()
+    sendNotification("GUI Keybind", "Changed GUI toggle keybind", 2)
 end)
 
 -- Auralist Page
