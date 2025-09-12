@@ -51,6 +51,9 @@ local korbloxEnabled = true
 local addedAccessories = {}
 local runServiceConn
 local Time = 1
+local killAuraEnabled = false
+local originalPosition = nil
+local heightOffset = -8
 local RightUpperLegAccessories = {
     {id = 18457575895}, 
 }
@@ -58,10 +61,6 @@ local RightUpperLegAccessories = {
 -- Initialize Notifications tables
 local Notifications = {}
 local TargetNotifications = {}
-local lastSubject = nil
-local lastPosition = nil  -- Lưu vị trí cũ khi bật Kill Mode
-local defaultMinDistance = nil  -- Sẽ lưu MinZoomDistance khi bật Kill Mode
-local defaultCameraType = nil
 
 -- Global settings
 getgenv().YeuTuyen = {
@@ -80,8 +79,6 @@ getgenv().YeuTuyen = {
     UnderGround = false,
     DetectDesync = true,
     Detection = 75,
-    KillMode = false,
-    KillModeOffsetY = -8,
 }
 
 -- FOV Circle
@@ -505,43 +502,23 @@ local function isAlive(plr)
     return true
 end
 
-local function integrateKillMode()
-    if getgenv().YeuTuyen.KillMode then
-        pcall(function()
-            local target = getBestTargetForKill()
-            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") then
-                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myHRP then
-                    local targetHRP = target.Character.HumanoidRootPart
-                    -- Dịch chuyển xuống dưới mục tiêu 8 studs
-                    myHRP.CFrame = CFrame.new(targetHRP.Position - Vector3.new(0, getgenv().YeuTuyen.KillModeOffsetY, 0))
-                    -- Khóa camera vào đầu của mục tiêu
-                    if Camera.CameraSubject ~= target.Character.Head then
-                        lastSubject = Camera.CameraSubject
-                        Camera.CameraSubject = target.Character.Head
-                        sendNotification("View", "Đang xem " .. target.DisplayName, 2)
-                    end
-                    -- Zoom gần (MinZoomDistance = 5) và chuyển sang Classic nếu ở First Person
-                    Camera.MinZoomDistance = 5
-                    if Camera.CameraType == Enum.CameraType.Fixed or Camera.CameraType == Enum.CameraType.FirstPerson then
-                        Camera.CameraType = Enum.CameraType.Classic
-                    end
-                end
-            else
-                -- Không có mục tiêu hợp lệ, teleport về vị trí cũ và khôi phục camera
-                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myHRP and lastPosition then
-                    myHRP.CFrame = lastPosition
-                end
-                if Camera.CameraSubject ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")) then
-                    Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
-                    Camera.MinZoomDistance = defaultMinDistance or 0.5
-                    Camera.CameraType = defaultCameraType or Enum.CameraType.Custom
-                    sendNotification("View", "Tắt view", 2)
-                end
+-- Function to get nearest alive player (ignores self, checks team if enabled, uses isAlive)
+local function getNearestAlivePlayer()
+    local closestTarget = nil
+    local closestDist = math.huge
+    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return nil end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and not checkTeam(plr) and isAlive(plr) and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (myHRP.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+            if dist < closestDist then
+                closestTarget = plr
+                closestDist = dist
             end
-        end)
+        end
     end
+    return closestTarget
 end
 
 local hitParts = {
@@ -810,7 +787,17 @@ end)
 
 RunService.Heartbeat:Connect(function(dt)
 
-    integrateKillMode()
+    if killAuraEnabled then
+        local target = getNearestAlivePlayer()
+        if target then
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local targetHrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            if hrp and targetHrp then
+                hrp.Position = targetHrp.Position + Vector3.new(0, heightOffset, 0)
+            end
+        end
+    end
 
     if movementEnabled then 
         local char = LocalPlayer.Character
@@ -1214,48 +1201,61 @@ aimGroup:AddSlider("AimSmoothness", {
     end,
 })
 
--- Thêm toggle Kill Mode vào UI
-aimGroup:AddToggle("KillMode", {
-    Text = "Kill Mode",
-    Default = false,
-    Tooltip = "Enable Kill Mode (teleport below target and lock camera to their head)",
-    Callback = function(value)
-        getgenv().YeuTuyen.KillMode = value
-        sendNotification("Kill Mode", value and "Enabled" or "Disabled", 2)
-        if value then
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myHRP then
-                lastPosition = myHRP.CFrame  -- Lưu vị trí cũ khi bật
-            end
-            defaultMinDistance = Camera.MinZoomDistance  -- Lưu MinZoomDistance khi bật
-            defaultCameraType = Camera.CameraType  -- Lưu CameraType khi bật
-        else
-            -- Khi tắt Kill Mode, khôi phục CameraSubject, vị trí, MinZoomDistance và CameraType
-            pcall(function()
-                Camera.CameraSubject = lastSubject or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid"))
-                Camera.MinZoomDistance = defaultMinDistance or 0.5
-                Camera.CameraType = defaultCameraType or Enum.CameraType.Custom
-                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myHRP and lastPosition then
-                    myHRP.CFrame = lastPosition
-                end
-            end)
-            sendNotification("View", "Tắt view", 2)
-        end
-    end,
-})
-
-aimGroup:AddSlider("KillModeOffsetY", {
-    Text = "Kill Mode Y Offset",
-    Default = -8, -- Giá trị mặc định, khớp với giá trị ban đầu của KillModeOffsetY
-    Min = -50, -- Giá trị tối thiểu
-    Max = 200, -- Giá trị tối đa
-    Rounding = 0, -- Không làm tròn (giữ số nguyên)
+aimGroup:AddSlider("HeightOffset", {
+    Text = "Height Offset",
+    Default = -8,
+    Min = -50,
+    Max = 200,
+    Rounding = 0,
     Compact = false,
     Callback = function(value)
-        getgenv().YeuTuyen.KillModeOffsetY = value
-        sendNotification("Kill Mode Offset", "Y Offset set to " .. value .. " studs", 2)
+        heightOffset = value
+        sendNotification("Height Offset", "Set to " .. value, 2)
+    end
+})
+
+-- KillAura Toggle
+aimGroup:AddToggle("KillAura", {
+    Text = "Kill Aura",
+    Default = false,
+    Tooltip = "Teleport to nearest alive player with Y offset",
+    Callback = function(value)
+        killAuraEnabled = value
+        if value then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                originalPosition = char.HumanoidRootPart.Position
+            end
+            sendNotification("Kill Aura", "Enabled", 2)
+        else
+            if originalPosition and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.Position = originalPosition
+                originalPosition = nil
+            end
+            sendNotification("Kill Aura", "Disabled", 2)
+        end
+    end
+})
+
+-- Kill Selected Player Button
+aimGroup:AddButton({
+    Text = "Kill Selected Player",
+    Func = function()
+        local target = getBestTargetForKill()  -- Uses your existing function for nearest selected alive
+        if target then
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local targetHrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            if hrp and targetHrp then
+                hrp.Position = targetHrp.Position + Vector3.new(0, heightOffset, 0)
+                sendNotification("Kill Selected", "Teleported to " .. target.Name, 2)
+            end
+        else
+            sendNotification("Kill Selected", "No valid selected target found", 2)
+        end
     end,
+    DoubleClick = false,
+    Tooltip = "Teleport to nearest selected alive player with Y offset"
 })
 
 aimGroup:AddToggle("Triggerbot", {
