@@ -51,9 +51,16 @@ local korbloxEnabled = true
 local addedAccessories = {}
 local runServiceConn
 local Time = 1
-local killAuraEnabled = false
-local originalPosition = nil
-local heightOffset = -8
+local killSelectedEnabled = false
+local spectateEnabled = false
+local spectateTarget = nil
+local originalCameraType = Camera.CameraType
+local originalCameraSubject = Camera.CameraSubject
+local originalCameraCFrame = Camera.CFrame
+local cameraYaw = math.rad(0)  -- Initial yaw angle
+local cameraPitch = math.rad(0)  -- Initial pitch angle, limit to avoid flipping
+local lastTouchPos = nil
+local camDistance = 5 
 local RightUpperLegAccessories = {
     {id = 18457575895}, 
 }
@@ -758,6 +765,34 @@ RunService.RenderStepped:Connect(function()
 end)
 
 RunService.RenderStepped:Connect(function()
+
+    if spectateEnabled then
+        -- Determine target based on mode
+        if killAuraEnabled then
+            spectateTarget = getNearestAlivePlayer()
+        elseif killSelectedEnabled then
+            spectateTarget = getBestTargetForKill()
+        end
+
+        if spectateTarget and spectateTarget.Character and spectateTarget.Character:FindFirstChild("Head") then
+            local head = spectateTarget.Character.Head
+            -- Calculate camera position with rotation and distance
+            local rotationCFrame = CFrame.Angles(0, cameraYaw, 0) * CFrame.Angles(cameraPitch, 0, 0)
+            local cameraPos = head.Position + (rotationCFrame * Vector3.new(0, 0, camDistance))
+            Camera.CFrame = CFrame.lookAt(cameraPos, head.Position)
+            Camera.CameraType = Enum.CameraType.Scriptable
+        else
+            -- No valid target: reset camera
+            spectateEnabled = false
+            Camera.CameraType = originalCameraType
+            Camera.CameraSubject = originalCameraSubject
+            Camera.CFrame = originalCameraCFrame
+            cameraYaw = 0
+            cameraPitch = 0
+            sendNotification("Spectate", "No valid target - Camera reset", 2)
+        end
+    end
+
     if HitboxEnabled then
         for _, player in ipairs(Players:GetPlayers()) do
             if player.Name ~= LocalPlayer.Name then
@@ -787,8 +822,8 @@ end)
 
 RunService.Heartbeat:Connect(function(dt)
 
-    if killAuraEnabled then
-        local target = getNearestAlivePlayer()
+    if killSelectedEnabled then
+        local target = getBestTargetForKill()
         if target then
             local char = LocalPlayer.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -990,57 +1025,37 @@ local function hasKOOrGrabMechanic(char)
     return char:FindFirstChild("BodyEffects") or char:FindFirstChild("GRABBING_CONSTRAINT")
 end
 
--- Hàm chọn mục tiêu tốt nhất cho Kill Mode (hợp lệ: không K.O, không grab)
-local function getBestTargetForKill()
-    local closestTarget = nil
-    local closestDist = math.huge
-    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil end
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if spectateEnabled and input.UserInputType == Enum.UserInputType.Touch and not gameProcessedEvent then
+        lastTouchPos = input.Position  -- Lưu vị trí chạm ban đầu
+    end
+end)
 
-    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
-        local plr = Players:FindFirstChild(name)
-        if plr and plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-            local bodyEffects = plr.Character:FindFirstChild("BodyEffects")
-            local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
-            local isGrabbed = plr.Character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
-            if hum and hum.Health > 0 and not isKO and not isGrabbed then
-                local dist = (myHRP.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-                if dist < closestDist then
-                    closestTarget = plr
-                    closestDist = dist
-                end
-            end
+UserInputService.InputChanged:Connect(function(input, gameProcessedEvent)
+    if not spectateEnabled or gameProcessedEvent then return end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        -- Xử lý cho PC (chuột)
+        local delta = input.Delta
+        cameraYaw = cameraYaw - delta.X * 0.005  -- Điều chỉnh độ nhạy
+        cameraPitch = math.clamp(cameraPitch - delta.Y * 0.005, -math.rad(85), math.rad(85))  -- Giới hạn góc pitch
+    elseif input.UserInputType == Enum.UserInputType.Touch then
+        -- Xử lý cho mobile (touch)
+        if lastTouchPos then
+            local currentPos = input.Position
+            local delta = currentPos - lastTouchPos
+            cameraYaw = cameraYaw - delta.X * 0.005  -- Điều chỉnh độ nhạy
+            cameraPitch = math.clamp(cameraPitch - delta.Y * 0.005, -math.rad(85), math.rad(85))  -- Giới hạn góc pitch
+            lastTouchPos = currentPos  -- Cập nhật vị trí chạm mới
         end
     end
-    return closestTarget
-end
+end)
 
--- Hàm chọn mục tiêu bị K.O hoặc grab gần nhất (nếu không có mục tiêu hợp lệ)
-local function getBestInvalidTargetForKill()
-    local closestTarget = nil
-    local closestDist = math.huge
-    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil end
-
-    for name, _ in pairs(getgenv().YeuTuyen.SelectedTargets) do
-        local plr = Players:FindFirstChild(name)
-        if plr and plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-            local bodyEffects = plr.Character:FindFirstChild("BodyEffects")
-            local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
-            local isGrabbed = plr.Character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
-            if hum and hum.Health > 0 and (isKO or isGrabbed) then
-                local dist = (myHRP.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-                if dist < closestDist then
-                    closestTarget = plr
-                    closestDist = dist
-                end
-            end
-        end
+UserInputService.InputEnded:Connect(function(input, gameProcessedEvent)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        lastTouchPos = nil  -- Reset khi thả ngón tay
     end
-    return closestTarget
-end
+end)
 
 -- Theo dõi máu để gọi hiệu ứng
 local function TrackHealth(plr)
@@ -1218,13 +1233,15 @@ aimGroup:AddSlider("HeightOffset", {
 aimGroup:AddToggle("KillAura", {
     Text = "Kill Aura",
     Default = false,
-    Tooltip = "Teleport to nearest alive player with Y offset",
+    Tooltip = "Teleport to nearest alive player with Y offset and spectate",
     Callback = function(value)
         killAuraEnabled = value
+        spectateEnabled = value  -- Link spectate to toggle
         if value then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 originalPosition = char.HumanoidRootPart.Position
+                originalCameraCFrame = Camera.CFrame  -- Save original camera
             end
             sendNotification("Kill Aura", "Enabled", 2)
         else
@@ -1232,30 +1249,45 @@ aimGroup:AddToggle("KillAura", {
                 LocalPlayer.Character.HumanoidRootPart.Position = originalPosition
                 originalPosition = nil
             end
+            -- Reset camera
+            Camera.CameraType = originalCameraType
+            Camera.CameraSubject = originalCameraSubject
+            Camera.CFrame = originalCameraCFrame
+            cameraYaw = 0
+            cameraPitch = 0
             sendNotification("Kill Aura", "Disabled", 2)
         end
     end
 })
 
--- Kill Selected Player Button
-aimGroup:AddButton({
+killAuraGroup:AddToggle("KillSelected", {
     Text = "Kill Selected Player",
-    Func = function()
-        local target = getBestTargetForKill()  -- Uses your existing function for nearest selected alive
-        if target then
+    Default = false,
+    Tooltip = "Teleport to nearest selected alive player with Y offset and spectate",
+    Callback = function(value)
+        killSelectedEnabled = value
+        spectateEnabled = value  -- Link spectate to toggle
+        if value then
             local char = LocalPlayer.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            local targetHrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-            if hrp and targetHrp then
-                hrp.Position = targetHrp.Position + Vector3.new(0, heightOffset, 0)
-                sendNotification("Kill Selected", "Teleported to " .. target.Name, 2)
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                originalPosition = char.HumanoidRootPart.Position
+                originalCameraCFrame = Camera.CFrame  -- Save original camera
             end
+            sendNotification("Kill Selected", "Enabled", 2)
         else
-            sendNotification("Kill Selected", "No valid selected target found", 2)
+            if originalPosition and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.Position = originalPosition
+                originalPosition = nil
+            end
+            -- Reset camera
+            Camera.CameraType = originalCameraType
+            Camera.CameraSubject = originalCameraSubject
+            Camera.CFrame = originalCameraCFrame
+            cameraYaw = 0
+            cameraPitch = 0
+            sendNotification("Kill Selected", "Disabled", 2)
         end
-    end,
-    DoubleClick = false,
-    Tooltip = "Teleport to nearest selected alive player with Y offset"
+    end
 })
 
 aimGroup:AddToggle("Triggerbot", {
