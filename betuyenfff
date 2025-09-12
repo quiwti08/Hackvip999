@@ -1260,7 +1260,7 @@ aimGroup:AddToggle("KillAura", {
     end
 })
 
-killAuraGroup:AddToggle("KillSelected", {
+aimGroup:AddToggle("KillSelected", {
     Text = "Kill Selected Player",
     Default = false,
     Tooltip = "Teleport to nearest selected alive player with Y offset and spectate",
