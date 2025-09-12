@@ -51,16 +51,20 @@ local korbloxEnabled = true
 local addedAccessories = {}
 local runServiceConn
 local Time = 1
+local killAuraEnabled = false
 local killSelectedEnabled = false
 local spectateEnabled = false
 local spectateTarget = nil
+local originalPosition = nil
 local originalCameraType = Camera.CameraType
 local originalCameraSubject = Camera.CameraSubject
 local originalCameraCFrame = Camera.CFrame
-local cameraYaw = math.rad(0)  -- Initial yaw angle
-local cameraPitch = math.rad(0)  -- Initial pitch angle, limit to avoid flipping
-local lastTouchPos = nil
-local camDistance = 5 
+local cameraYaw = math.rad(0)
+local cameraPitch = math.rad(0)
+local camDistance = 5
+local minCamDistance = 2
+local maxCamDistance = 15
+local zoomSensitivity = 2
 local RightUpperLegAccessories = {
     {id = 18457575895}, 
 }
@@ -767,6 +771,20 @@ end)
 RunService.RenderStepped:Connect(function()
 
     if spectateEnabled then
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            -- No character: reset camera and wait for respawn
+            spectateEnabled = false
+            Camera.CameraType = originalCameraType
+            Camera.CameraSubject = originalCameraSubject
+            Camera.CFrame = originalCameraCFrame
+            cameraYaw = math.rad(0)
+            cameraPitch = math.rad(0)
+            camDistance = 5
+            return
+        end
+
         -- Determine target based on mode
         if killAuraEnabled then
             spectateTarget = getNearestAlivePlayer()
@@ -776,7 +794,7 @@ RunService.RenderStepped:Connect(function()
 
         if spectateTarget and spectateTarget.Character and spectateTarget.Character:FindFirstChild("Head") then
             local head = spectateTarget.Character.Head
-            -- Calculate camera position with rotation and distance
+            -- Calculate camera position with rotation and dynamic distance
             local rotationCFrame = CFrame.Angles(0, cameraYaw, 0) * CFrame.Angles(cameraPitch, 0, 0)
             local cameraPos = head.Position + (rotationCFrame * Vector3.new(0, 0, camDistance))
             Camera.CFrame = CFrame.lookAt(cameraPos, head.Position)
@@ -787,8 +805,9 @@ RunService.RenderStepped:Connect(function()
             Camera.CameraType = originalCameraType
             Camera.CameraSubject = originalCameraSubject
             Camera.CFrame = originalCameraCFrame
-            cameraYaw = 0
-            cameraPitch = 0
+            cameraYaw = math.rad(0)
+            cameraPitch = math.rad(0)
+            camDistance = 5
             sendNotification("Spectate", "No valid target - Camera reset", 2)
         end
     end
@@ -822,13 +841,23 @@ end)
 
 RunService.Heartbeat:Connect(function(dt)
 
-    if killSelectedEnabled then
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end  -- Skip if no character/HRP (e.g., during respawn)
+
+    if killAuraEnabled then
+        local target = getNearestAlivePlayer()
+        if target then
+            local targetHrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            if targetHrp then
+                hrp.Position = targetHrp.Position + Vector3.new(0, heightOffset, 0)
+            end
+        end
+    elseif killSelectedEnabled then
         local target = getBestTargetForKill()
         if target then
-            local char = LocalPlayer.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
             local targetHrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-            if hrp and targetHrp then
+            if targetHrp then
                 hrp.Position = targetHrp.Position + Vector3.new(0, heightOffset, 0)
             end
         end
@@ -1025,36 +1054,51 @@ local function hasKOOrGrabMechanic(char)
     return char:FindFirstChild("BodyEffects") or char:FindFirstChild("GRABBING_CONSTRAINT")
 end
 
+-- Handle touch start for rotation
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if spectateEnabled and input.UserInputType == Enum.UserInputType.Touch and not gameProcessedEvent then
-        lastTouchPos = input.Position  -- Lưu vị trí chạm ban đầu
+        lastTouchPos = input.Position  -- Save initial touch position
     end
 end)
 
+-- Handle rotation (PC: mouse, Mobile: touch) and mouse wheel (PC)
 UserInputService.InputChanged:Connect(function(input, gameProcessedEvent)
     if not spectateEnabled or gameProcessedEvent then return end
 
     if input.UserInputType == Enum.UserInputType.MouseMovement then
-        -- Xử lý cho PC (chuột)
+        -- PC: Mouse movement for rotation
         local delta = input.Delta
-        cameraYaw = cameraYaw - delta.X * 0.005  -- Điều chỉnh độ nhạy
-        cameraPitch = math.clamp(cameraPitch - delta.Y * 0.005, -math.rad(85), math.rad(85))  -- Giới hạn góc pitch
+        cameraYaw = cameraYaw - delta.X * 0.005  -- Adjust rotation sensitivity
+        cameraPitch = math.clamp(cameraPitch - delta.Y * 0.005, -math.rad(85), math.rad(85))  -- Clamp pitch
     elseif input.UserInputType == Enum.UserInputType.Touch then
-        -- Xử lý cho mobile (touch)
+        -- Mobile: Touch movement for rotation
         if lastTouchPos then
             local currentPos = input.Position
             local delta = currentPos - lastTouchPos
-            cameraYaw = cameraYaw - delta.X * 0.005  -- Điều chỉnh độ nhạy
-            cameraPitch = math.clamp(cameraPitch - delta.Y * 0.005, -math.rad(85), math.rad(85))  -- Giới hạn góc pitch
-            lastTouchPos = currentPos  -- Cập nhật vị trí chạm mới
+            cameraYaw = cameraYaw - delta.X * 0.005  -- Adjust rotation sensitivity
+            cameraPitch = math.clamp(cameraPitch - delta.Y * 0.005, -math.rad(85), math.rad(85))  -- Clamp pitch
+            lastTouchPos = currentPos  -- Update touch position
         end
+    elseif input.UserInputType == Enum.UserInputType.MouseWheel then
+        -- PC: Mouse wheel for zoom
+        local zoomDelta = input.Position.Z * zoomSensitivity  -- Position.Z is 1 (forward) or -1 (backward)
+        camDistance = math.clamp(camDistance - zoomDelta, minCamDistance, maxCamDistance)
     end
 end)
 
+-- Handle touch end for rotation
 UserInputService.InputEnded:Connect(function(input, gameProcessedEvent)
     if input.UserInputType == Enum.UserInputType.Touch then
-        lastTouchPos = nil  -- Reset khi thả ngón tay
+        lastTouchPos = nil  -- Reset touch position
     end
+end)
+
+-- Handle pinch gesture for zoom on mobile
+UserInputService.TouchPinch:Connect(function(touchPositions, scale, velocity, state, gameProcessedEvent)
+    if not spectateEnabled or gameProcessedEvent then return end
+    -- Scale > 1: pinch out (zoom in), Scale < 1: pinch in (zoom out)
+    local zoomDelta = (1 - scale) * zoomSensitivity * 2  -- Adjust pinch sensitivity
+    camDistance = math.clamp(camDistance + zoomDelta, minCamDistance, maxCamDistance)
 end)
 
 -- Theo dõi máu để gọi hiệu ứng
@@ -1122,6 +1166,28 @@ end)
 Players.PlayerRemoving:Connect(function(player)
     if getgenv().YeuTuyen.SelectedTargets[player.Name] then
         sendNotification("Player", player.Name .. " left the game.", 2)
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    -- Wait for HumanoidRootPart to ensure character is fully loaded
+    local hrp = char:WaitForChild("HumanoidRootPart", 5)
+    if not hrp then return end
+
+    -- Save new original position and camera state
+    originalPosition = hrp.Position
+    originalCameraCFrame = Camera.CFrame
+    originalCameraType = Camera.CameraType
+    originalCameraSubject = Camera.CameraSubject
+
+    -- Reapply KillAura or Kill Selected if enabled
+    if killAuraEnabled or killSelectedEnabled then
+        spectateEnabled = true  -- Re-enable spectate
+        if killAuraEnabled then
+            sendNotification("Kill Aura", "Resumed after respawn", 2)
+        elseif killSelectedEnabled then
+            sendNotification("Kill Selected", "Resumed after respawn", 2)
+        end
     end
 end)
 
@@ -1236,12 +1302,15 @@ aimGroup:AddToggle("KillAura", {
     Tooltip = "Teleport to nearest alive player with Y offset and spectate",
     Callback = function(value)
         killAuraEnabled = value
-        spectateEnabled = value  -- Link spectate to toggle
+        spectateEnabled = value
+        killSelectedEnabled = false  -- Disable Kill Selected to avoid conflicts
         if value then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 originalPosition = char.HumanoidRootPart.Position
-                originalCameraCFrame = Camera.CFrame  -- Save original camera
+                originalCameraCFrame = Camera.CFrame
+                originalCameraType = Camera.CameraType
+                originalCameraSubject = Camera.CameraSubject
             end
             sendNotification("Kill Aura", "Enabled", 2)
         else
@@ -1249,29 +1318,33 @@ aimGroup:AddToggle("KillAura", {
                 LocalPlayer.Character.HumanoidRootPart.Position = originalPosition
                 originalPosition = nil
             end
-            -- Reset camera
             Camera.CameraType = originalCameraType
             Camera.CameraSubject = originalCameraSubject
             Camera.CFrame = originalCameraCFrame
-            cameraYaw = 0
-            cameraPitch = 0
+            cameraYaw = math.rad(0)
+            cameraPitch = math.rad(0)
+            camDistance = 5
             sendNotification("Kill Aura", "Disabled", 2)
         end
     end
 })
 
+-- Kill Selected Toggle
 aimGroup:AddToggle("KillSelected", {
     Text = "Kill Selected Player",
     Default = false,
     Tooltip = "Teleport to nearest selected alive player with Y offset and spectate",
     Callback = function(value)
         killSelectedEnabled = value
-        spectateEnabled = value  -- Link spectate to toggle
+        spectateEnabled = value
+        killAuraEnabled = false  -- Disable KillAura to avoid conflicts
         if value then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 originalPosition = char.HumanoidRootPart.Position
-                originalCameraCFrame = Camera.CFrame  -- Save original camera
+                originalCameraCFrame = Camera.CFrame
+                originalCameraType = Camera.CameraType
+                originalCameraSubject = Camera.CameraSubject
             end
             sendNotification("Kill Selected", "Enabled", 2)
         else
@@ -1279,12 +1352,12 @@ aimGroup:AddToggle("KillSelected", {
                 LocalPlayer.Character.HumanoidRootPart.Position = originalPosition
                 originalPosition = nil
             end
-            -- Reset camera
             Camera.CameraType = originalCameraType
             Camera.CameraSubject = originalCameraSubject
             Camera.CFrame = originalCameraCFrame
-            cameraYaw = 0
-            cameraPitch = 0
+            cameraYaw = math.rad(0)
+            cameraPitch = math.rad(0)
+            camDistance = 5
             sendNotification("Kill Selected", "Disabled", 2)
         end
     end
