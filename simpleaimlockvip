@@ -2009,6 +2009,11 @@ miscSection:addToggle("Korblox and animationpack", true, function(state)
     end
 end)
 
+-- Áp dụng ngay cho nhân vật hiện tại (nếu có)
+if korbloxEnabled and LocalPlayer.Character then
+    enableKorblox(char)
+end
+
 miscSection:addButton("Rejoin", function()
     local ts = game:GetService("TeleportService")
     local p = LocalPlayer
