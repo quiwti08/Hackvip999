@@ -1044,6 +1044,66 @@ _G.__vhuyhub_antilock_conn = RunService.Heartbeat:Connect(function()
     end
 end)
 
+local korbloxEnabled = true
+local runServiceConn
+local Time = 1
+
+local function applyKorbloxAnimations()
+    if runServiceConn then runServiceConn:Disconnect() end
+    runServiceConn = RunService.Stepped:Connect(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Animate") then
+            local animate = char.Animate
+            local animator = char:FindFirstChildOfClass("Humanoid"):FindFirstChildOfClass("Animator")
+
+            -- Kiểm tra nếu Animator tồn tại
+            if animator then
+                -- Load animation cho các hành động
+                local runAnim = Instance.new("Animation")
+                runAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+                animator:LoadAnimation(runAnim)
+
+                local jumpAnim = Instance.new("Animation")
+                jumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
+                animator:LoadAnimation(jumpAnim)
+
+                local fallAnim = Instance.new("Animation")
+                fallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+                animator:LoadAnimation(fallAnim)
+            end
+        end
+    end)
+end
+
+local function restoreAnimations()
+    if runServiceConn then
+        runServiceConn:Disconnect()
+        runServiceConn = nil
+    end
+end
+
+local function enableKorblox(character)
+    task.wait(Time)
+    applyKorbloxAnimations()
+end
+
+local function disableKorblox(character)
+    restoreAnimations()
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if korbloxEnabled then
+        task.wait(1)
+        enableKorblox(char)
+    else
+        disableKorblox(char)
+    end
+end)
+
+-- Áp dụng ngay cho nhân vật hiện tại (nếu có)
+if korbloxEnabled and LocalPlayer.Character then
+    enableKorblox(LocalPlayer.Character)
+end
 triggerBotButton = CreateButton(ButtonFrame1, "TriggerBot: " .. (tbEnabled and "ON" or "OFF"), function()
     tbEnabled = not tbEnabled
     triggerBotButton.Text = "TriggerBot: " .. (tbEnabled and "ON" or "OFF")
