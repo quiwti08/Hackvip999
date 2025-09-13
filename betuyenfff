@@ -816,11 +816,11 @@ RunService.RenderStepped:Connect(function()
         for _, player in ipairs(Players:GetPlayers()) do
             if player.Name ~= LocalPlayer.Name then
                 pcall(function()
-                    player.Character.HumanoidRootPart.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-                    player.Character.HumanoidRootPart.Transparency = HitboxTransparency
-                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really black")
-                    player.Character.HumanoidRootPart.Material = "Neon"
-                    player.Character.HumanoidRootPart.CanCollide = false
+                    player.Character.getgenv().YeuTuyen.Hitpart.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+                    player.Character.getgenv().YeuTuyen.Hitpart.Transparency = HitboxTransparency
+                    player.Character.getgenv().YeuTuyen.Hitpart.BrickColor = BrickColor.new("Really black")
+                    player.Character.getgenv().YeuTuyen.Hitpart.Material = "Neon"
+                    player.Character.getgenv().YeuTuyen.Hitpart.CanCollide = false
                 end)
             end
         end
@@ -828,11 +828,11 @@ RunService.RenderStepped:Connect(function()
         for _, player in ipairs(Players:GetPlayers()) do
             if player.Name ~= LocalPlayer.Name then
                 pcall(function()
-                    player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
-                    player.Character.HumanoidRootPart.Transparency = 1
-                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Medium stone grey")
-                    player.Character.HumanoidRootPart.Material = "Plastic"
-                    player.Character.HumanoidRootPart.CanCollide = false
+                    player.Character.getgenv().YeuTuyen.Hitpart.Size = Vector3.new(2, 2, 1)
+                    player.Character.getgenv().YeuTuyen.Hitpart.Transparency = 1
+                    player.Character.getgenv().YeuTuyen.Hitpart.BrickColor = BrickColor.new("Medium stone grey")
+                    player.Character.getgenv().YeuTuyen.Hitpart.Material = "Plastic"
+                    player.Character.getgenv().YeuTuyen.Hitpart.CanCollide = false
                 end)
             end
         end
