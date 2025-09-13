@@ -1910,6 +1910,23 @@ miscSection:addKeybind("Jump Happier Key", jumpHappierKey, function()
     playAnimation(jumpHappierAnim)
 end)
 
+getgenv().YeuTuyen.CustomAnimEnabled = true
+
+-- Đổi animation liên tục
+game:GetService("RunService").Stepped:Connect(function()
+    if not getgenv().CustomAnimEnabled then return end
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("Animate") then
+        local anim = char.Animate
+        -- Chạy
+        anim.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+        -- Nhảy
+        anim.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
+        -- Rơi
+        anim.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+    end
+end)
+
 local function hideRightLegAndAddAccessories(character)
     local rightUpperLeg = character:FindFirstChild("RightUpperLeg")
 
@@ -1953,49 +1970,29 @@ local function restoreRightLeg(character)
     addedAccessories = {}
 end
 
-local function applyKorbloxAnimations()
-    if runServiceConn then runServiceConn:Disconnect() end
-    runServiceConn = RunService.Stepped:Connect(function()
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Animate") then
-            local animate = char.Animate
-            animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
-            animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
-            animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
-        end
-    end)
-end
-
-local function restoreAnimations()
-    if runServiceConn then
-        runServiceConn:Disconnect()
-        runServiceConn = nil
-    end
-end
-
 local function enableKorblox(character)
     task.wait(Time)
     hideRightLegAndAddAccessories(character)
-    applyKorbloxAnimations()
 end
 
 local function disableKorblox(character)
     restoreRightLeg(character)
-    restoreAnimations()
 end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
     if korbloxEnabled then
         task.wait(1)
         enableKorblox(char)
-        applyKorbloxAnimations()
     else
         disableKorblox(char)
-        restoreAnimations()
     end
 end)
 
-miscSection:addToggle("Korblox and animationpack", true, function(state)
+miscSection:addToggle("CustomAnim", true, function(state)
+    getgenv().YeuTuyen.CustomAnimEnabled = state
+end)
+
+miscSection:addToggle("Korblox", true, function(state)
     korbloxEnabled = state
     local char = LocalPlayer.Character
     if char then
@@ -2033,6 +2030,8 @@ miscSection:addButton("Server Hop", function()
     if #servers > 0 then
         local randomServer = servers[math.random(1, #servers)]
         TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer, Player)
+    else
+        warn("❌ Không tìm thấy server trống để hop!")
     end
 end)
 
