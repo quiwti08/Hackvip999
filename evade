@@ -6,6 +6,8 @@ local TweenService       = game:GetService("TweenService")
 local ReplicatedStorage  = game:GetService("ReplicatedStorage")
 local Camera             = workspace.CurrentCamera
 local ContextActionService = game:GetService("ContextActionService")
+local Lighting           = game:GetService("Lighting")
+local VirtualUser        = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -27,7 +29,7 @@ local Window = Rayfield:CreateWindow({
     LoadingSubtitle = "by anhchangm52",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "EvadeHelper",
+        FolderName = "niggalol | evade",
         FileName = "Settings"
     },
     KeySystem = false
@@ -36,31 +38,41 @@ local Window = Rayfield:CreateWindow({
 -- Tabs
 local TabMove  = Window:CreateTab("Movement", 4483362458)
 local TabESP   = Window:CreateTab("ESP", 4483362458)
-local TabList  = Window:CreateTab("Players", 4483362458)
 local TabMisc  = Window:CreateTab("Misc", 4483362458)
 
 -- // ==== State ==== //
 local State = {
-    BringEnabled = false,
     AutoRespawn = false,
     InfJump = false,
-    CFrameSpeedEnabled = false,
-    CFrameSpeed = 25,
-    AscendEnabled = false,
-    AscendSpeed = 6, -- studs/frame when enabled (clamped by dt)
     TracerEnabled = false,
     ESPEnabled = false,
-    ESPNameColor = Color3.fromRGB(255, 182, 193),
+    ESPColor = Color3.fromRGB(255, 182, 193),
+    ESPDownedColor = Color3.fromRGB(255, 255, 255),
+    ESPNextbotColor = Color3.fromRGB(255, 0, 0),
     ESPOutlineColor = Color3.fromRGB(0,0,0),
     HLFillColor = Color3.fromRGB(255,182,193),
     HLOutlineColor = Color3.fromRGB(255,255,255),
-    FOV = 90,
     AntiAFK = true,
-    FarmStreak = false
+    FarmStreak = false,
+    jumpPower = 50,
+    walkSpeed = 16,
+    movementEnabled = false,
+    targetPlayerName = "",
+    NextbotESPEnabled = false,
+    DistanceESP = false,
+    VibrantEnabled = false,
+    FullBrightEnabled = false,
+    HeadlessEnabled = false,
+    originalBrightness = Lighting.Brightness,
+    originalOutdoorAmbient = Lighting.OutdoorAmbient,
+    originalAmbient = Lighting.Ambient,
+    originalGlobalShadows = Lighting.GlobalShadows,
+    originalColorCorrectionEnabled = Lighting.ColorCorrection.Enabled,
+    originalSaturation = Lighting.ColorCorrection.Saturation,
+    originalContrast = Lighting.ColorCorrection.Contrast,
 }
 
 -- // ==== Anti-Idle ==== //
-local VirtualUser = game:GetService("VirtualUser")
 LocalPlayer.Idled:Connect(function()
     if not State.AntiAFK then return end
     VirtualUser:CaptureController()
@@ -90,6 +102,189 @@ local function getHumanoid(char)
     return char and char:FindFirstChildOfClass("Humanoid")
 end
 
+-- // ==== Find Player by Name or DisplayName ==== //
+local function findPlayerByName(name)
+    if not name or name == "" then return nil end
+    name = name:lower()  -- Case insensitive
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Name:lower() == name or plr.DisplayName:lower() == name then
+            return plr
+        end
+    end
+    return nil
+end
+
+-- // ==== Find Nearest Downed Player ==== //
+local function findNearestDowned()
+    local myChar = GetChar()
+    local myHRP = getHRP(myChar)
+    if not myHRP then return nil end
+
+    local nearestPlr = nil
+    local minDist = math.huge
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local theirChar = plr.Character
+            if theirChar and isDowned(theirChar) then
+                local theirHRP = getHRP(theirChar)
+                if theirHRP then
+                    local dist = (myHRP.Position - theirHRP.Position).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        nearestPlr = plr
+                    end
+                end
+            end
+        end
+    end
+    return nearestPlr
+end
+
+-- // ==== Simulate Press Q ==== //
+local function simulatePressQ()
+    -- Simulate begin press Q
+    UserInputService:SendInput({
+        KeyCode = Enum.KeyCode.Q,
+        UserInputState = Enum.UserInputState.Begin,
+        UserInputType = Enum.UserInputType.Keyboard
+    })
+    task.wait(0.5)  -- Hold for 0.5 seconds
+    -- Simulate release Q
+    UserInputService:SendInput({
+        KeyCode = Enum.KeyCode.Q,
+        UserInputState = Enum.UserInputState.End,
+        UserInputType = Enum.UserInputType.Keyboard
+    })
+end
+
+-- // ==== Bring Player Function ==== //
+local function bringPlayer()
+    local myChar = GetChar()
+    local myHRP = getHRP(myChar)
+    if not myHRP then return end
+    local originalPos = myHRP.Position  -- Lưu vị trí ban đầu
+
+    -- Tìm target player từ tên nhập
+    local targetPlr = findPlayerByName(State.targetPlayerName)
+    local isValidTarget = targetPlr and targetPlr.Character and isDowned(targetPlr.Character)
+
+    if isValidTarget then
+        -- TP đến target
+        local theirHRP = getHRP(targetPlr.Character)
+        if theirHRP then
+            myHRP.Position = theirHRP.Position + Vector3.new(0, 3, 0)  
+            task.wait(0.5)
+            simulatePressQ()  -- Giả lập bấm Q
+            task.wait(0.5)
+            myHRP.Position = originalPos  -- Về vị trí cũ
+            simulatePressQ()  -- Bấm Q thêm lần nữa
+            Rayfield:Notify({
+                Title = "Bring Player",
+                Content = "Bring " .. targetPlr.DisplayName,
+                Duration = 3
+            })
+        end
+    else
+        -- Tìm nearest downed nếu không có target valid
+        local nearestPlr = findNearestDowned()
+        if nearestPlr then
+            local theirHRP = getHRP(nearestPlr.Character)
+            if theirHRP then
+                myHRP.Position = theirHRP.Position + Vector3.new(0, 3, 0)
+                task.wait(0.5)
+                simulatePressQ()
+                task.wait(0.5)
+                myHRP.Position = originalPos
+                simulatePressQ()
+                Rayfield:Notify({
+                    Title = "Bring Player",
+                    Content = "Bring nearest: " .. nearestPlr.DisplayName,
+                    Duration = 3
+                })
+            end
+        else
+            Rayfield:Notify({
+                Title = "Bring Player",
+                Content = "No downed players found!",
+                Duration = 3
+            })
+        end
+    end
+end
+
+-- // ==== Revive Yourself ==== //
+local function reviveYourself()
+    local player = LocalPlayer
+    local character = player.Character
+    if character and character:GetAttribute("Downed") then
+        ReplicatedStorage.Events.Player.ChangePlayerMode:FireServer(true)
+    end
+end
+
+-- // ==== Headless Functions ==== //
+local function applyHeadless()
+    local character = GetChar()
+    if character then
+        local head = character:FindFirstChild("Head")
+        if head then
+            head.Transparency = 1
+            local face = head:FindFirstChildOfClass("Decal")
+            if face then
+                face.Transparency = 1
+            end
+        end
+    end
+end
+
+local function removeHeadless()
+    local character = GetChar()
+    if character then
+        local head = character:FindFirstChild("Head")
+        if head then
+            head.Transparency = 0
+            local face = head:FindFirstChildOfClass("Decal")
+            if face then
+                face.Transparency = 0
+            end
+        end
+    end
+end
+
+-- // ==== Lighting Functions ==== //
+local function applyFullBrightness()
+    Lighting.Brightness = 2
+    Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+    Lighting.GlobalShadows = false
+end
+
+local function removeFullBrightness()
+    Lighting.Brightness = State.originalBrightness
+    Lighting.OutdoorAmbient = State.originalOutdoorAmbient
+    Lighting.Ambient = State.originalAmbient
+    Lighting.GlobalShadows = State.originalGlobalShadows
+end
+
+local function applySuperFullBrightness()
+    Lighting.Brightness = 15
+    Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+    Lighting.GlobalShadows = false
+end
+
+local function applyVibrant()
+    Lighting.ColorCorrection.Enabled = true
+    Lighting.ColorCorrection.Saturation = 0.8
+    Lighting.ColorCorrection.Contrast = 0.4
+end
+
+local function removeVibrant()
+    Lighting.ColorCorrection.Enabled = State.originalColorCorrectionEnabled
+    Lighting.ColorCorrection.Saturation = State.originalSaturation
+    Lighting.ColorCorrection.Contrast = State.originalContrast
+end
+
 -- // ==== Auto Respawn (toggle) ==== //
 RunService.Stepped:Connect(function()
     if not State.AutoRespawn then return end
@@ -111,27 +306,24 @@ UserInputService.JumpRequest:Connect(function()
     if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
 end)
 
--- // ==== CFrame Speed ==== //
 RunService.Heartbeat:Connect(function(dt)
-    if not State.CFrameSpeedEnabled then return end
-    local ch = LocalPlayer.Character
-    local hum = getHumanoid(ch)
-    local hrp = getHRP(ch)
-    if not (hum and hrp) then return end
-    local dir = hum.MoveDirection
-    if dir.Magnitude > 0 then
-        local step = State.CFrameSpeed * dt
-        hrp.CFrame = hrp.CFrame + dir * step
+    if State.movementEnabled then 
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hrp and hum then
+            -- bước di chuyển
+            local stepY = State.jumpPower * dt
+            local stepXZ = State.walkSpeed * dt
+            
+            local moveDir = hum.MoveDirection
+            if moveDir.Magnitude > 0 then
+                hrp.CFrame = hrp.CFrame + (moveDir * stepXZ) + Vector3.new(0, stepY, 0)
+            else
+                hrp.CFrame = hrp.CFrame + Vector3.new(0, stepY, 0)
+            end
+        end
     end
-end)
-
--- // ==== Ascend Mode (CFrame) ==== //
-RunService.Heartbeat:Connect(function(dt)
-    if not State.AscendEnabled then return end
-    local hrp = getHRP()
-    if not hrp then return end
-    local step = State.AscendSpeed * dt
-    hrp.CFrame = hrp.CFrame + Vector3.new(0, step, 0)
 end)
 
 -- // ==== Farm Streak ==== //
@@ -140,20 +332,6 @@ RunService.Stepped:Connect(function()
     local hrp = getHRP()
     if hrp then
         hrp.Position = Vector3.new(9999, 9999, 9999)
-    end
-end)
-
--- // ==== FOV ==== //
-RunService.Heartbeat:Connect(function()
-    Camera.FieldOfView = State.FOV
-end)
-
-RunService.Stepped:Connect(function()
-    if not State.BringEnabled or not selectedPlayer or not selectedPlayer.Character or not LocalPlayer.Character then return end
-    local targetHRP = selectedPlayer.Character:FindFirstChild("HumanoidRootPart")
-    local myHRP = getHRP(LocalPlayer.Character)
-    if targetHRP and myHRP then
-        targetHRP.CFrame = myHRP.CFrame + myHRP.CFrame.LookVector * 1 + Vector3.new(0, 2, 0)
     end
 end)
 
@@ -168,6 +346,9 @@ EspGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 local espLabels = {}      -- [player] = TextLabel
 local espHighlights = {}  -- [player] = Highlight
 local tracers = {}        -- [player] = Drawing Line
+local nextbotLabels = {}  -- [bot] = TextLabel
+local nextbotHighlights = {}  -- [bot] = Highlight
+local nextbotTracers = {}  -- [bot] = Drawing Line
 
 local function destroyESPFor(plr)
     local lab = espLabels[plr]
@@ -183,12 +364,26 @@ local function destroyESPFor(plr)
     tracers[plr] = nil
 end
 
+local function destroyNextbotESPFor(bot)
+    local lab = nextbotLabels[bot]
+    if lab then lab:Destroy() end
+    nextbotLabels[bot] = nil
+
+    local hl = nextbotHighlights[bot]
+    if hl then hl:Destroy() end
+    nextbotHighlights[bot] = nil
+
+    local tr = nextbotTracers[bot]
+    if tr then tr:Remove() end
+    nextbotTracers[bot] = nil
+end
+
 local function ensureESPFor(plr)
     -- Label
     if not espLabels[plr] then
         local label = Instance.new("TextLabel")
         label.BackgroundTransparency = 1
-        label.TextColor3 = State.ESPNameColor
+        label.TextColor3 = State.ESPColor
         label.TextStrokeTransparency = 0.3
         label.TextStrokeColor3 = State.ESPOutlineColor
         label.Font = Enum.Font.GothamSemibold
@@ -205,7 +400,7 @@ local function ensureESPFor(plr)
         hl.Enabled = false
         hl.FillTransparency = 0.7
         hl.OutlineTransparency = 0.2
-        hl.FillColor = State.HLFillColor
+        hl.FillColor = State.ESPColor
         hl.OutlineColor = State.HLOutlineColor
         hl.Parent = EspGui
         espHighlights[plr] = hl
@@ -215,26 +410,99 @@ local function ensureESPFor(plr)
         local line = Drawing.new("Line")
         line.Visible = false
         line.Thickness = 1.5
-        line.Color = State.ESPNameColor
+        line.Color = State.ESPColor
         tracers[plr] = line
+    end
+end
+
+local function ensureNextbotESPFor(bot)
+    -- Label
+    if not nextbotLabels[bot] then
+        local label = Instance.new("TextLabel")
+        label.BackgroundTransparency = 1
+        label.TextColor3 = State.ESPNextbotColor
+        label.TextStrokeTransparency = 0.3
+        label.TextStrokeColor3 = State.ESPOutlineColor
+        label.Font = Enum.Font.GothamSemibold
+        label.TextSize = 14
+        label.Size = UDim2.new(0, 200, 0, 20)
+        label.AnchorPoint = Vector2.new(0.5, 0.5)
+        label.Visible = false
+        label.Parent = EspGui
+        nextbotLabels[bot] = label
+    end
+    -- Highlight
+    if not nextbotHighlights[bot] then
+        local hl = Instance.new("Highlight")
+        hl.Enabled = false
+        hl.FillTransparency = 0.5
+        hl.OutlineTransparency = 0
+        hl.FillColor = State.ESPNextbotColor
+        hl.OutlineColor = State.ESPNextbotColor
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Parent = bot
+        nextbotHighlights[bot] = hl
+    end
+    -- Tracer (Drawing API)
+    if State.TracerEnabled and not nextbotTracers[bot] and Drawing then
+        local line = Drawing.new("Line")
+        line.Visible = false
+        line.Thickness = 1.5
+        line.Color = State.ESPNextbotColor
+        nextbotTracers[bot] = line
     end
 end
 
 local function updateEspColors()
     for _, label in pairs(espLabels) do
-        label.TextColor3 = State.ESPNameColor
+        label.TextColor3 = State.ESPColor
         label.TextStrokeColor3 = State.ESPOutlineColor
     end
     for _, hl in pairs(espHighlights) do
-        hl.FillColor = State.HLFillColor
+        hl.FillColor = State.ESPColor
         hl.OutlineColor = State.HLOutlineColor
     end
     for _, tr in pairs(tracers) do
-        if tr then tr.Color = State.ESPNameColor end
+        if tr then tr.Color = State.ESPColor end
     end
 end
 
--- Render
+local function updateNextbotEspColors()
+    for _, label in pairs(nextbotLabels) do
+        label.TextColor3 = State.ESPNextbotColor
+        label.TextStrokeColor3 = State.ESPOutlineColor
+    end
+    for _, hl in pairs(nextbotHighlights) do
+        hl.FillColor = State.ESPNextbotColor
+        hl.OutlineColor = State.ESPNextbotColor
+    end
+    for _, tr in pairs(nextbotTracers) do
+        if tr then tr.Color = State.ESPNextbotColor end
+    end
+end
+
+-- // ==== Nextbot ESP Loop ==== //
+local nextbotConnection
+if State.NextbotESPEnabled then
+    nextbotConnection = RunService.Heartbeat:Connect(function()
+        local botsFolder = workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Players")
+        if botsFolder then
+            for _, bot in pairs(botsFolder:GetChildren()) do
+                if bot:IsA("Model") and bot:FindFirstChild("Hitbox") then
+                    ensureNextbotESPFor(bot)
+                    bot.Hitbox.Transparency = 0.5
+                else
+                    destroyNextbotESPFor(bot)
+                    if bot:FindFirstChild("Hitbox") then
+                        bot.Hitbox.Transparency = 1
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Render for Players
 RunService.RenderStepped:Connect(function()
     if not State.ESPEnabled then
         for _, l in pairs(espLabels) do l.Visible = false end
@@ -249,20 +517,30 @@ RunService.RenderStepped:Connect(function()
             local hum = ch:FindFirstChildOfClass("Humanoid")
             if hum and hum.Health > 0 then
                 local downed = isDowned(ch)
+                local currentColor = downed and State.ESPDownedColor or State.ESPColor
                 ensureESPFor(plr)
                 local headPos = ch.Head.Position
                 local screenPos, onScreen = Camera:WorldToViewportPoint(headPos)
+                local distance = onScreen and math.floor((Camera.CFrame.Position - headPos).Magnitude + 0.5) or 0
+
+                -- Update colors for downed
+                local label = espLabels[plr]
+                label.TextColor3 = currentColor
+                local hl = espHighlights[plr]
+                hl.FillColor = currentColor
 
                 -- Label
-                local label = espLabels[plr]
-                label.Text = plr.DisplayName .. (downed and " [DOWNED]" or "")
+                local text = plr.DisplayName .. (downed and " [DOWNED]" or "")
+                if State.DistanceESP and onScreen then
+                    text = text .. "\n" .. distance .. "m"
+                end
+                label.Text = text
                 label.Visible = onScreen
                 if onScreen then
                     label.Position = UDim2.fromOffset(screenPos.X, screenPos.Y - 18)
                 end
 
                 -- Highlight
-                local hl = espHighlights[plr]
                 hl.Adornee = ch
                 hl.Enabled = true
 
@@ -277,6 +555,7 @@ RunService.RenderStepped:Connect(function()
                             line.Visible = true
                             line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
                             line.To = Vector2.new(screenPos.X, screenPos.Y)
+                            line.Color = currentColor
                         else
                             line.Visible = false
                         end
@@ -293,40 +572,106 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- Render for Nextbots
+RunService.RenderStepped:Connect(function()
+    if not State.NextbotESPEnabled then
+        for _, l in pairs(nextbotLabels) do l.Visible = false end
+        for _, h in pairs(nextbotHighlights) do h.Enabled = false end
+        for _, t in pairs(nextbotTracers) do if t then t.Visible = false end end
+        return
+    end
+
+    local botsFolder = workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Players")
+    if botsFolder then
+        for _, bot in pairs(botsFolder:GetChildren()) do
+            if bot:IsA("Model") and bot:FindFirstChild("Hitbox") then
+                ensureNextbotESPFor(bot)
+                local hitboxPos = bot.Hitbox.Position
+                local screenPos, onScreen = Camera:WorldToViewportPoint(hitboxPos)
+                local distance = onScreen and math.floor((Camera.CFrame.Position - hitboxPos).Magnitude + 0.5) or 0
+
+                -- Label
+                local label = nextbotLabels[bot]
+                local text = bot.Name
+                if State.DistanceESP and onScreen then
+                    text = text .. "\n" .. distance .. "m"
+                end
+                label.Text = text
+                label.Visible = onScreen
+                if onScreen then
+                    label.Position = UDim2.fromOffset(screenPos.X, screenPos.Y - 18)
+                    label.StudsOffset = Vector3.new(0, 1, 0)
+                end
+
+                -- Highlight
+                local hl = nextbotHighlights[bot]
+                hl.Adornee = bot
+                hl.Enabled = true
+
+                -- Tracer
+                if State.TracerEnabled then
+                    if not nextbotTracers[bot] and Drawing then
+                        ensureNextbotESPFor(bot)
+                    end
+                    local line = nextbotTracers[bot]
+                    if line then
+                        if onScreen then
+                            line.Visible = true
+                            line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                            line.To = Vector2.new(screenPos.X, screenPos.Y)
+                        else
+                            line.Visible = false
+                        end
+                    end
+                else
+                    if nextbotTracers[bot] then nextbotTracers[bot]:Remove() nextbotTracers[bot] = nil end
+                end
+            else
+                destroyNextbotESPFor(bot)
+            end
+        end
+    end
+end)
+
 Players.PlayerRemoving:Connect(function(plr)
     destroyESPFor(plr)
 end)
 
 -- // ==== Rayfield: Movement Tab ==== //
 TabMove:CreateToggle({
-    Name = "CFrame Speed",
-    CurrentValue = State.CFrameSpeedEnabled,
+    Name = "Movement",
+    CurrentValue = State.movementEnabled,
     Flag = "CFSpd",
-    Callback = function(v) State.CFrameSpeedEnabled = v end
+    Callback = function(v) State.movementEnabled = v end
+})
+TabMove:CreateKeybind({
+    Name = "Movement Keybind",
+    CurrentKeybind = "Z",  -- Phím mặc định là Z
+    HoldToInteract = false,  -- Không cần giữ phím, chỉ nhấn là toggle
+    Flag = "MovementKeybind",
+    Callback = function(Keybind)
+        -- Callback nhận Keybind là string phím mới (nếu thay đổi) hoặc "nil" khi toggle
+        State.movementEnabled = not State.movementEnabled  -- Toggle bật/tắt Movement
+        print("Movement toggled:", State.movementEnabled)  -- Optional: In ra console để debug
+    end,
 })
 TabMove:CreateSlider({
     Name = "Speed",
     Range = {5, 120},
     Increment = 1,
     Suffix = "stud/s",
-    CurrentValue = State.CFrameSpeed,
+    CurrentValue = State.walkSpeed,
     Flag = "CFSpdVal",
-    Callback = function(val) State.CFrameSpeed = val end
-})
-TabMove:CreateToggle({
-    Name = "Ascend Mode (CFrame)",
-    CurrentValue = State.AscendEnabled,
-    Flag = "JBEnable",
-    Callback = function(v) State.AscendEnabled = v end
+    Callback = function(val) State.walkSpeed = val end
 })
 TabMove:CreateSlider({
-    Name = "Ascend Speed (CFrame)",
+    Name = "jumppower",
     Range = {2, 50},
     Increment = 1,
     Suffix = "units/s",
-    CurrentValue = State.AscendSpeed,
+    CurrentValue = State.jumpPower,
     Flag = "JBVal",
-    Callback = function(val) State.AscendSpeed = val end
+    Callback = function(val) State.jumpPower = val end
 })
 TabMove:CreateToggle({
     Name = "Infinite Jump",
@@ -343,6 +688,47 @@ TabESP:CreateToggle({
     Callback = function(v) State.ESPEnabled = v end
 })
 TabESP:CreateToggle({
+    Name = "Nextbot ESP",
+    CurrentValue = State.NextbotESPEnabled,
+    Flag = "NextbotESP",
+    Callback = function(v) 
+        State.NextbotESPEnabled = v
+        if v then
+            if nextbotConnection then nextbotConnection:Disconnect() end
+            nextbotConnection = RunService.Heartbeat:Connect(function()
+                local botsFolder = workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Players")
+                if botsFolder then
+                    for _, bot in pairs(botsFolder:GetChildren()) do
+                        if bot:IsA("Model") and bot:FindFirstChild("Hitbox") then
+                            ensureNextbotESPFor(bot)
+                            bot.Hitbox.Transparency = 0.5
+                        else
+                            destroyNextbotESPFor(bot)
+                            if bot:FindFirstChild("Hitbox") then
+                                bot.Hitbox.Transparency = 1
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            if nextbotConnection then
+                nextbotConnection:Disconnect()
+                nextbotConnection = nil
+            end
+            local botsFolder = workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Players")
+            if botsFolder then
+                for _, bot in pairs(botsFolder:GetChildren()) do
+                    destroyNextbotESPFor(bot)
+                    if bot:FindFirstChild("Hitbox") then
+                        bot.Hitbox.Transparency = 1
+                    end
+                end
+            end
+        end
+    end
+})
+TabESP:CreateToggle({
     Name = "Tracer (Drawing)",
     CurrentValue = State.TracerEnabled,
     Flag = "Tracer",
@@ -353,126 +739,102 @@ TabESP:CreateToggle({
                 if tr then tr:Remove() end
             end
             tracers = {}
+            for _, tr in pairs(nextbotTracers) do
+                if tr then tr:Remove() end
+            end
+            nextbotTracers = {}
         end
     end
+})
+TabESP:CreateToggle({
+    Name = "Distance ESP",
+    CurrentValue = State.DistanceESP,
+    Flag = "DistanceESP",
+    Callback = function(v) State.DistanceESP = v end
 })
 
 local cp1 = TabESP:CreateColorPicker({
-    Name = "Name/Tracer Color",
-    Color = State.ESPNameColor,
-    Flag = "ESPNameColor",
-    Callback = function(c) State.ESPNameColor = c; updateEspColors() end
+    Name = "ESP Color (Name/Highlight/Tracer)",
+    Color = State.ESPColor,
+    Flag = "ESPColor",
+    Callback = function(c) State.ESPColor = c; updateEspColors() end
 })
 local cp2 = TabESP:CreateColorPicker({
-    Name = "Name Outline Color",
-    Color = State.ESPOutlineColor,
-    Flag = "ESPOutlineColor",
-    Callback = function(c) State.ESPOutlineColor = c; updateEspColors() end
+    Name = "ESP Downed Color",
+    Color = State.ESPDownedColor,
+    Flag = "ESPDownedColor",
+    Callback = function(c) State.ESPDownedColor = c end
 })
 local cp3 = TabESP:CreateColorPicker({
-    Name = "Highlight Fill",
-    Color = State.HLFillColor,
-    Flag = "HLFillColor",
-    Callback = function(c) State.HLFillColor = c; updateEspColors() end
+    Name = "ESP Nextbot Color",
+    Color = State.ESPNextbotColor,
+    Flag = "ESPNextbotColor",
+    Callback = function(c) State.ESPNextbotColor = c; updateNextbotEspColors() end
 })
-local cp4 = TabESP:CreateColorPicker({
-    Name = "Highlight Outline",
-    Color = State.HLOutlineColor,
-    Flag = "HLOutlineColor",
-    Callback = function(c) State.HLOutlineColor = c; updateEspColors() end
-})
-
--- // ==== Rayfield: Players Tab ==== //
-local selectedPlayer = nil
-local PlayerDrop
-
-local function refreshDropdown()
-    if not PlayerDrop then return end
-
-    local names = {}
-    for _,plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then
-            table.insert(names, plr.Name)
-        end
-    end
-
-    PlayerDrop:Refresh(names)
-
-    -- giữ người đang chọn nếu họ còn trong danh sách
-    if selectedPlayer and table.find(names, selectedPlayer.Name) then
-        PlayerDrop:Set(selectedPlayer.Name)
-    else
-        selectedPlayer = nil
-    end
-end
-
-PlayerDrop = TabList:CreateDropdown({
-    Name = "Players",
-    Options = {},
-    CurrentOption = "",
-    MultipleOptions = false,
-    Flag = "PlayersDropdown",
-    Callback = function(opt)
-        local name = type(opt)=="table" and opt[1] or opt
-        selectedPlayer = Players:FindFirstChild(name)
-    end
-})
-
--- Nút View (Spectate)
-TabList:CreateButton({
-    Name = "View (Spectate)",
-    Callback = function()
-        if selectedPlayer and selectedPlayer.Character then
-            local hum = selectedPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum then Camera.CameraSubject = hum end
-        end
-    end
-})
-
--- Nút Go To (Teleport near)
-TabList:CreateButton({
-    Name = "Go To (Teleport near)",
-    Callback = function()
-        if selectedPlayer and selectedPlayer.Character and LocalPlayer.Character then
-            local targetHRP = selectedPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local myHRP = getHRP(LocalPlayer.Character)
-            if targetHRP and myHRP then
-                myHRP.CFrame = targetHRP.CFrame + targetHRP.CFrame.LookVector * -2 + Vector3.new(0,2,0)
-            end
-        end
-    end
-})
-
-TabList:CreateToggle({
-    Name = "Bring (Teleport to Me)",
-    CurrentValue = State.BringEnabled,
-    Flag = "BringEnabled",
-    Callback = function(v) State.BringEnabled = v end
-})
-
--- auto refresh list mỗi 2s
-task.spawn(function()
-    while task.wait(2) do
-        refreshDropdown()
-    end
-end)
 
 -- // ==== Rayfield: Misc Tab ==== //
-TabMisc:CreateSlider({
-    Name = "FOV",
-    Range = {70, 120},
-    Increment = 1,
-    Suffix = "deg",
-    CurrentValue = State.FOV,
-    Flag = "FOV",
-    Callback = function(v) State.FOV = v end
-})
-
 TabMisc:CreateToggle({
     Name = "Auto Respawn (when Downed)",
     CurrentValue = State.AutoRespawn,
     Flag = "AutoRespawn",
     Callback = function(v) State.AutoRespawn = v end
+})
+
+TabMisc:CreateButton({
+    Name = "Revive Yourself",
+    Callback = function()
+        reviveYourself()
+    end,
+})
+
+TabMisc:CreateKeybind({
+    Name = "Revive Keybind",
+    CurrentKeybind = "R",
+    HoldToInteract = false,
+    Flag = "ReviveKeybind",
+    Callback = function(Keybind)
+        reviveYourself()
+    end,
+})
+
+TabMisc:CreateInput({
+    Name = "Target Player Name",
+    PlaceholderText = "Enter DisplayName or Username",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(text)
+        State.targetPlayerName = text
+        local foundPlr = findPlayerByName(text)
+        if foundPlr then
+            Rayfield:Notify({
+                Title = "Player Found",
+                Content = "Player " .. foundPlr.DisplayName .. " exists in server!",
+                Duration = 3
+            })
+        else
+            Rayfield:Notify({
+                Title = "Player Not Found",
+                Content = "No player with name " .. text,
+                Duration = 3
+            })
+        end
+    end
+})
+
+TabMisc:CreateButton({
+    Name = "Bring Player",
+    Callback = function()
+        bringPlayer()
+    end
+})
+
+TabMisc:CreateKeybind({
+    Name = "Bring Player Keybind",
+    CurrentKeybind = "Y",  -- Phím mặc định là B
+    HoldToInteract = false,  -- Nhấn một lần để kích hoạt
+    Flag = "BringPlayerKeybind",
+    Callback = function(Keybind)
+        bringPlayer()  -- Gọi hàm bringPlayer khi nhấn key
+    end,
 })
 
 TabMisc:CreateToggle({
@@ -489,8 +851,52 @@ TabMisc:CreateToggle({
     Callback = function(v) State.FarmStreak = v end
 })
 
--- // Cleanup when character respawns: keep ESP attached
-LocalPlayer.CharacterAdded:Connect(function(ch)
-    task.wait(0.2)
-    Camera.FieldOfView = State.FOV
+TabMisc:CreateToggle({
+    Name = "Full Brightness",
+    CurrentValue = State.FullBrightEnabled,
+    Flag = "FullBright",
+    Callback = function(v)
+        State.FullBrightEnabled = v
+        if v then
+            applyFullBrightness()
+        else
+            removeFullBrightness()
+        end
+    end,
+})
+
+TabMisc:CreateToggle({
+    Name = "Vibrant Colors",
+    CurrentValue = State.VibrantEnabled,
+    Flag = "Vibrant",
+    Callback = function(v)
+        State.VibrantEnabled = v
+        if v then
+            applyVibrant()
+        else
+            removeVibrant()
+        end
+    end,
+})
+
+TabMisc:CreateToggle({
+    Name = "Headless",
+    CurrentValue = State.HeadlessEnabled,
+    Flag = "Headless",
+    Callback = function(v)
+        State.HeadlessEnabled = v
+        if v then
+            applyHeadless()
+        else
+            removeHeadless()
+        end
+    end,
+})
+
+-- Apply Headless on Character Respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    if State.HeadlessEnabled then
+        task.wait(0.1)
+        applyHeadless()
+    end
 end)
