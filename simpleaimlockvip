@@ -1666,88 +1666,6 @@ end)
 local miscPage = venyx:addPage("Misc", 12978113090)
 local miscSection = miscPage:addSection("Miscellaneous")
 
-miscSection:addButton("AutoBuyGun", function()
-    local player = LocalPlayer
-    local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-
-    local hrp = char.HumanoidRootPart
-    local originalCFrame = hrp.CFrame
-
-    local Ignored = workspace:FindFirstChild("Ignored") or workspace:FindFirstChild("MAP") or workspace:FindFirstChild("Blacklisted")
-    if not Ignored then return end
-    local Shop = Ignored:FindFirstChild("Shop") or Ignored:FindFirstChild("Shops") or Ignored:FindFirstChild("Pads") or Ignored:FindFirstChild("BuyPads") or Ignored:FindFirstChild("Bought")
-    if not Shop then return end
-
-    local hasRevolver = false
-    local hasDoubleBarrel = false
-    local hasTacticalShotgun = false
-
-    for _, tool in ipairs(player.Backpack:GetChildren()) do
-        local nameLower = tool.Name:lower()
-        if nameLower:find("revolver") then hasRevolver = true end
-        if nameLower:find("double-barrel sg") or nameLower:find("double barrel") then hasDoubleBarrel = true end
-        if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then hasTacticalShotgun = true end
-    end
-    for _, tool in ipairs(char:GetChildren()) do
-        if tool:IsA("Tool") then
-            local nameLower = tool.Name:lower()
-            if nameLower:find("revolver") then hasRevolver = true end
-            if nameLower:find("double-barrel sg") or nameLower:find("double barrel") then hasDoubleBarrel = true end
-            if nameLower:find("tacticalshotgun") or nameLower:find("tactical shotgun") then hasTacticalShotgun = true end
-        end
-    end
-
-    local function buyGunAndAmmo(gunName, gunCoord, ammoCoord)
-        hrp.CFrame = CFrame.new(gunCoord)
-        task.wait(0.25)
-        for _, model in ipairs(Shop:GetChildren()) do
-            local nameLower = model.Name:lower()
-            if nameLower:find(gunName:lower()) and not nameLower:find("ammo") and model:IsA("Model") then
-                local cd = model:FindFirstChildOfClass("ClickDetector")
-                local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
-                if cd and head and (head.Position - hrp.Position).Magnitude <= 20 then
-                    for i = 1, 5 do
-                        pcall(function() fireclickdetector(cd) end)
-                        task.wait(0.1)
-                    end
-                end
-            end
-        end
-
-        task.wait(0.25)
-        if ammoCoord then
-            hrp.CFrame = CFrame.new(ammoCoord)
-            task.wait(0.25)
-        end
-        for _, model in ipairs(Shop:GetChildren()) do
-            local nameLower = model.Name:lower()
-            if nameLower:find("ammo") and nameLower:find(gunName:lower()) and model:IsA("Model") then
-                local cd = model:FindFirstChildOfClass("ClickDetector")
-                local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
-                if cd and head and (head.Position - hrp.Position).Magnitude <= 20 then
-                    for i = 1, 5 do
-                        pcall(function() fireclickdetector(cd) end)
-                        task.wait(0.1)
-                    end
-                end
-            end
-        end
-        task.wait(0.25)
-        hrp.CFrame = originalCFrame
-    end
-
-    if not hasRevolver then
-        buyGunAndAmmo("Revolver", Vector3.new(-635.03, 21.75, -124.16))
-    end
-    if not hasDoubleBarrel then
-        buyGunAndAmmo("Double-Barrel", Vector3.new(-1045.20, 21.75, -265.21))
-    end
-    if not hasTacticalShotgun then
-        buyGunAndAmmo("TacticalShotgun", Vector3.new(492.86, 48.07, -622.48), Vector3.new(471.34, 48.07, -622.77))
-    end
-end)
-
 miscSection:addButton("Auto Armor", function()
     local player = LocalPlayer
     local char = player.Character
@@ -2057,29 +1975,6 @@ miscSection:addButton("Rejoin", function()
     local ts = game:GetService("TeleportService")
     local p = LocalPlayer
     ts:Teleport(game.PlaceId, p)
-end)
-
-miscSection:addButton("Server Hop", function()
-    local HttpService = game:GetService("HttpService")
-    local TeleportService = game:GetService("TeleportService")
-    local Player = LocalPlayer
-
-    local servers = {}
-    local req = game:HttpGet(("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100"):format(game.PlaceId))
-    local data = HttpService:JSONDecode(req)
-
-    for _, v in pairs(data.data) do
-        if v.playing < v.maxPlayers then
-            table.insert(servers, v.id)
-        end
-    end
-
-    if #servers > 0 then
-        local randomServer = servers[math.random(1, #servers)]
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer, Player)
-    else
-        warn("❌ Không tìm thấy server trống để hop!")
-    end
 end)
 
 miscSection:addToggle("Fly", false, function(value)
