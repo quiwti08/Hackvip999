@@ -62,11 +62,13 @@ local Config = {
 
 local AscendEnabled = false
 local AscendSpeed = 70  -- Mặc định
-
 getgenv().HitboxSize = 15
 getgenv().HitboxTransparency = 0.9
 getgenv().HitboxStatus = "OFF"  -- "OFF", "NoVisual", "Visual"
 getgenv().TeamCheck = false
+
+local jerkOffEnabled = false
+local jerkOffTool = nil
 
 local Keybinds = {}
 
@@ -112,6 +114,88 @@ local function makeSmoothDraggable(frame, speed)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then update(input) end
     end)
+end
+
+local function r15(player)
+    local char = player.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        return char:FindFirstChildOfClass("Humanoid").RigType == Enum.HumanoidRigType.R15
+    end
+    return false
+end
+
+local function toggleJerkOff()
+    local speaker = LocalPlayer
+    jerkOffEnabled = not jerkOffEnabled
+
+    if jerkOffEnabled then
+        local humanoid = speaker.Character and speaker.Character:FindFirstChildWhichIsA("Humanoid")
+        local backpack = speaker:FindFirstChildWhichIsA("Backpack")
+        if not humanoid or not backpack then
+            jerkOffEnabled = false
+            sendNotification("Jerk Off", "Cannot enable: No character or backpack found!")
+            return
+        end
+
+        -- Tạo tool
+        jerkOffTool = Instance.new("Tool")
+        jerkOffTool.Name = "Jerk Off"
+        jerkOffTool.ToolTip = "in the stripped club. straight up \"jorking it\" . and by \"it\" , haha, well. let's justr say. My peanits."
+        jerkOffTool.RequiresHandle = false
+        jerkOffTool.Parent = backpack
+
+        local jorkin = false
+        local track = nil
+
+        local function stopTomfoolery()
+            jorkin = false
+            if track then
+                track:Stop()
+                track = nil
+            end
+        end
+
+        jerkOffTool.Equipped:Connect(function()
+            jorkin = true
+        end)
+
+        jerkOffTool.Unequipped:Connect(stopTomfoolery)
+        humanoid.Died:Connect(stopTomfoolery)
+
+        -- Vòng lặp animation
+        task.spawn(function()
+            while task.wait() do
+                if not jerkOffEnabled then break end
+                if not jorkin then continue end
+                local isR15 = r15(speaker)
+                if not track then
+                    local anim = Instance.new("Animation")
+                    anim.AnimationId = isR15 and "rbxassetid://698251653" or "rbxassetid://72042024"
+                    track = humanoid:LoadAnimation(anim)
+                end
+                track:Play()
+                track:AdjustSpeed(isR15 and 0.7 or 0.65)
+                track.TimePosition = 0.6
+                task.wait(0.1)
+                while track and track.TimePosition < (isR15 and 0.7 or 0.65) do
+                    task.wait(0.1)
+                end
+                if track then
+                    track:Stop()
+                    track = nil
+                end
+            end
+        end)
+
+        sendNotification("Jerk Off", "Enabled")
+    else
+        -- Xóa tool khi tắt
+        if jerkOffTool then
+            jerkOffTool:Destroy()
+            jerkOffTool = nil
+        end
+        sendNotification("Jerk Off", "Disabled")
+    end
 end
 
 local function CreateButton(parent, name, callback)
@@ -256,6 +340,33 @@ task.spawn(function()
         local timeStr = os.date("%H:%M")
         PingClock.Text = string.format("Ping: %d ms | FPS: %d | %s", ping, fps, timeStr)
     end
+end)
+
+spawn(function()
+    RunService.Heartbeat:Connect(function()
+        local player = LocalPlayer
+        if player and player.Character and player.Character:FindFirstChild("BodyEffects") then
+            local bodyEffects = player.Character.BodyEffects
+
+            if bodyEffects:FindFirstChild("Movement") then
+                local movement = bodyEffects.Movement
+                local bodyeffectsBoundaries = movement:FindFirstChild("NoJumping") 
+                    or movement:FindFirstChild("ReduceWalk") 
+                    or movement:FindFirstChild("NoWalkSpeed")
+
+                if bodyeffectsBoundaries then
+                    pcall(function()
+                        bodyeffectsBoundaries:Destroy()
+                    end)
+                end
+            end
+
+            local reload = bodyEffects:FindFirstChild("Reload")
+            if reload and reload:IsA("BoolValue") and reload.Value == true then
+                reload.Value = false
+            end
+        end
+    end)
 end)
 
 --// Tabs
@@ -482,6 +593,8 @@ CreateScriptItem("Hypershot", "https://api.luarmor.net/files/v3/loaders/c9f7b2cd
 CreateScriptItem("simpleaim", "https://raw.githubusercontent.com/quiwti08/Hackvip999/refs/heads/main/simpleaimlockvip")
 CreateScriptItem("The mimic", "https://raw.githubusercontent.com/Laelmano24/Rael-Hub/main/main.txt")
 CreateScriptItem("Nigga.lol", "https://raw.githubusercontent.com/quiwti08/Hackvip999/refs/heads/main/niggalol")
+CreateScriptItem("Azuremodded", "https://raw.githubusercontent.com/Actyrn/Scripts/main/AzureModded")
+
 
 
 --// Page 5 (Info)
@@ -946,6 +1059,49 @@ speedBox.FocusLost:Connect(function()
     end
 end)
 
+autoArmorButton = CreateButton(ButtonFrame1, "AutoArmor", function()
+    local player = LocalPlayer
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then 
+        sendNotification("AutoArmor", "No character or HumanoidRootPart found!")
+        return 
+    end
+
+    local hrp = char.HumanoidRootPart
+    local originalCFrame = hrp.CFrame
+
+    hrp.CFrame = CFrame.new(-934.26, -28.50, 566.75)
+    task.wait(0.5)
+
+    local Ignored = workspace:FindFirstChild("Ignored") or workspace:FindFirstChild("MAP") or workspace:FindFirstChild("Blacklisted")
+    if Ignored then
+        local Shop = Ignored:FindFirstChild("Shop") or Ignored:FindFirstChild("Shops") or Ignored:FindFirstChild("Pads") or Ignored:FindFirstChild("BuyPads") or Ignored:FindFirstChild("Bought")
+        if Shop then
+            for _, model in ipairs(Shop:GetChildren()) do
+                if model.Name:lower():find("armor") and model:IsA("Model") then
+                    local cd = model:FindFirstChildOfClass("ClickDetector")
+                    local head = model:FindFirstChild("Head") or model:FindFirstChild("Part")
+                    if cd and head and head:IsA("BasePart") then
+                        local dist = (head.Position - hrp.Position).Magnitude
+                        if dist <= 10 then
+                            for i = 1, 5 do
+                                pcall(function() fireclickdetector(cd) end)
+                                task.wait(0.05)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    task.wait(0.5)
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        hrp.CFrame = originalCFrame
+    end
+    sendNotification("AutoArmor", "Armor purchase attempted!")
+end)
+
 -- Nút Boost Jump
 boostJumpButton = CreateButton(ButtonFrame1, "Boost Jump: OFF", function()
     AscendEnabled = not AscendEnabled
@@ -1340,30 +1496,7 @@ hitboxButton = CreateButton(ButtonFrame2Left, "Hitbox: OFF", function()
     end
 end)
 
--- Ô nhập giá trị Hitbox Size (mặc định 15)
-local hitboxBox = Instance.new("TextBox")
-hitboxBox.Size = UDim2.new(1, -10, 0, 25)
-hitboxBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-hitboxBox.BackgroundTransparency = 0.2
-hitboxBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-hitboxBox.TextSize = 14
-hitboxBox.Font = Enum.Font.Gotham
-hitboxBox.Text = tostring(getgenv().HitboxSize or 15) -- mặc định giá trị 15
-hitboxBox.PlaceholderText = "Nhập Hitbox Size"
-hitboxBox.ClearTextOnFocus = false
-hitboxBox.Parent = ButtonFrame2Left
-Instance.new("UICorner", hitboxBox).CornerRadius = UDim.new(0, 6)
-
--- Nếu người dùng nhập giá trị hợp lệ thì cập nhật
-hitboxBox:GetPropertyChangedSignal("Text"):Connect(function()
-    local num = tonumber(hitboxBox.Text)
-    if num and num > 0 then
-        getgenv().HitboxSize = num
-        sendNotification("Hitbox", "Size = "..num)
-    end
-end)
-
-getgenv().YeuTuyen.CustomAnimEnabled = true
+CustomAnimEnabled = true
 
 local function applyCustomAnim(char)
     if not char then return end
@@ -1391,11 +1524,34 @@ end
 
 -- Đảm bảo luôn áp dụng khi game chạy
 RunService.Stepped:Connect(function()
-    if getgenv().CustomAnimEnabled then
+    if CustomAnimEnabled then
         local char = LocalPlayer.Character
         if char then
             applyCustomAnim(char)
         end
+    end
+end)
+
+-- Ô nhập giá trị Hitbox Size (mặc định 15)
+local hitboxBox = Instance.new("TextBox")
+hitboxBox.Size = UDim2.new(1, -10, 0, 25)
+hitboxBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+hitboxBox.BackgroundTransparency = 0.2
+hitboxBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+hitboxBox.TextSize = 14
+hitboxBox.Font = Enum.Font.Gotham
+hitboxBox.Text = tostring(getgenv().HitboxSize or 15) -- mặc định giá trị 15
+hitboxBox.PlaceholderText = "Nhập Hitbox Size"
+hitboxBox.ClearTextOnFocus = false
+hitboxBox.Parent = ButtonFrame2Left
+Instance.new("UICorner", hitboxBox).CornerRadius = UDim.new(0, 6)
+
+-- Nếu người dùng nhập giá trị hợp lệ thì cập nhật
+hitboxBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local num = tonumber(hitboxBox.Text)
+    if num and num > 0 then
+        getgenv().HitboxSize = num
+        sendNotification("Hitbox", "Size = "..num)
     end
 end)
 
@@ -2006,16 +2162,8 @@ local RunService = game:GetService("RunService")
 -- ID animation
 local animations = {
     happier = "http://www.roblox.com/asset/?id=15609995579",
-    happy = "http://www.roblox.com/asset/?id=14352343065",
     siuu = "rbxassetid://120331939816115",
     sturdy = "rbxassetid://128968764985212",
-    cutesit = "rbxassetid://97459465855185",
-    matching1 = "rbxassetid://102139040629559",
-    matching2 = "rbxassetid://110235213168404",
-    hug1 = "rbxassetid://105797917228398",
-    hug2 = "rbxassetid://118264035209903",
-    sit1 = "rbxassetid://94749062881621",
-    sit2 = "rbxassetid://110800242342916",
 }
 
 local currentTrack = nil
@@ -2071,44 +2219,12 @@ CreateButton(ButtonFrame2Right, "Happier Jump", function()
     playAnimation(animations.happier)
 end)
 
-CreateButton(ButtonFrame2Right, "Happy", function()
-    playAnimation(animations.happy)
-end)
-
 CreateButton(ButtonFrame2Right, "siuu", function()
     playAnimation(animations.siuu)
 end)
 
 CreateButton(ButtonFrame2Right, "sturdy", function()
     playAnimation(animations.sturdy)
-end)
-
-CreateButton(ButtonFrame2Right, "cutesit", function()
-    playAnimation(animations.cutesit)
-end)
-
-CreateButton(ButtonFrame2Right, "matching1", function()
-    playAnimation(animations.matching1)
-end)
-
-CreateButton(ButtonFrame2Right, "matching2", function()
-    playAnimation(animations.matching2)
-end)
-
-CreateButton(ButtonFrame2Right, "hug1", function()
-    playAnimation(animations.hug1)
-end)
-
-CreateButton(ButtonFrame2Right, "hug2", function()
-    playAnimation(animations.hug2)
-end)
-
-CreateButton(ButtonFrame2Right, "sit1", function()
-    playAnimation(animations.sit1)
-end)
-
-CreateButton(ButtonFrame2Right, "sit2", function()
-    playAnimation(animations.sit2)
 end)
 
 -- LOOP BRING
@@ -2199,6 +2315,11 @@ tpWaypointButton = CreateButton(ButtonFrame2Right, "TP to Waypoint", function()
     else
         sendNotification("Waypoint", "Chưa có vị trí được lưu!")
     end
+end)
+
+jerkOffButton = CreateButton(ButtonFrame2Right, "Jerk Off: OFF", function()
+    toggleJerkOff()
+    jerkOffButton.Text = "Jerk Off: " .. (jerkOffEnabled and "ON" or "OFF")
 end)
 
 spinbotButton = CreateButton(ButtonFrame2Right, "Spinbot: " .. (Config.SpinbotEnabled and "ON" or "OFF"), function()
@@ -2431,7 +2552,6 @@ setSpawnButton = CreateButton(ButtonFrame2Right, "Set Spawn Point", function()
     end
 end)
 
--- Logic teleport khi respawn
 LocalPlayer.CharacterAdded:Connect(function(char)
     if spawnPoint then
         local hrp = char:WaitForChild("HumanoidRootPart", 5)
@@ -2439,6 +2559,12 @@ LocalPlayer.CharacterAdded:Connect(function(char)
             task.wait(0.2)  -- Đợi load đầy đủ
             hrp.CFrame = spawnPoint
         end
+    end
+    if jerkOffEnabled then
+        task.wait(0.5) -- Đợi nhân vật load
+        toggleJerkOff() -- Tắt để reset
+        toggleJerkOff() -- Bật lại để tạo tool mới
+        jerkOffButton.Text = "Jerk Off: ON"
     end
 end)
 
