@@ -1912,18 +1912,37 @@ end)
 
 getgenv().YeuTuyen.CustomAnimEnabled = true
 
--- Đổi animation liên tục
-game:GetService("RunService").Stepped:Connect(function()
-    if not getgenv().CustomAnimEnabled then return end
-    local char = game.Players.LocalPlayer.Character
-    if char and char:FindFirstChild("Animate") then
-        local anim = char.Animate
+local function applyCustomAnim(char)
+    if not char then return end
+    local animate = char:WaitForChild("Animate", 5)
+    if animate then
         -- Chạy
-        anim.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+        animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
         -- Nhảy
-        anim.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
+        animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=10921242013"
         -- Rơi
-        anim.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+        animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+    end
+end
+
+-- Áp dụng ngay khi có Character
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1) -- chờ load đủ Animate
+    applyCustomAnim(char)
+end)
+
+-- Nếu nhân vật đã tồn tại sẵn
+if LocalPlayer.Character then
+    applyCustomAnim(LocalPlayer.Character)
+end
+
+-- Đảm bảo luôn áp dụng khi game chạy
+RunService.Stepped:Connect(function()
+    if getgenv().CustomAnimEnabled then
+        local char = LocalPlayer.Character
+        if char then
+            applyCustomAnim(char)
+        end
     end
 end)
 
@@ -1990,6 +2009,34 @@ end)
 
 miscSection:addToggle("CustomAnim", true, function(state)
     getgenv().YeuTuyen.CustomAnimEnabled = state
+end)
+
+-- Anti Slowdown (tự động hoạt động, bỏ qua nếu game không có các yếu tố này)
+spawn(function()
+    RunService.Heartbeat:Connect(function()
+        local player = LocalPlayer
+        if player and player.Character and player.Character:FindFirstChild("BodyEffects") then
+            local bodyEffects = player.Character.BodyEffects
+
+            if bodyEffects:FindFirstChild("Movement") then
+                local movement = bodyEffects.Movement
+                local bodyeffectsBoundaries = movement:FindFirstChild("NoJumping") 
+                    or movement:FindFirstChild("ReduceWalk") 
+                    or movement:FindFirstChild("NoWalkSpeed")
+
+                if bodyeffectsBoundaries then
+                    pcall(function()
+                        bodyeffectsBoundaries:Destroy()
+                    end)
+                end
+            end
+
+            local reload = bodyEffects:FindFirstChild("Reload")
+            if reload and reload:IsA("BoolValue") and reload.Value == true then
+                reload.Value = false
+            end
+        end
+    end)
 end)
 
 miscSection:addToggle("Korblox", true, function(state)
