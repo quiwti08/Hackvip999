@@ -58,6 +58,10 @@ local Config = {
     Prediction = nil,
     OnlyTargetHitbox = false,
     RainbowHitEffectEnabled = true,
+    WalkFloatEnabled = false,
+    InfiniteZoomEnabled = false,
+    FlyV2Enabled = false,
+    FlyV2Speed = 1,  
 }
 
 local AscendEnabled = false
@@ -2365,6 +2369,187 @@ RunService.RenderStepped:Connect(function(delta)
         if hum then hum.AutoRotate = true end
     end
 end)
+
+-- Biến toàn cục cho Walk Float
+local floatPart = nil
+
+-- Nút Walk Float
+walkFloatButton = CreateButton(ButtonFrame2Right, "Walk Float: OFF", function()
+    Config.WalkFloatEnabled = not Config.WalkFloatEnabled
+    walkFloatButton.Text = "Walk Float: " .. (Config.WalkFloatEnabled and "ON" or "OFF")
+    sendNotification("Walk Float", Config.WalkFloatEnabled and "Enabled" or "Disabled")
+
+    if Config.WalkFloatEnabled then
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            -- Tạo part nền nổi
+            floatPart = Instance.new("Part")
+            floatPart.Size = Vector3.new(6, 1, 6)  -- Kích thước nền (có thể chỉnh)
+            floatPart.Anchored = true
+            floatPart.CanCollide = true
+            floatPart.Transparency = 0.5  -- Nửa trong suốt để thấy
+            floatPart.Material = Enum.Material.Neon
+            floatPart.Color = Color3.fromRGB(0, 255, 0)  -- Màu xanh để dễ thấy
+            floatPart.Parent = Workspace
+            floatPart.CFrame = hrp.CFrame * CFrame.new(0, -3.5, 0)  -- Dưới chân 3.5 studs
+        end
+    else
+        -- Xóa part khi tắt
+        if floatPart then
+            floatPart:Destroy()
+            floatPart = nil
+        end
+    end
+end)
+
+-- Logic cập nhật part mỗi frame (thêm vào RunService.RenderStepped:Connect(function(deltaTime) ... end) ở cuối script
+if Config.WalkFloatEnabled and floatPart and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+    local hrp = LocalPlayer.Character.HumanoidRootPart
+    floatPart.CFrame = hrp.CFrame * CFrame.new(0, -3.5, 0)  -- Luôn dưới chân
+end
+
+-- Giữ Walk Float khi respawn (thêm vào LocalPlayer.CharacterAdded:Connect(function() ... end) ở cuối script
+if Config.WalkFloatEnabled then
+    task.wait(0.5)  -- Đợi load
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        floatPart = Instance.new("Part")  -- Tạo lại part
+        floatPart.Size = Vector3.new(6, 1, 6)
+        floatPart.Anchored = true
+        floatPart.CanCollide = true
+        floatPart.Transparency = 0.5
+        floatPart.Material = Enum.Material.Neon
+        floatPart.Color = Color3.fromRGB(0, 255, 0)
+        floatPart.Parent = Workspace
+        floatPart.CFrame = hrp.CFrame * CFrame.new(0, -3.5, 0)
+    end
+end
+
+-- Nút Infinite Zoom
+infiniteZoomButton = CreateButton(ButtonFrame2Right, "Infinite Zoom: OFF", function()
+    Config.InfiniteZoomEnabled = not Config.InfiniteZoomEnabled
+    infiniteZoomButton.Text = "Infinite Zoom: " .. (Config.InfiniteZoomEnabled and "ON" or "OFF")
+    sendNotification("Infinite Zoom", Config.InfiniteZoomEnabled and "Enabled" or "Disabled")
+
+    if Config.InfiniteZoomEnabled then
+        LocalPlayer.CameraMaxZoomDistance = math.huge  -- Zoom vô hạn
+    else
+        LocalPlayer.CameraMaxZoomDistance = 400  -- Reset mặc định
+    end
+end)
+
+-- Giữ Infinite Zoom khi respawn (thêm vào LocalPlayer.CharacterAdded:Connect(function() ... end)
+if Config.InfiniteZoomEnabled then
+    task.wait(0.5)
+    LocalPlayer.CameraMaxZoomDistance = math.huge
+end
+
+-- Nút Fly V2
+flyV2Button = CreateButton(ButtonFrame2Right, "Fly V2: OFF", function()
+    Config.FlyV2Enabled = not Config.FlyV2Enabled
+    flyV2Button.Text = "Fly V2: " .. (Config.FlyV2Enabled and "ON" or "OFF")
+    sendNotification("Fly V2", Config.FlyV2Enabled and "Enabled" or "Disabled")
+end)
+
+-- Ô nhập Fly V2 Speed (thêm sau nút Fly V2)
+local flyV2SpeedBox = Instance.new("TextBox")
+flyV2SpeedBox.Size = UDim2.new(1, 0, 0, 20)
+flyV2SpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+flyV2SpeedBox.TextColor3 = Color3.new(1, 1, 1)
+flyV2SpeedBox.Text = tostring(Config.FlyV2Speed)
+flyV2SpeedBox.PlaceholderText = "Fly V2 Speed"
+flyV2SpeedBox.ClearTextOnFocus = false
+flyV2SpeedBox.Font = Enum.Font.GothamBold
+flyV2SpeedBox.TextSize = 12
+flyV2SpeedBox.Parent = ButtonFrame2Right
+Instance.new("UICorner", flyV2SpeedBox).CornerRadius = UDim.new(0, 4)
+
+flyV2SpeedBox.FocusLost:Connect(function()
+    local num = tonumber(flyV2SpeedBox.Text)
+    if num and num >= 1 then
+        Config.FlyV2Speed = num
+    else
+        flyV2SpeedBox.Text = tostring(Config.FlyV2Speed)
+    end
+end)
+
+-- Logic Fly V2 (thêm vào RunService.RenderStepped:Connect(function(deltaTime) ... end) ở cuối script
+if Config.FlyV2Enabled then
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildWhichIsA("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Flying, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Running, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+        hum:ChangeState(Enum.HumanoidStateType.Swimming)
+
+        -- Fly với tốc độ từ textbox (tpwalking logic)
+        local tpwalking = true
+        for i = 1, Config.FlyV2Speed do
+            task.spawn(function()
+                while tpwalking and char and hum and hum.Parent do
+                    RunService.Heartbeat:Wait()
+                    if hum.MoveDirection.Magnitude > 0 then
+                        char:TranslateBy(hum.MoveDirection)
+                    end
+                end
+            end)
+        end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    -- Lặp lại logic bật Fly V2 ở trên để áp dụng cho nhân vật mới
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildWhichIsA("Humanoid")
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Flying, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Running, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+        hum:ChangeState(Enum.HumanoidStateType.Swimming)
+
+        -- Logic Fly V2 once the character respawns
+        local tpwalking = true
+        for i = 1, Config.FlyV2Speed do
+            task.spawn(function()
+                while tpwalking and char and hum and hum.Parent do
+                    RunService.Heartbeat:Wait()
+                    if hum.MoveDirection.Magnitude > 0 then
+                        char:TranslateBy(hum.MoveDirection)
+                    end
+                end
+            end)
+        end
+    end
+end)
+
 
 -- Anti Fling Button (Page 2, Right Side)
 local antiFlingEnabled = false
