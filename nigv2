@@ -69,7 +69,7 @@ TargetingGroup:AddToggle("StickyAim", {
             lockedTarget = nil
             workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
             targetHighlight.Enabled = false
-            tracer.Visible = false
+            tracer.Visible = true
         end
     end
 }):AddKeyPicker("StickyAimKeybind", {
@@ -83,7 +83,7 @@ TargetingGroup:AddToggle("StickyAim", {
             lockedTarget = nil
             workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
             targetHighlight.Enabled = false
-            tracer.Visible = false
+            tracer.Visible = true
         else
             local camera = workspace.CurrentCamera
             local mouseLocation = UserInputService:GetMouseLocation()
@@ -585,15 +585,13 @@ end)
 
 local killSayEnabled = false
 local killSayMessages = {
-    "mad.lol is a free script and u die to it..", 
-    "Must be hard without mad.lol 💔", 
-    "Why aim when mad.lol does it for you?",
-    "Bros not on mad.lol already 😂",
+    "nigga.lol is a free script and u die to it..", 
+    "Must be hard without nigga.lol 💔", 
+    "Why aim when nigga.lol does it for you?",
+    "Bros not on nigga.lol already 😂",
     "Cant be me icl",
-    "cant win a hvh? maybe try /madlolhvh",
-    "if u wanna win hop in /madlolhvh",
-    "hey come on if u cant win get mad . lol",
-    "how to win a hvh? step 1 get mad . lol"
+    "hey come on if u cant win get nigga . lol",
+    "how to win a hvh? step 1 get nigga . lol"
 }
 
 TargetingGroup:AddToggle("killsay", { 
@@ -605,49 +603,58 @@ TargetingGroup:AddToggle("killsay", {
 })
 
 task.spawn(function()
+    local RunService = game:GetService("RunService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local LocalPlayer = game:GetService("Players").LocalPlayer
+    
     while true do
-        if stompTargetEnabled and lockedTarget and lockedTarget ~= LocalPlayer then
-            local character = lockedTarget.Character
-            if character then
+        if getgenv().stompTargetEnabled and getgenv().lockedTarget and getgenv().lockedTarget ~= LocalPlayer then
+            local character = getgenv().lockedTarget.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
                 local bodyEffects = character:FindFirstChild("BodyEffects")
                 local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
                 local isSDeath = bodyEffects and bodyEffects:FindFirstChild("SDeath") and bodyEffects["SDeath"].Value
-
+                
                 if isKO and not isSDeath then
                     local upperTorso = character:FindFirstChild("UpperTorso")
-                    if upperTorso then
-                        local humanoidRootPart = LocalPlayer.Character:WaitForChild("HumanoidRootPart")
-                        if not lastPosition then
-                            lastPosition = humanoidRootPart.Position
+                    local humanoidRootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if upperTorso and humanoidRootPart then
+                        if not getgenv().lastPosition then
+                            getgenv().lastPosition = humanoidRootPart.Position
                         end
                         humanoidRootPart.CFrame = CFrame.new(upperTorso.Position + Vector3.new(0, 3, 0))
-                        RunService.RenderStepped:Wait()
+                        ReplicatedStorage.MainEvent:FireServer("Stomp")
                     end
-                elseif isSDeath and lastPosition then
-                    if killSayEnabled then
-                        local message = killSayMessages[math.random(1, #killSayMessages)]
-                        game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, "All")
+                elseif isSDeath and getgenv().lastPosition then
+                    if getgenv().killSayEnabled then
+                        local message = getgenv().killSayMessages[math.random(1, #getgenv().killSayMessages)]
+                        ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, "All")
                     end
-                    local humanoidRootPart = LocalPlayer.Character:WaitForChild("HumanoidRootPart")
-                    while (humanoidRootPart.Position - lastPosition).Magnitude > 5 do
-                        humanoidRootPart.CFrame = CFrame.new(lastPosition)
-                        task.wait()
+                    local humanoidRootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if humanoidRootPart then
+                        humanoidRootPart.CFrame = CFrame.new(getgenv().lastPosition)
+                        getgenv().lastPosition = nil
                     end
-                    lastPosition = nil
                 end
             else
-                if lastPosition then
-                    local humanoidRootPart = LocalPlayer.Character:WaitForChild("HumanoidRootPart")
-                    while (humanoidRootPart.Position - lastPosition).Magnitude > 5 do
-                        humanoidRootPart.CFrame = CFrame.new(lastPosition)
-                        task.wait()
+                if getgenv().lastPosition then
+                    local humanoidRootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if humanoidRootPart then
+                        humanoidRootPart.CFrame = CFrame.new(getgenv().lastPosition)
                     end
-                    lastPosition = nil
+                    getgenv().lastPosition = nil
                 end
             end
-            ReplicatedStorage.MainEvent:FireServer("Stomp")
+        else
+            if getgenv().lastPosition then
+                local humanoidRootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if humanoidRootPart then
+                    humanoidRootPart.CFrame = CFrame.new(getgenv().lastPosition)
+                end
+                getgenv().lastPosition = nil
+            end
         end
-        task.wait(0)
+        task.wait(0.1)
     end
 end)
 
@@ -1555,7 +1562,7 @@ espUI:AddToggle("name", {
 espUI:AddDropdown("NameDisplayMode", {
     Text = "Name Mode",
     Values = {"Username", "DisplayName", "Username (DisplayName)", "Username (DisplayName) [UserID]"},
-    Default = "Username",
+    Default = "DisplayName",
     Callback = function(value)
         getgenv().nameDisplayMode = value
         applyESP()
@@ -2008,7 +2015,7 @@ local targetstuffyh = Tabs.Visuals:AddLeftGroupbox('target visuals')
 
 targetstuffyh:AddToggle("TracerToggle", {
     Text = "Draw Tracer",
-    Default = false,
+    Default = true,
     Callback = function(Value)
         TracerEnabled = Value
         if not Value then
@@ -2497,10 +2504,10 @@ function toggleDesync(state)
     desync.enabled = state
     if desync.enabled then
         workspace.CurrentCamera.CameraSubject = desync_setback
-        Library:Notify("Desync Enabled '" .. desync.mode .. "' Mad.lol $", 2)
+        Library:Notify("Desync Enabled '" .. desync.mode .. "' nigga.lol $", 2)
     else
         resetCamera()
-        Library:Notify("Desync Disabled '" .. desync.mode .. "' Mad.lol  $", 2)
+        Library:Notify("Desync Disabled '" .. desync.mode .. "' nigga.lol  $", 2)
     end
 end
 
@@ -3203,6 +3210,56 @@ Modifications:AddToggle('AntiVoid', {
     end,
 })
 
+local antiSlowConnection  -- Biến để lưu connection của Heartbeat
+Modifications:AddToggle('AntiSlowToggle', {
+    Text = 'Anti Slow',
+    Default = false,
+    Tooltip = 'Removes slowdown effects like NoJumping, ReduceWalk, etc.',
+    Callback = function(Value)
+        getgenv().antiSlowEnabled = Value  -- Lưu trạng thái toggle
+        local LocalPlayer = game:GetService("Players").LocalPlayer
+        local RunService = game:GetService("RunService")
+
+        if Value then
+            -- Bật anti-slow: Kết nối Heartbeat và chạy logic
+            antiSlowConnection = RunService.Heartbeat:Connect(function()
+                if getgenv().antiSlowEnabled then
+                    local character = LocalPlayer.Character
+                    if character then
+                        local bodyEffects = character:FindFirstChild("BodyEffects")
+                        if bodyEffects then
+                            local movement = bodyEffects:FindFirstChild("Movement")
+                            if movement then
+                                local noJumping = movement:FindFirstChild("NoJumping")
+                                if noJumping then noJumping:Destroy() end
+                                
+                                local reduceWalk = movement:FindFirstChild("ReduceWalk")
+                                if reduceWalk then reduceWalk:Destroy() end
+                                
+                                local noWalkSpeed = movement:FindFirstChild("NoWalkSpeed")
+                                if noWalkSpeed then noWalkSpeed:Destroy() end
+                            end
+                            
+                            local reload = bodyEffects:FindFirstChild("Reload")
+                            if reload and reload.Value then
+                                reload.Value = false
+                            end
+                        end
+                    end
+                end
+            end)
+            Library:Notify("Anti-Slow Enabled", 3)
+        else
+            -- Tắt anti-slow: Ngắt kết nối Heartbeat
+            if antiSlowConnection then
+                antiSlowConnection:Disconnect()
+                antiSlowConnection = nil
+            end
+            Library:Notify("Anti-Slow Disabled", 3)
+        end
+    end
+})
+
 getgenv().autoArmorEnabled = false
 getgenv().autoFArmorEnabled = false
 getgenv().armorThreshold = 75
@@ -3419,7 +3476,7 @@ local webhook = Modifications:AddButton('Redeem Codes', function()
 
    for _, code in pairs(codes) do
        mainEvent:FireServer("EnterPromoCode", code)
-       Library:Notify("Trying code: " .. code .. " mad.lol | Private", 5)
+       Library:Notify("Trying code: " .. code .. " nigga.lol | Private", 5)
        task.wait(4.2)
    end
 end)
@@ -3612,6 +3669,415 @@ GroupCheckDepbox:AddToggle("GroupCheck", {
         if groupCheckEnabled then task.spawn(detectModerators) end
     end
 })
+
+local RightGroupBox = Tabs.Misc:AddRightGroupbox('Animations Pack')
+
+RightGroupBox:AddButton('Animations Packs', function()
+    repeat
+        wait()
+    until game:IsLoaded() and game.Players.LocalPlayer.Character:FindFirstChild("FULLY_LOADED_CHAR") and game.Players.LocalPlayer.PlayerGui.MainScreenGui:FindFirstChild("AnimationPack") and game.Players.LocalPlayer.PlayerGui.MainScreenGui:FindFirstChild("AnimationPlusPack")
+    
+    local uiLoaded = false  -- Track whether the UI has been loaded
+    local notificationShown = false  -- Track if the notification has been shown
+    
+    -- Function to load UI
+    local function loadUI()
+        local player = game.Players.LocalPlayer
+        local animationPack = player.PlayerGui.MainScreenGui:FindFirstChild("AnimationPack")
+        local animationPlusPack = player.PlayerGui.MainScreenGui:FindFirstChild("AnimationPlusPack")
+    
+        if animationPack and not animationPack.Visible then
+            animationPack.Visible = true
+        end
+    
+        if animationPlusPack and not animationPlusPack.Visible then
+            animationPlusPack.Visible = true
+        end
+    
+        uiLoaded = true
+    end
+    
+    -- Function to unload UI
+    local function unloadUI()
+        local player = game.Players.LocalPlayer
+        local animationPack = player.PlayerGui.MainScreenGui:FindFirstChild("AnimationPack")
+        local animationPlusPack = player.PlayerGui.MainScreenGui:FindFirstChild("AnimationPlusPack")
+    
+        if animationPack and animationPack.Visible then
+            animationPack.Visible = false
+        end
+    
+        if animationPlusPack and animationPlusPack.Visible then
+            animationPlusPack.Visible = false
+        end
+    
+        uiLoaded = false
+    end
+    
+    -- Function to show notification only once
+    local function showNotificationOnce()
+        if not notificationShown then
+            Library:Notify("animationpack Loaded 🎭 nigga.lol 🎭", 5)
+            notificationShown = true
+        end
+    end
+    
+    -- Trigger notification
+    showNotificationOnce()
+    
+    -- Toggle UI
+    if uiLoaded then
+        unloadUI()
+    else
+        loadUI()
+    end
+    
+    -- Xóa animations cũ
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("Lean") then
+        game.ReplicatedStorage.ClientAnimations.Lean:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("Lay") then
+        game.ReplicatedStorage.ClientAnimations.Lay:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("Dance1") then
+        game.ReplicatedStorage.ClientAnimations.Dance1:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("Dance2") then
+        game.ReplicatedStorage.ClientAnimations.Dance2:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("Greet") then
+        game.ReplicatedStorage.ClientAnimations.Greet:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("Chest Pump") then
+        game.ReplicatedStorage.ClientAnimations["Chest Pump"]:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("Praying") then
+        game.ReplicatedStorage.ClientAnimations.Praying:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("TheDefault") then
+        game.ReplicatedStorage.ClientAnimations.TheDefault:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("Sturdy") then
+        game.ReplicatedStorage.ClientAnimations.Sturdy:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("Rossy") then
+        game.ReplicatedStorage.ClientAnimations.Rossy:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("Griddy") then
+        game.ReplicatedStorage.ClientAnimations.Griddy:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("TPose") then
+        game.ReplicatedStorage.ClientAnimations.TPose:Destroy()
+    end
+    if game.ReplicatedStorage.ClientAnimations:FindFirstChild("SpeedBlitz") then
+        game.ReplicatedStorage.ClientAnimations.SpeedBlitz:Destroy()
+    end
+    
+    -- Thêm animations mới
+    local Animations = game.ReplicatedStorage.ClientAnimations
+    
+    local LeanAnimation = Instance.new("Animation", Animations)
+    LeanAnimation.Name = "Lean"
+    LeanAnimation.AnimationId = "rbxassetid://3152375249"
+    
+    local LayAnimation = Instance.new("Animation", Animations)
+    LayAnimation.Name = "Lay"
+    LayAnimation.AnimationId = "rbxassetid://3152378852"
+    
+    local Dance1Animation = Instance.new("Animation", Animations)
+    Dance1Animation.Name = "Dance1"
+    Dance1Animation.AnimationId = "rbxassetid://3189773368"
+    
+    local Dance2Animation = Instance.new("Animation", Animations)
+    Dance2Animation.Name = "Dance2"
+    Dance2Animation.AnimationId = "rbxassetid://3189776546"
+    
+    local GreetAnimation = Instance.new("Animation", Animations)
+    GreetAnimation.Name = "Greet"
+    GreetAnimation.AnimationId = "rbxassetid://3189777795"
+    
+    local ChestPumpAnimation = Instance.new("Animation", Animations)
+    ChestPumpAnimation.Name = "Chest Pump"
+    ChestPumpAnimation.AnimationId = "rbxassetid://3189779152"
+    
+    local PrayingAnimation = Instance.new("Animation", Animations)
+    PrayingAnimation.Name = "Praying"
+    PrayingAnimation.AnimationId = "rbxassetid://3487719500"
+    
+    local TheDefaultAnimation = Instance.new("Animation", Animations)
+    TheDefaultAnimation.Name = "TheDefault"
+    TheDefaultAnimation.AnimationId = "rbxassetid://507771019"  -- Sửa ID chuẩn
+    
+    local SturdyAnimation = Instance.new("Animation", Animations)
+    SturdyAnimation.Name = "Sturdy"
+    SturdyAnimation.AnimationId = "rbxassetid://11710524717"
+    
+    local RossyAnimation = Instance.new("Animation", Animations)
+    RossyAnimation.Name = "Rossy"
+    RossyAnimation.AnimationId = "rbxassetid://11710527244"
+    
+    local GriddyAnimation = Instance.new("Animation", Animations)
+    GriddyAnimation.Name = "Griddy"
+    GriddyAnimation.AnimationId = "rbxassetid://11710529220"
+    
+    local TPoseAnimation = Instance.new("Animation", Animations)
+    TPoseAnimation.Name = "TPose"
+    TPoseAnimation.AnimationId = "rbxassetid://11710524200"
+    
+    local SpeedBlitzAnimation = Instance.new("Animation", Animations)
+    SpeedBlitzAnimation.Name = "SpeedBlitz"
+    SpeedBlitzAnimation.AnimationId = "rbxassetid://11710541744"
+    
+    -- Hàm xử lý animations
+    local function AnimationPack(Character)
+        Character:WaitForChild("Humanoid")
+        repeat
+            wait()
+        until game.Players.LocalPlayer.Character:FindFirstChild("FULLY_LOADED_CHAR") and game.Players.LocalPlayer.PlayerGui.MainScreenGui:FindFirstChild("AnimationPack") and game.Players.LocalPlayer.PlayerGui.MainScreenGui:FindFirstChild("AnimationPlusPack")
+    
+        local AnimationPack = game:GetService("Players").LocalPlayer.PlayerGui.MainScreenGui.AnimationPack
+        local AnimationPackPlus = game:GetService("Players").LocalPlayer.PlayerGui.MainScreenGui.AnimationPlusPack
+        local ScrollingFrame = AnimationPack.ScrollingFrame
+        local CloseButton = AnimationPack.CloseButton
+        local ScrollingFramePlus = AnimationPackPlus.ScrollingFrame
+        local CloseButtonPlus = AnimationPackPlus.CloseButton
+    
+        local Lean = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(LeanAnimation)
+        local Lay = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(LayAnimation)
+        local Dance1 = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(Dance1Animation)
+        local Dance2 = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(Dance2Animation)
+        local Greet = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(GreetAnimation)
+        local ChestPump = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(ChestPumpAnimation)
+        local Praying = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(PrayingAnimation)
+        local TheDefault = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(TheDefaultAnimation)
+        local Sturdy = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(SturdyAnimation)
+        local Rossy = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(RossyAnimation)
+        local Griddy = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(GriddyAnimation)
+        local TPose = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(TPoseAnimation)
+        local SpeedBlitz = game:GetService("Players").LocalPlayer.Character.Humanoid:LoadAnimation(SpeedBlitzAnimation)
+    
+        AnimationPack.Visible = true
+        AnimationPackPlus.Visible = true
+    
+        ScrollingFrame.UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        ScrollingFramePlus.UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+        for i,v in pairs(ScrollingFrame:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Lean" then
+                    v.Name = "LeanButton"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFrame:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Lay" then
+                    v.Name = "LayButton"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFrame:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Dance1" then
+                    v.Name = "Dance1Button"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFrame:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Dance2" then
+                    v.Name = "Dance2Button"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFrame:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Greet" then
+                    v.Name = "GreetButton"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFrame:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Chest Pump" then
+                    v.Name = "ChestPumpButton"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFrame:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Praying" then
+                    v.Name = "PrayingButton"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFramePlus:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "The Default" then
+                    v.Name = "TheDefaultButton"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFramePlus:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Sturdy" then
+                    v.Name = "SturdyButton"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFramePlus:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Rossy" then
+                    v.Name = "RossyButton"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFramePlus:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Griddy" then
+                    v.Name = "GriddyButton"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFramePlus:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "T Pose" then
+                    v.Name = "TPoseButton"
+                end
+            end
+        end
+        for i,v in pairs(ScrollingFramePlus:GetChildren()) do
+            if v.Name == "TextButton" then
+                if v.Text == "Speed Blitz" then
+                    v.Name = "SpeedBlitzButton"
+                end
+            end
+        end
+    
+        local function Stop()
+            Lean:Stop()
+            Lay:Stop()
+            Dance1:Stop()
+            Dance2:Stop()
+            Greet:Stop()
+            ChestPump:Stop()
+            Praying:Stop()
+            TheDefault:Stop()
+            Sturdy:Stop()
+            Rossy:Stop()
+            Griddy:Stop()
+            TPose:Stop()
+            SpeedBlitz:Stop()
+        end
+    
+        local LeanTextButton = ScrollingFrame.LeanButton
+        local LayTextButton = ScrollingFrame.LayButton
+        local Dance1TextButton = ScrollingFrame.Dance1Button
+        local Dance2TextButton = ScrollingFrame.Dance2Button
+        local GreetTextButton = ScrollingFrame.GreetButton
+        local ChestPumpTextButton = ScrollingFrame.ChestPumpButton
+        local PrayingTextButton = ScrollingFrame.PrayingButton
+        local TheDefaultTextButton = ScrollingFramePlus.TheDefaultButton
+        local SturdyTextButton = ScrollingFramePlus.SturdyButton
+        local RossyTextButton = ScrollingFramePlus.RossyButton
+        local GriddyTextButton = ScrollingFramePlus.GriddyButton
+        local TPoseTextButton = ScrollingFramePlus.TPoseButton
+        local SpeedBlitzTextButton = ScrollingFramePlus.SpeedBlitzButton
+    
+        AnimationPack.MouseButton1Click:Connect(function()
+            if ScrollingFrame.Visible == false then
+                ScrollingFrame.Visible = true
+                CloseButton.Visible = true
+                AnimationPackPlus.Visible = false
+            end
+        end)
+        AnimationPackPlus.MouseButton1Click:Connect(function()
+            if ScrollingFramePlus.Visible == false then
+                ScrollingFramePlus.Visible = true
+                CloseButtonPlus.Visible = true
+                AnimationPack.Visible = false
+            end
+        end)
+        CloseButton.MouseButton1Click:Connect(function()
+            if ScrollingFrame.Visible == true then
+                ScrollingFrame.Visible = false
+                CloseButton.Visible = false
+                AnimationPackPlus.Visible = true
+            end
+        end)
+        CloseButtonPlus.MouseButton1Click:Connect(function()
+            if ScrollingFramePlus.Visible == true then
+                ScrollingFramePlus.Visible = false
+                CloseButtonPlus.Visible = false
+                AnimationPack.Visible = true
+            end
+        end)
+    
+        LeanTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            Lean:Play()
+        end)
+        LayTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            Lay:Play()
+        end)
+        Dance1TextButton.MouseButton1Click:Connect(function()
+            Stop()
+            Dance1:Play()
+        end)
+        Dance2TextButton.MouseButton1Click:Connect(function()
+            Stop()
+            Dance2:Play()
+        end)
+        GreetTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            Greet:Play()
+        end)
+        ChestPumpTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            ChestPump:Play()
+        end)
+        PrayingTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            Praying:Play()
+        end)
+        TheDefaultTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            TheDefault:Play()
+        end)
+        SturdyTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            Sturdy:Play()
+        end)
+        RossyTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            Rossy:Play()
+        end)
+        GriddyTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            Griddy:Play()
+        end)
+        TPoseTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            TPose:Play()
+        end)
+        SpeedBlitzTextButton.MouseButton1Click:Connect(function()
+            Stop()
+            SpeedBlitz:Play()
+        end)
+    
+        game:GetService("Players").LocalPlayer.Character.Humanoid.Running:Connect(function()
+            Stop()
+        end)
+    
+        game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function()
+            Stop()
+        end)
+    end
+    
+    AnimationPack(game.Players.LocalPlayer.Character)
+    game.Players.LocalPlayer.CharacterAdded:Connect(AnimationPack)
+end)
 
 local LeftGroupBox = Tabs.Misc:AddLeftGroupbox("Animation")
 
@@ -4219,7 +4685,7 @@ getgenv().PlayerActions:AddButton('Execute Action', function()
                 voidTarget(targetPlayer)
             end
         else
-            Library:Notify("Equip a tool to use this function. | Mad.lol", 5)
+            Library:Notify("Equip a tool to use this function. | nigga.lol", 5)
         end
     end
 end)
