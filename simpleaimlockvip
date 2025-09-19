@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local TextChatService = game:GetService("TextChatService")
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
@@ -68,6 +69,13 @@ local AntiLockModes = {
     "Right",
     "Up",
     "Zero"
+}
+local possibleRemotes = {
+    "MAINEVENT",
+    "MainEvent",
+    "Remote",
+    "Packages",
+    "MainRemotes"
 }
 
 -- Initialize Venyx UI
@@ -791,6 +799,61 @@ local function getBestInvalidTargetForKill()
     return closestTarget
 end
 
+local function AutoStomp()
+    if not autostomp then return end
+    
+    local chosenRemote = nil
+    
+    -- kiểm tra xem có Remote nào tồn tại không
+    for _, name in ipairs(possibleRemotes) do
+        local obj = ReplicatedStorage:FindFirstChild(name)
+        if obj and obj:IsA("RemoteEvent") then
+            chosenRemote = obj
+            break
+        end
+    end
+
+    if chosenRemote then
+        -- Nếu tìm thấy Remote thì dùng FireServer
+        chosenRemote:FireServer("Stomp")
+    else
+        -- fallback: giả lập nhấn phím E
+        local vim = game:GetService("VirtualInputManager")
+        for i = 1, 5 do
+            vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)  
+            task.wait(0.1)  
+            vim:SendKeyEvent(false, Enum.KeyCode.E, false, game) 
+        end
+    end
+end
+
+local function AutoGrab()
+    if not autobringplayer then return end
+    
+    local chosenRemote = nil
+
+    -- tìm remote có thể dùng
+    for _, name in ipairs(possibleRemotes) do
+        local obj = ReplicatedStorage:FindFirstChild(name)
+        if obj and obj:IsA("RemoteEvent") then
+            chosenRemote = obj
+            break
+        end
+    end
+
+    if chosenRemote then
+        -- ưu tiên gọi FireServer
+        chosenRemote:FireServer("Grabbing", true)
+    else
+        -- fallback: bấm phím G
+        for i = 1, 1 do
+            vim:SendKeyEvent(true, Enum.KeyCode.G, false, game)  
+            task.wait(0.1)  
+            vim:SendKeyEvent(false, Enum.KeyCode.G, false, game) 
+        end
+    end
+end
+
 local function integrateKillMode()
     if getgenv().YeuTuyen.KillMode then
         pcall(function()
@@ -819,38 +882,15 @@ local function integrateKillMode()
                             -- Teleport đến UpperTorso
                             myHRP.CFrame = CFrame.new(targetUpperTorso.Position + Vector3.new(0, 2, 0))
 
-                            -- AutoBring
-                            if autobringplayer then
-                                local vim = game:GetService("VirtualInputManager")
-                                for i = 1, 1 do
-                                    vim:SendKeyEvent(true, Enum.KeyCode.G, false, game)  
-                                    task.wait(0.1)  
-                                    vim:SendKeyEvent(false, Enum.KeyCode.G, false, game) 
-                                end
-                            end
+                            AutoGrab()
 
-                            -- AutoStomp
-                            if autostomp then
-                                local vim = game:GetService("VirtualInputManager")
-                                for i = 1, 5 do
-                                    vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)  
-                                    task.wait(0.1)  
-                                    vim:SendKeyEvent(false, Enum.KeyCode.E, false, game) 
-                                end
-                            end
+                            AutoStomp()
 
-                            task.wait(1.5)
+                            task.wait(0.4)
+
                             myHRP.CFrame = originalPosition
                             task.wait(0.4)
 
-                            if autobringplayer then
-                                local vim = game:GetService("VirtualInputManager")
-                                for i = 1, 1 do
-                                    vim:SendKeyEvent(true, Enum.KeyCode.G, false, game)  
-                                    task.wait(0.1)  
-                                    vim:SendKeyEvent(false, Enum.KeyCode.G, false, game) 
-                                end
-                            end
                             originalPosition = nil
                             getgenv().YeuTuyen.KillMode = false
                         end
