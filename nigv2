@@ -1,3 +1,4 @@
+
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
@@ -16,10 +17,12 @@ local Players = game:GetService('Players')
 local ReplicatedStorage = game:GetService('ReplicatedStorage')
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TextChatService = game:GetService("TextChatService")
+local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
 
 
 local lockedTarget = nil
-local StickyAimEnabled = false
+local StickyAimEnabled = true
 local HighlightEnabled = false
 local TracerEnabled = false
 local ViewTargetEnabled = false
@@ -45,7 +48,7 @@ local AutoAmmoEnabled = false
 local strafeWasEnabledBeforeAmmoBuy = false
 
 local tracer = Drawing.new("Line")
-tracer.Visible = false
+tracer.Visible = true
 tracer.Thickness = 1
 tracer.Color = Color3.fromRGB(255, 255, 255)
 
@@ -68,12 +71,12 @@ TargetingGroup:AddToggle("StickyAim", {
         if not Value then
             lockedTarget = nil
             workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
-            targetHighlight.Enabled = false
+            targetHighlight.Enabled = true
             tracer.Visible = true
         end
     end
 }):AddKeyPicker("StickyAimKeybind", {
-    Default = "C",
+    Default = "Q",
     NoUI = false,
     Text = "Sticky Aim",
     Mode = "Toggle",
@@ -82,7 +85,7 @@ TargetingGroup:AddToggle("StickyAim", {
         if lockedTarget then
             lockedTarget = nil
             workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
-            targetHighlight.Enabled = false
+            targetHighlight.Enabled = true
             tracer.Visible = true
         else
             local camera = workspace.CurrentCamera
@@ -929,7 +932,7 @@ local CamLockBox = Tabs.Main:AddRightGroupbox('Legit')
 
 local camLockEnabled = false
 local camLockTarget = nil
-local smoothness = 0.5
+local smoothness = 1
 
 CamLockBox:AddToggle('CamLockToggle', {
     Text = 'CamLock',
@@ -979,14 +982,14 @@ CamLockBox:AddToggle('CamLockToggle', {
 })
 
 CamLockBox:AddInput('SmoothnessInput', {
-    Default = '0.5',
+    Default = '1',
     Numeric = true,
     Finished = false,
     Text = 'Smoothness',
     Tooltip = 'Controls how smoothly the camera follows the target (0 = instant)',
     Placeholder = 'Enter smoothness value...',
     Callback = function(Value)
-        smoothness = tonumber(Value) or 0.5
+        smoothness = tonumber(Value) or 1
     end
 })
 
@@ -3469,8 +3472,8 @@ Modifications:AddToggle('GrenadeDetection', {
 
 local webhook = Modifications:AddButton('Redeem Codes', function()
     local codes = {
-        "RUBY", "DACARNIVAL",
-       "THANKSGIVING24", "SHRIMP", "VIP", "2025", "BLOSSOM", "VALENTINES24", "ShortCake", "Beary"
+        "MUSIC", "KINGPIN",
+       "BUBU", "SHRIMP", "VIP", "2025", "BLOSSOM", "VALENTINES24", "ShortCake", "Beary"
    }
    local mainEvent = game:GetService("ReplicatedStorage"):WaitForChild("MainEvent") or nil
 
@@ -3485,70 +3488,21 @@ webhook:AddButton('Force Reset', function()
     game.Players.LocalPlayer.Character.Humanoid.Health = 0
 end)
 
-Modifications:AddButton('Chat Spy', function()
-    enabled = true --chat "/spy" to toggle!
-    spyOnMyself = true --if true will check your messages too
-    public = false --if true will chat the logs publicly (fun, risky)
-    publicItalics = true --if true will use /me to stand out
-    privateProperties = { --customize private logs
-        Color = Color3.fromRGB(0,255,255); 
-        Font = Enum.Font.SourceSansBold;
-        TextSize = 18;
-    }
-    
-    
-    local StarterGui = game:GetService("StarterGui")
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait() or Players.LocalPlayer
-    local saymsg = game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents"):WaitForChild("SayMessageRequest")
-    local getmsg = game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents"):WaitForChild("OnMessageDoneFiltering")
-    local instance = (_G.chatSpyInstance or 0) + 1
-    _G.chatSpyInstance = instance
-    
-    local function onChatted(p,msg)
-        if _G.chatSpyInstance == instance then
-            if p==player and msg:lower():sub(1,4)=="/spy" then
-                enabled = not enabled
-                wait(0.3)
-                privateProperties.Text = "{SPY "..(enabled and "EN" or "DIS").."ABLED}"
-                StarterGui:SetCore("ChatMakeSystemMessage",privateProperties)
-            elseif enabled and (spyOnMyself==true or p~=player) then
-                msg = msg:gsub("[\n\r]",''):gsub("\t",' '):gsub("[ ]+",' ')
-                local hidden = true
-                local conn = getmsg.OnClientEvent:Connect(function(packet,channel)
-                    if packet.SpeakerUserId==p.UserId and packet.Message==msg:sub(#msg-#packet.Message+1) and (channel=="All" or (channel=="Team" and public==false and Players[packet.FromSpeaker].Team==player.Team)) then
-                        hidden = false
-                    end
-                end)
-                wait(1)
-                conn:Disconnect()
-                if hidden and enabled then
-                    if public then
-                        saymsg:FireServer((publicItalics and "/me " or '').."{SPY} [".. p.Name .."]: "..msg,"All")
-                    else
-                        privateProperties.Text = "{SPY} [".. p.Name .."]: "..msg
-                        StarterGui:SetCore("ChatMakeSystemMessage",privateProperties)
-                    end
-                end
-            end
-        end
-    end
-    
-    for _,p in ipairs(Players:GetPlayers()) do
-        p.Chatted:Connect(function(msg) onChatted(p,msg) end)
-    end
-    Players.PlayerAdded:Connect(function(p)
-        p.Chatted:Connect(function(msg) onChatted(p,msg) end)
-    end)
-    privateProperties.Text = "{SPY "..(enabled and "EN" or "DIS").."ABLED}"
-    StarterGui:SetCore("ChatMakeSystemMessage",privateProperties)
-    if not player.PlayerGui:FindFirstChild("Chat") then wait(3) end
-    local chatFrame = player.PlayerGui.Chat.Frame
-    chatFrame.ChatChannelParentFrame.Visible = true
-    chatFrame.ChatBarParentFrame.Position = chatFrame.ChatChannelParentFrame.Position+UDim2.new(UDim.new(),chatFrame.ChatChannelParentFrame.Size.Y)
-    
-end)
+local ChatEnabled = true
+if chatWindow then
+    chatWindow.Enabled = ChatEnabled
+end
 
+Modifications:AddToggle('Chat Spy', {
+    Text = 'Chat Spy',
+    Default = true,
+    Callback = function(state)
+        ChatEnabled = state
+        if chatWindow then
+            chatWindow.Enabled = state
+        end
+    end,
+})
 
 local flashbackBox = Tabs.Misc:AddRightGroupbox("Detection")
 local antiModEnabled, checkModFriendsEnabled, groupCheckEnabled = false, false, false
@@ -4386,7 +4340,7 @@ function knockTarget(targetPlayer)
     task.spawn(function()
         while not koValue.Value and getgenv().isActionRunning do
             local targetPosition = character.HumanoidRootPart.Position
-            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, -20, 0))
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, 20, 0))
             
             local tool = LocalPlayer.Character:FindFirstChildWhichIsA("Tool")
             if tool and tool:FindFirstChild("Ammo") then
@@ -4425,7 +4379,7 @@ function bringTarget(targetPlayer)
         while not getgenv().koValue.Value and getgenv().isActionRunning do
             getgenv().targetPosition = getgenv().character:FindFirstChild("HumanoidRootPart") and getgenv().character.HumanoidRootPart.Position or nil
             if getgenv().targetPosition then
-                getgenv().humanoidRootPart.CFrame = CFrame.new(getgenv().targetPosition + Vector3.new(0, -20, 0))
+                getgenv().humanoidRootPart.CFrame = CFrame.new(getgenv().targetPosition + Vector3.new(0, 20, 0))
             end
             
             getgenv().tool = getgenv().localCharacter:FindFirstChildWhichIsA("Tool")
@@ -4487,7 +4441,7 @@ function stompTarget(targetPlayer)
     task.spawn(function()
         while not getgenv().koValue.Value and getgenv().isActionRunning do
             getgenv().targetPosition = getgenv().character.HumanoidRootPart.Position
-            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(getgenv().targetPosition + Vector3.new(0, -20, 0))
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(getgenv().targetPosition + Vector3.new(0, 20, 0))
             
             getgenv().tool = LocalPlayer.Character:FindFirstChildWhichIsA("Tool")
             if getgenv().tool and getgenv().tool:FindFirstChild("Ammo") then
@@ -4536,7 +4490,7 @@ function voidTarget(targetPlayer)
         while not getgenv().koValue.Value and getgenv().isActionRunning do
             getgenv().targetPosition = getgenv().character:FindFirstChild("HumanoidRootPart") and getgenv().character.HumanoidRootPart.Position or nil
             if getgenv().targetPosition then
-                getgenv().humanoidRootPart.CFrame = CFrame.new(getgenv().targetPosition + Vector3.new(0, -20, 0))
+                getgenv().humanoidRootPart.CFrame = CFrame.new(getgenv().targetPosition + Vector3.new(0, 20, 0))
             end
             
             getgenv().tool = getgenv().localCharacter:FindFirstChildWhichIsA("Tool")
@@ -5040,7 +4994,7 @@ getgenv().autoShootToggle = AllPlayerActions:AddToggle('AutoShootToggle', {
 
 
 MenuGroup:AddButton('Unload', function() Library:Unload() end)
-MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoUI = true, Text = 'Menu keybind' })
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightAlt', NoUI = true, Text = 'Menu keybind' })
 Library.ToggleKeybind = Options.MenuKeybind
 
 MenuGroup:AddToggle('KeybindListToggle', {
