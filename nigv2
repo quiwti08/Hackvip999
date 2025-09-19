@@ -24,7 +24,7 @@ local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
 local lockedTarget = nil
 local StickyAimEnabled = true
 local HighlightEnabled = false
-local TracerEnabled = false
+local TracerEnabled = true
 local ViewTargetEnabled = false
 local targetHitPart = "Head"
 local targetToMouseTracer = true
@@ -46,12 +46,59 @@ local hiddenBulletsEnabled = false
 local spectateStrafeEnabled = false
 local AutoAmmoEnabled = false
 local strafeWasEnabledBeforeAmmoBuy = false
+local possibleRemotes = {
+    "MAINEVENT",
+    "MainEvent",
+    "Remote",
+    "Packages",
+    "MainRemotes"
+}
 
 local tracer = Drawing.new("Line")
 tracer.Visible = true
 tracer.Thickness = 1
 tracer.Color = Color3.fromRGB(255, 255, 255)
 
+local function getMainRemote()
+    if ReplicatedStorage:FindFirstChild("MainEvent") then
+        return ReplicatedStorage.MainEvent
+    end
+    if ReplicatedStorage:FindFirstChild("MAINEVENT") then
+        return ReplicatedStorage.MAINEVENT
+    end
+
+    -- 2. Remote
+    if ReplicatedStorage:FindFirstChild("Remote") then
+        return ReplicatedStorage.Remote
+    end
+
+    -- 3. MainRemotes.MainRemoteEvent
+    local mainRemotes = ReplicatedStorage:FindFirstChild("MainRemotes")
+    if mainRemotes and mainRemotes:FindFirstChild("MainRemoteEvent") then
+        return mainRemotes.MainRemoteEvent
+    end
+
+    -- 4. Packages.Knit.Services.ToolService.RE.UpdateAim
+    local packages = ReplicatedStorage:FindFirstChild("Packages")
+    if packages then
+        local knit = packages:FindFirstChild("Knit")
+        if knit and knit:FindFirstChild("Services") then
+            local toolService = knit.Services:FindFirstChild("ToolService")
+            if toolService and toolService:FindFirstChild("RE") then
+                local re = toolService.RE
+                if re:FindFirstChild("UpdateAim") then
+                    return re.UpdateAim
+                end
+            end
+        end
+    end
+
+    -- fallback: không tìm thấy
+    return nil
+end
+
+
+local MainRemote = getMainRemote()
 
 function predictPosition(targetRoot, predictionMultiplier)
     if not targetRoot then return targetRoot.Position end
@@ -65,7 +112,7 @@ local TargetingGroup = Tabs.Main:AddLeftGroupbox('Targeting')
 
 TargetingGroup:AddToggle("StickyAim", {
     Text = "Sticky Aim",
-    Default = false,
+    Default = true,
     Callback = function(Value)
         StickyAimEnabled = Value
         if not Value then
@@ -564,7 +611,7 @@ RunService.RenderStepped:Connect(function()
         local handle = tool and tool:FindFirstChild("Handle")
         if tool and handle and targetPart and not isKO and not isGrabbed then
             if hiddenBulletsEnabled then
-                ReplicatedStorage.MainEvent:FireServer(
+                MainRemote:FireServer(
                     "ShootGun",
                     handle,
                     handle.CFrame.Position - Vector3.new(0, 10, 0),
@@ -572,7 +619,7 @@ RunService.RenderStepped:Connect(function()
                     targetPart,
                     Vector3.new(0, 0, -1))
             else
-                ReplicatedStorage.MainEvent:FireServer(
+                MainRemote:FireServer(
                     "ShootGun",
                     handle,
                     handle.CFrame.Position,
@@ -626,7 +673,7 @@ task.spawn(function()
                             getgenv().lastPosition = humanoidRootPart.Position
                         end
                         humanoidRootPart.CFrame = CFrame.new(upperTorso.Position + Vector3.new(0, 3, 0))
-                        ReplicatedStorage.MainEvent:FireServer("Stomp")
+                        MainRemote:FireServer("Stomp")
                     end
                 elseif isSDeath and getgenv().lastPosition then
                     if getgenv().killSayEnabled then
@@ -1169,7 +1216,7 @@ task.spawn(function()
                     end
 
                     if getgenv().silentEnabled then
-                        game.ReplicatedStorage.MainEvent:FireServer(
+                        MainRemote:FireServer(
                             "ShootGun",
                             game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool"):FindFirstChild("Handle"),
                             game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool"):FindFirstChild("Handle").CFrame.Position - Vector3.new(0, 12, 0),
@@ -1178,7 +1225,7 @@ task.spawn(function()
                             Vector3.new(0, 0, -1)
                     )
                     else
-                        game.ReplicatedStorage.MainEvent:FireServer("ShootGun", game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool"):FindFirstChild("Handle"), game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool"):FindFirstChild("Handle").CFrame.Position, target.Character.Head.Position, target.Character.Head, Vector3.new(0, 0, -1))
+                        MainRemote:FireServer("ShootGun", game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool"):FindFirstChild("Handle"), game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool"):FindFirstChild("Handle").CFrame.Position, target.Character.Head.Position, target.Character.Head, Vector3.new(0, 0, -1))
                     end
                 else
                     getgenv().tracer.Transparency = 1
@@ -2718,11 +2765,11 @@ getgenv().CreateTool = function()
         getgenv().Boombox = game.Players.LocalPlayer.Backpack:FindFirstChild("[Boombox]")
         if getgenv().Boombox then
             getgenv().Boombox.Parent = game.Players.LocalPlayer.Character
-            game:GetService("ReplicatedStorage").MainEvent:FireServer("Boombox", tonumber(getgenv().SoundId))
+            MainRemote:FireServer("Boombox", tonumber(getgenv().SoundId))
             getgenv().Boombox.RequiresHandle = false
             getgenv().Boombox.Parent = game.Players.LocalPlayer.Backpack
             task.wait(1)
-            game:GetService("ReplicatedStorage").MainEvent:FireServer("BoomboxStop")
+            MainRemote:FireServer("BoomboxStop")
         else
             getgenv().Sound = Instance.new("Sound", workspace)
             getgenv().Sound.SoundId = "rbxassetid://" .. getgenv().SoundId
@@ -2882,11 +2929,11 @@ local function startAutoBlock()
                 end
                 local tool = character:FindFirstChildWhichIsA("Tool")
                 if tool and tool:FindFirstChild("Ammo") then
-                    ReplicatedStorage.MainEvent:FireServer("Block", false)
+                    MainRemote:FireServer("Block", false)
                 else
-                    ReplicatedStorage.MainEvent:FireServer("Block", true)
+                    MainRemote:FireServer("Block", true)
                     wait()
-                    ReplicatedStorage.MainEvent:FireServer("Block", false)
+                    MainRemote:FireServer("Block", false)
                 end
             end
         end
@@ -3021,7 +3068,7 @@ function startAutoReload()
         local tool = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChildWhichIsA("Tool")
         local ammo = tool and tool:FindFirstChild("Ammo")
         if ammo and ammo.Value <= (reloadMethod == "Rifle" and 1 or 0) then
-            game:GetService("ReplicatedStorage").MainEvent:FireServer("Reload", tool)
+            MainRemote:FireServer("Reload", tool)
             task.wait(3.7)
         end
     end)
@@ -4033,6 +4080,8 @@ RightGroupBox:AddButton('Animations Packs', function()
     game.Players.LocalPlayer.CharacterAdded:Connect(AnimationPack)
 end)
 
+
+
 local LeftGroupBox = Tabs.Misc:AddLeftGroupbox("Animation")
 
 local KeepOnDeath = false
@@ -4344,7 +4393,7 @@ function knockTarget(targetPlayer)
             
             local tool = LocalPlayer.Character:FindFirstChildWhichIsA("Tool")
             if tool and tool:FindFirstChild("Ammo") then
-                ReplicatedStorage.MainEvent:FireServer("ShootGun", tool:FindFirstChild("Handle"), tool:FindFirstChild("Handle").CFrame.Position, character.Head.Position, character.Head, Vector3.new(0, 0, -1))
+                MainRemote:FireServer("ShootGun", tool:FindFirstChild("Handle"), tool:FindFirstChild("Handle").CFrame.Position, character.Head.Position, character.Head, Vector3.new(0, 0, -1))
             end
             
             task.wait()
@@ -4384,7 +4433,7 @@ function bringTarget(targetPlayer)
             
             getgenv().tool = getgenv().localCharacter:FindFirstChildWhichIsA("Tool")
             if getgenv().tool and getgenv().tool:FindFirstChild("Ammo") then
-                game:GetService("ReplicatedStorage").MainEvent:FireServer(
+                MainRemote:FireServer(
                     "ShootGun",
                     getgenv().tool:FindFirstChild("Handle"),
                     getgenv().tool:FindFirstChild("Handle").CFrame.Position,
@@ -4410,7 +4459,7 @@ function bringTarget(targetPlayer)
                 game:GetService("RunService").RenderStepped:Wait()
             end
             
-            game:GetService("ReplicatedStorage"):WaitForChild("MainEvent"):FireServer("Grabbing", false)
+            MainRemote:FireServer("Grabbing", true)
             task.wait(0.1)
         until getgenv().character:FindFirstChild("GRABBING_CONSTRAINT")
         task.wait(0.2)
@@ -4445,7 +4494,7 @@ function stompTarget(targetPlayer)
             
             getgenv().tool = LocalPlayer.Character:FindFirstChildWhichIsA("Tool")
             if getgenv().tool and getgenv().tool:FindFirstChild("Ammo") then
-                ReplicatedStorage.MainEvent:FireServer("ShootGun", getgenv().tool:FindFirstChild("Handle"), getgenv().tool:FindFirstChild("Handle").CFrame.Position, getgenv().character.Head.Position, getgenv().character.Head, Vector3.new(0, 0, -1))
+                MainRemote:FireServer("ShootGun", getgenv().tool:FindFirstChild("Handle"), getgenv().tool:FindFirstChild("Handle").CFrame.Position, getgenv().character.Head.Position, getgenv().character.Head, Vector3.new(0, 0, -1))
             end
             
             task.wait()
@@ -4458,7 +4507,7 @@ function stompTarget(targetPlayer)
                 getgenv().humanoidRootPart.CFrame = CFrame.new(getgenv().upperTorso.Position + Vector3.new(0, 3, 0))
                 RunService.RenderStepped:Wait()
             end
-            ReplicatedStorage.MainEvent:FireServer("Stomp")
+            MainRemote:FireServer("Stomp")
             task.wait()
         end
         
@@ -4495,7 +4544,7 @@ function voidTarget(targetPlayer)
             
             getgenv().tool = getgenv().localCharacter:FindFirstChildWhichIsA("Tool")
             if getgenv().tool and getgenv().tool:FindFirstChild("Ammo") then
-                game:GetService("ReplicatedStorage").MainEvent:FireServer(
+                MainRemote:FireServer(
                     "ShootGun",
                     getgenv().tool:FindFirstChild("Handle"),
                     getgenv().tool:FindFirstChild("Handle").CFrame.Position,
@@ -4515,7 +4564,7 @@ function voidTarget(targetPlayer)
                 game:GetService("RunService").RenderStepped:Wait()
             end
             
-            game:GetService("ReplicatedStorage"):WaitForChild("MainEvent"):FireServer("Grabbing", false)
+            MainRemote:FireServer("Grabbing", true)
             task.wait(0.2)
         until getgenv().character:FindFirstChild("GRABBING_CONSTRAINT")
 
@@ -4712,7 +4761,7 @@ getgenv().ShootPlayer = function(target, tool)
     if not tool:FindFirstChild("Handle") then return end
     local targetHead = target.Character:FindFirstChild("Head")
     if not targetHead then return end
-    ReplicatedStorage.MainEvent:FireServer("ShootGun", tool.Handle, tool.Handle.CFrame.Position, targetHead.Position, targetHead, Vector3.new(0, 0, -1))
+    MainRemote:FireServer("ShootGun", tool.Handle, tool.Handle.CFrame.Position, targetHead.Position, targetHead, Vector3.new(0, 0, -1))
 end
 
 getgenv().IsKnockedOut = function(target)
@@ -4818,7 +4867,7 @@ getgenv().StompAllPlayers = function()
                         LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(upperTorso.Position + Vector3.new(0, 3, 0))
                         RunService.RenderStepped:Wait()
                     end
-                    ReplicatedStorage.MainEvent:FireServer("Stomp")
+                    MainRemote:FireServer("Stomp")
                     task.wait(0) -- Reduced wait time for faster execution
                 end
             end
@@ -4936,7 +4985,7 @@ getgenv().ShootPlayer = function(target, tool)
     if not targetHead then return end
     
     -- Fire the shot
-    game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", tool.Handle, tool.Handle.CFrame.Position, targetHead.Position, targetHead, Vector3.new(0, 0, -1))
+    MainRemote:FireServer("ShootGun", tool.Handle, tool.Handle.CFrame.Position, targetHead.Position, targetHead, Vector3.new(0, 0, -1))
 end
 
 getgenv().playerTextBox = AllPlayerActions:AddInput('PlayerTextBox', {
