@@ -1204,7 +1204,7 @@ getgenv().espEnabled = false
 getgenv().espColor = Color3.new(1, 1, 1)
 getgenv().nameESPEnabled = false
 getgenv().nameColor = Color3.new(1, 1, 1) -- New: Name ESP color
-getgenv().nameDisplayMode = "Username"
+getgenv().nameDisplayMode = "DisplayName"
 getgenv().nameTextSize = 14
 getgenv().studsESPEnabled = false
 getgenv().distanceColor = Color3.new(1, 1, 1)
@@ -4041,7 +4041,190 @@ RightGroupBox:AddButton('Animations Packs', function()
     game.Players.LocalPlayer.CharacterAdded:Connect(AnimationPack)
 end)
 
+-- Khai báo global variables từ config
+getgenv().ScriptSettings = {
+    MainAccount = "",  -- Main account username
+    Configs = {
+        Prefix = ".",  ---REMEMBER THIS PREFIX
+        Mask = "ninja", 
+        Gun = "ak47", 
+        Melee = "stop",
+        FPSCap = 0,
+        CameraOnMain = false,  -- having this true makes buying more efficient
+    },
+}
 
+getgenv().ScriptCommands = {
+    ["Fix Script"] = "fix", 
+    ["Reset Stand"] = "reset", 
+    ["Ascend"] = "summon", 
+    ["Descend"] = "vanish", 
+    ["Stand Position"] = "cpos", 
+    ["Frame Player"] = "frame", 
+    ["Auto Save Toggle"] = "asave", 
+    ["Auto Save Player"] = "psave",
+    ["UnAuto Save Player"] = "unpsave",
+    ["UnAuto Save All "] = "unpsaveall",
+    ["Kill Player"] = "kill", 
+    ["Loop Kill Player"] = "lkill", 
+    ["Knock Player"] = "knock", 
+    ["Loop Knock Player"] = "lknock", 
+    ["Bring Player"] = "bring", 
+    ["Drop Player"] = "drop", 
+    ["Gun Bring Player"] = "gbring", 
+    ["Loop Gun Knock Player"] = "lgknock", 
+    ["Loop Gun Kill Player"] = "lgkill", 
+    ["Gun Knock Player"] = "gknock", 
+    ["Gun Kill Player"] = "gkill", 
+    ["Bend Player"] = "bend",
+    ["Blow Player"] = "blow",
+    ["Void Player"] = "void", 
+    ["Gun Void Player"] = "gvoid", 
+    ["Sky Player"] = "sky",
+    ["Gun Sky Player"] = "gsky",
+    ["Whitelist Player"] = "whitelist", 
+    ["Unwhitelist Player"] = "unwhitelist", 
+    ["Unwhitelist Everybody"] = "unwhitelistall", 
+    ["Teleport Player"] = "tp", 
+    ["Change Auto Save Position"] = "apos",
+    ["Change Teleport Method"] = "ctp",
+    ["Change Attack Mode"] = "cattack", 
+    ["Change Attack Gun"] = "cgattack", 
+    ["Change Mask"] = "cmask", 
+    ["View Player"] = "view",
+    ["Lettuce Farm"] = "lfarm",
+    ["Weight Farm"] = "wfarm",
+    ["Cash Farm"] = "cfarm",
+    ["Stomp Farm"] = "sfarm",
+    ["Auto Get Back"] = "getback",
+    ["Auto Heal"] = "aheal",
+    ["Auto Armor"] = "aarmor",
+    ["Auto Drop Cash"] = "adrop",
+    ["Kill Aura"] = "aura",
+    ["Team"] = "team",
+    ["UnteamAll"] = "unteamall",
+    ["ToggleMask"] = "amask",
+    ["Multi Gun"] = "multig",
+    ["UnMulti Gun"] = "unmultig",
+    ["Multi Kill Add"] = "mkill",
+    ["Start Multi Kill"] = "skill",
+    ["Clear Multi Kill"] = "ckill",
+    ["Loop Gun Multi Player"] = "slgkill",
+}
+
+-- Biến kiểm soát nút active (chỉ bấm 1 lần)
+local isSkidoActivated = false
+
+-- Thêm Groupbox cho Skido Stand trong Tabs.Skido
+local SkidoGroup = Tabs.Misc:AddRightGroupbox('Skido Stand')
+
+-- Nút Active Skido Stand (chỉ bấm 1 lần)
+SkidoGroup:AddButton('Active Skido Stand', function()
+    if not isSkidoActivated then
+        isSkidoActivated = true
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/yuvic123/Skidov1.2-stand/refs/heads/main/Skidov1.3-Stand"))()
+        end)
+        if success then
+            Library:Notify("Skido Stand activated!", 5)
+        else
+            Library:Notify("Failed to activate Skido Stand: " .. tostring(err), 5)
+            isSkidoActivated = false  -- Allow retry if failed
+        end
+    else
+        Library:Notify("Skido Stand already activated!", 5)
+    end
+end)
+
+-- Ô MainAccount (Input)
+SkidoGroup:AddInput('MainAccountInput', {
+    Default = getgenv().ScriptSettings.MainAccount,
+    Numeric = false,
+    Finished = true,
+    Text = 'Main Account',
+    Tooltip = 'Enter main account username',
+    Placeholder = 'Enter username...',
+    Callback = function(Value)
+        getgenv().ScriptSettings.MainAccount = Value
+        Library:Notify("Main Account updated to: " .. Value, 3)
+    end
+})
+
+-- Ô Prefix (Input)
+SkidoGroup:AddInput('PrefixInput', {
+    Default = getgenv().ScriptSettings.Configs.Prefix,
+    Numeric = false,
+    Finished = true,
+    Text = 'Prefix',
+    Tooltip = 'Enter command prefix (default: .)',
+    Placeholder = 'Enter prefix...',
+    Callback = function(Value)
+        getgenv().ScriptSettings.Configs.Prefix = Value
+        Library:Notify("Prefix updated to: " .. Value, 3)
+    end
+})
+
+-- Ô Melee (Input, default "stop")
+SkidoGroup:AddInput('MeleeInput', {
+    Default = getgenv().ScriptSettings.Configs.Melee,
+    Numeric = false,
+    Finished = true,
+    Text = 'Melee',
+    Tooltip = 'Enter melee (default: stop)',
+    Placeholder = 'Enter melee...',
+    Callback = function(Value)
+        getgenv().ScriptSettings.Configs.Melee = Value
+        Library:Notify("Melee updated to: " .. Value, 3)
+    end
+})
+
+-- Toggle CameraOnMain
+SkidoGroup:AddToggle('CameraOnMainToggle', {
+    Text = 'Camera On Main',
+    Default = getgenv().ScriptSettings.Configs.CameraOnMain,
+    Tooltip = 'Toggle CameraOnMain (makes buying more efficient)',
+    Callback = function(Value)
+        getgenv().ScriptSettings.Configs.CameraOnMain = Value
+        Library:Notify("CameraOnMain set to: " .. tostring(Value), 3)
+    end
+})
+
+-- List Commands (sử dụng nhiều Label để hiển thị)
+SkidoGroup:AddLabel('Command List:')  -- Tiêu đề
+for description, command in pairs(getgenv().ScriptCommands) do
+    SkidoGroup:AddLabel(description .. ": " .. command)  -- Hiển thị từng command
+end
+
+-- UI Settings Tab
+local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
+
+MenuGroup:AddButton('Unload', function() Library:Unload() end)
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightAlt', NoUI = true, Text = 'Menu keybind' })
+Library.ToggleKeybind = Options.MenuKeybind
+
+MenuGroup:AddToggle('KeybindListToggle', {
+    Text = 'Show Keybind List',
+    Default = false,
+    Callback = function(state)
+        Library.KeybindFrame.Visible = state
+    end
+})
+
+-- Theme and Save Manager
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+ThemeManager:SetFolder('SkidoStand')
+SaveManager:SetFolder('SkidoStand/configs')
+SaveManager:BuildConfigSection(Tabs['UI Settings'])
+ThemeManager:ApplyToTab(Tabs['UI Settings'])
+SaveManager:LoadAutoloadConfig()
+
+Library:OnUnload(function()
+    print('Unloaded!')
+    Library.Unloaded = true
+end)
 
 local LeftGroupBox = Tabs.Misc:AddLeftGroupbox("Animation")
 
