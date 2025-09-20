@@ -519,18 +519,42 @@ RunService.RenderStepped:Connect(function()
         local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
         local isGrabbed = lockedTarget.Character:FindFirstChild("GRABBING_CONSTRAINT")
 
+        -- Nếu target bị KO hoặc Grab -> trả về chỗ cũ
+        if isKO or isGrabbed then
+            if oldPosition then
+                local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    root.CFrame = oldPosition
+                end
+                oldPosition = nil
+            end
+            workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
+            tracer.Visible = false
+            return
+        end
+
+        -- Camera spectate
         if ViewTargetEnabled then
             workspace.CurrentCamera.CameraSubject = lockedTarget.Character
         elseif spectateStrafeEnabled and strafeEnabled then
             workspace.CurrentCamera.CameraSubject = lockedTarget.Character:FindFirstChild("Head")
         end
 
-        if strafeEnabled and targetPart and not isGrabbed then
+        -- Strafe
+        if strafeEnabled and targetPart then
             local targetRoot = lockedTarget.Character:FindFirstChild("HumanoidRootPart")
             local targetPosition = targetRoot.Position
 
             if predictMovementEnabled then
                 targetPosition = predictPosition(targetRoot, PredicTvalue)
+            end
+
+            -- Lưu pos ban đầu khi mới bắt đầu strafe
+            if not oldPosition then
+                local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    oldPosition = root.CFrame
+                end
             end
 
             if strafeMode == "Orbit" then
@@ -548,6 +572,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
+        -- Hitsound check
         local humanoid = lockedTarget.Character:FindFirstChild("Humanoid")
         if humanoid then
             if not getgenv().lastHealth[lockedTarget.Name] then
@@ -559,6 +584,7 @@ RunService.RenderStepped:Connect(function()
             getgenv().lastHealth[lockedTarget.Name] = humanoid.Health
         end
 
+        -- Tracer
         if TracerEnabled and targetPart then
             tracer.Visible = true
             local camera = workspace.CurrentCamera
@@ -587,9 +613,10 @@ RunService.RenderStepped:Connect(function()
             tracer.Visible = false
         end
 
+        -- Bắn
         local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
         local handle = tool and tool:FindFirstChild("Handle")
-        if tool and handle and targetPart and not isKO and not isGrabbed then
+        if tool and handle and targetPart then
             if hiddenBulletsEnabled then
                 MainRemote:FireServer(
                     "ShootGun",
@@ -609,6 +636,15 @@ RunService.RenderStepped:Connect(function()
             end
         end
     else
+        -- Không có target -> về chỗ cũ
+        if oldPosition then
+            local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                root.CFrame = oldPosition
+            end
+            oldPosition = nil
+        end
+        workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
         tracer.Visible = false
     end
 end)
@@ -4752,23 +4788,17 @@ function bringTarget(targetPlayer)
         end
         
         repeat
-            if getgenv().koValue.Value then
-                getgenv().isActionRunning = false
-                getgenv().humanoidRootPart.CFrame = CFrame.new(getgenv().oldPosition)
-                return
-            end
-
             getgenv().upperTorso = getgenv().character:FindFirstChild("UpperTorso")
             if getgenv().upperTorso then
                 getgenv().humanoidRootPart.CFrame = CFrame.new(getgenv().upperTorso.Position + Vector3.new(0, 3, 0))
                 game:GetService("RunService").RenderStepped:Wait()
             end
             
-            MainRemote:FireServer("Grabbing", true)
-            task.wait(0.1)
+            MainRemote:FireServer("Grabbing", false)
+            task.wait(0.2)
         until getgenv().character:FindFirstChild("GRABBING_CONSTRAINT")
-        task.wait(0.2)
 
+        task.wait(0.2)
         getgenv().humanoidRootPart.CFrame = CFrame.new(getgenv().oldPosition)
     end)
 end
@@ -4869,13 +4899,13 @@ function voidTarget(targetPlayer)
                 game:GetService("RunService").RenderStepped:Wait()
             end
             
-            MainRemote:FireServer("Grabbing", true)
+            MainRemote:FireServer("Grabbing", false)
             task.wait(0.2)
         until getgenv().character:FindFirstChild("GRABBING_CONSTRAINT")
 
         LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-1000, 10000, -1000)
         task.wait(0.3)
-        game:GetService("ReplicatedStorage"):WaitForChild("MainEvent"):FireServer("Grabbing", false)
+        MainRemote:FireServer("Grabbing", false)
         task.wait(0.2)
         getgenv().humanoidRootPart.CFrame = CFrame.new(getgenv().oldPosition)
     end)
@@ -5187,94 +5217,108 @@ getgenv().IsTooFar = function(target)
 end
 
 getgenv().KillAllPlayers = function()
-    getgenv().OriginalPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
+    task.spawn(function()
+        -- Lưu vị trí ban đầu để quay lại khi tắt
+        getgenv().OriginalPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
 
-    -- Unequip all tools before buying
-    for _, tool in pairs(LocalPlayer.Character:GetChildren()) do
-        if tool:IsA("Tool") then
-            tool.Parent = LocalPlayer.Backpack
-        end
-    end
-
-    while not (LocalPlayer.Backpack:FindFirstChild("[LMG]") or LocalPlayer.Character:FindFirstChild("[LMG]")) do
-        getgenv().BuyItem("[LMG] - $4098")
-        task.wait(0.2) -- Reduced wait time for faster execution
-    end
-
-    for i = 1, 5 do
-        getgenv().BuyItem("200 [LMG Ammo] - $328")
-        task.wait(0) -- Reduced wait time for faster execution
-    end
-
-    local lmgTool = getgenv().EquipLMG()
-    if not lmgTool then return end
-
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            if getgenv().HasForcefield(player) or getgenv().IsKnockedOut(player) or getgenv().IsGrabbing(player) or getgenv().IsTooFar(player) then
-                continue
+        -- Unequip tất cả tool trước khi mua
+        for _, tool in pairs(LocalPlayer.Character:GetChildren()) do
+            if tool:IsA("Tool") then
+                tool.Parent = LocalPlayer.Backpack
             end
-
-            getgenv().CurrentTarget = player
-            workspace.CurrentCamera.CameraSubject = player.Character.Humanoid
-
-            while not getgenv().IsKnockedOut(player) and getgenv().KillAllEnabled do
-                LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame - Vector3.new(0, 20, 0)
-                getgenv().ShootPlayer(player, lmgTool)
-                task.wait(0) -- Reduced wait time for faster execution
-            end
-
-            if not getgenv().KillAllEnabled then break end
         end
-    end
 
-    if getgenv().OriginalPosition then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = getgenv().OriginalPosition
-    end
+        -- Mua LMG nếu chưa có
+        while not (LocalPlayer.Backpack:FindFirstChild("[LMG]") or LocalPlayer.Character:FindFirstChild("[LMG]")) and getgenv().KillAllEnabled do
+            getgenv().BuyItem("[LMG] - $4098")
+            task.wait(0.2)
+        end
 
-    workspace.CurrentCamera.CameraSubject = LocalPlayer.Character.Humanoid
-    getgenv().CurrentTarget = nil
+        local lmgTool = getgenv().EquipLMG()
+        if not lmgTool then return end
 
-    if getgenv().StompAllEnabled then
-        getgenv().StompAllPlayers()
-    end
+        -- Vòng lặp chính
+        while getgenv().KillAllEnabled do
+            for _, player in pairs(Players:GetPlayers()) do
+                if not getgenv().KillAllEnabled then break end
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    if getgenv().HasForcefield(player) or getgenv().IsGrabbing(player) or getgenv().IsTooFar(player) then
+                        continue
+                    end
+
+                    getgenv().CurrentTarget = player
+                    workspace.CurrentCamera.CameraSubject = player.Character.Humanoid
+
+                    -- Bắn cho đến khi target bị KO
+                    while not getgenv().IsKnockedOut(player) and getgenv().KillAllEnabled do
+                        -- Dịch lên trên mục tiêu 20 stud để bắn
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 20, 0)
+                        getgenv().ShootPlayer(player, lmgTool)
+                        task.wait(0)
+                    end
+
+                    -- Nếu bị KO thì TP lên trên UpperTorso 3 stud rồi stomp
+                    if getgenv().IsKnockedOut(player) and player.Character:FindFirstChild("UpperTorso") then
+                        local torso = player.Character.UpperTorso
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(torso.Position + Vector3.new(0, 3, 0))
+                        MainRemote:FireServer("Stomp")
+                        task.wait(0.1) -- nghỉ chút để stomp ổn định
+                    end
+                end
+            end
+            task.wait(0.1) -- tránh lag
+        end
+
+        -- Reset khi tắt KillAll
+        if getgenv().OriginalPosition then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = getgenv().OriginalPosition
+        end
+        workspace.CurrentCamera.CameraSubject = LocalPlayer.Character.Humanoid
+        getgenv().CurrentTarget = nil
+
+        -- Nếu StompAll cũng bật thì gọi lại
+        if getgenv().StompAllEnabled then
+            getgenv().StompAllPlayers()
+        end
+    end)
 end
 
 getgenv().StompAllPlayers = function()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local character = player.Character
-            local humanoid = character:FindFirstChild("Humanoid")
-            local bodyEffects = character:FindFirstChild("BodyEffects")
-
-            if not bodyEffects or not humanoid then
-                continue
-            end
-
-            local koValue = bodyEffects:FindFirstChild("K.O")
-            local sDeathValue = bodyEffects:FindFirstChild("SDeath")
-
-            if not koValue or not sDeathValue then
-                continue
-            end
-
-            if koValue.Value and not sDeathValue.Value then
-                while not sDeathValue.Value and getgenv().StompAllEnabled do
-                    if not koValue.Value or getgenv().IsGrabbing(player) then
-                        break -- Stop stomping if K.O is lost or player is grabbed
-                    end
-
+    task.spawn(function()
+        while getgenv().StompAllEnabled do
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local character = player.Character
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    local bodyEffects = character:FindFirstChild("BodyEffects")
                     local upperTorso = character:FindFirstChild("UpperTorso")
-                    if upperTorso then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(upperTorso.Position + Vector3.new(0, 3, 0))
-                        RunService.RenderStepped:Wait()
+
+                    if humanoid and bodyEffects and upperTorso then
+                        local koValue = bodyEffects:FindFirstChild("K.O")
+                        local sDeathValue = bodyEffects:FindFirstChild("SDeath")
+
+                        if koValue and sDeathValue and koValue.Value and not sDeathValue.Value then
+                        getgenv().OriginalPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
+                            -- Dịch chuyển lên trên đầu 3 stud để tránh va chạm
+                            LocalPlayer.Character.HumanoidRootPart.CFrame =
+                                CFrame.new(upperTorso.Position + Vector3.new(0, 3, 0))
+
+                            -- Gửi Stomp
+                            MainRemote:FireServer("Stomp")
+
+                            if getgenv().OriginalPosition then
+                                LocalPlayer.Character.HumanoidRootPart.CFrame = getgenv().OriginalPosition
+                            end
+
+                            -- Đợi một frame để tránh lag
+                            RunService.RenderStepped:Wait()
+                        end
                     end
-                    MainRemote:FireServer("Stomp")
-                    task.wait(0) -- Reduced wait time for faster execution
                 end
             end
+            task.wait(0.1) -- vòng lặp liên tục nhưng không nặng
         end
-    end
+    end)
 end
 
 getgenv().AllPlayerActions:AddToggle("KillAllToggle", {
