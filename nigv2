@@ -67,7 +67,6 @@ local function getMainRemote()
         return ReplicatedStorage.MAINEVENT
     end
 
-    -- 2. Remote
     if ReplicatedStorage:FindFirstChild("Remote") then
         return ReplicatedStorage.Remote
     end
@@ -710,94 +709,56 @@ end)
 
 
 local StarterGui = game:GetService("StarterGui")
-local RapidFireEnabled = false
-local hyperFireEnabled = false
-local modifiedTools = {}
-
-local function rapidfire(tool)
-    if not tool or not tool:FindFirstChild("GunScript") or modifiedTools[tool] then return end
-
-    for _, v in ipairs(getconnections(tool.Activated)) do
-        local funcinfo = debug.getinfo(v.Function)
-        for i = 1, funcinfo.nups do
-            local c, n = debug.getupvalue(v.Function, i)
-            if type(c) == "number" then
-                debug.setupvalue(v.Function, i, 0.0000000000001)
-            end
+RapidFireEnabled = false
+RapidFireDelay = 0.01
+local utility = {}
+utility.get_gun = function()
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    for _, tool in next, char:GetChildren() do
+        if tool:IsA("Tool") and (tool:FindFirstChild("Ammo") or tool:FindFirstChild("AmmoCount") or tool:FindFirstChild("GunScript")) then
+            return tool
         end
     end
-
-    modifiedTools[tool] = true
 end
 
-local function onCharacterAdded(character)
-    for _, tool in ipairs(character:GetChildren()) do
-        if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
-            rapidfire(tool)
+utility.rapid = function(tool)
+    tool:Activate()
+end
+
+local isFiring = false
+
+-- Input bắt đầu (chuột hoặc cảm ứng)
+UserInputService.InputBegan:Connect(function(i, gp)
+    if gp then return end
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        local gun = utility.get_gun()
+        if RapidFireEnabled and gun and not isFiring then
+            isFiring = true
+            task.spawn(function()
+                while isFiring and RapidFireEnabled do
+                    utility.rapid(gun)
+                    task.wait(RapidFireDelay)
+                end
+            end)
         end
     end
+end)
 
-    character.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") and child:FindFirstChild("Handle") then
-            rapidfire(child)
-        end
-    end)
-end
-
-if LocalPlayer.Character then
-    onCharacterAdded(LocalPlayer.Character)
-end
-
-LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+-- Input kết thúc (chuột hoặc cảm ứng)
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        isFiring = false
+    end
+end)
 
 GunMods:AddToggle("RapidFireToggle", {
     Text = "Rapid Fire",
     Default = false,
     Callback = function(Value)
         RapidFireEnabled = Value
-        if Value then
-            modifiedTools = {}
-            if LocalPlayer.Character then
-                onCharacterAdded(LocalPlayer.Character)
-            end
-        end
     end
 })
-
-local function updateHyperFire()
-    for _, obj in ipairs(game:GetDescendants()) do
-        if obj.Name == "ToleranceCooldown" and obj:IsA("ValueBase") then
-            obj.Value = 0 
-        end
-    end
-end
-
-GunMods:AddToggle("HyperFireToggle", {
-    Text = "Rapid Fire v2",
-    Default = false,
-    Callback = function(Value)
-        hyperFireEnabled = Value
-        updateHyperFire()
-    end
-})
-
-game.DescendantAdded:Connect(function(obj)
-    if obj.Name == "ToleranceCooldown" and obj:IsA("ValueBase") then
-        obj.Value = hyperFireEnabled and 0 or 3
-    end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if hyperFireEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-        local character = LocalPlayer.Character
-        if character then
-            local tool = character:FindFirstChildOfClass("Tool")
-            if tool and tool:FindFirstChild("Ammo") then
-                tool:Activate()
-            end
-        end
-    end
-end)
 
 local HBE = Tabs.Main:AddRightGroupbox('HBE')
 
