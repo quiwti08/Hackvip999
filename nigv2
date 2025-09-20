@@ -2585,7 +2585,7 @@ uhhh:AddSlider('SpinSpeedSlider', {
 local AnimationSpeed = 1
 
 local animation = Instance.new("Animation")
-animation.AnimationId = "rbxassetid://10714340543"
+animation.AnimationId = "rbxassetid://95656304023751"
 
 local animationTrack
 local isPlaying = false
@@ -2615,8 +2615,8 @@ end
 
 local stutz = Tabs.Character:AddRightGroupbox('Misc')
 
-stutz:AddToggle("FlossToggle", {
-    Text = "floss",
+stutz:AddToggle("TakeTheLToggle", {
+    Text = "Take The L",
     Default = false,
     Callback = function(state)
         takethelEnabled = state
@@ -2629,13 +2629,13 @@ stutz:AddToggle("FlossToggle", {
             isPlaying = false
         end
     end
-}):AddKeyPicker("FlossKeybindPicker", {
-    Default = "V",
-    Text = "Floss",
+}):AddKeyPicker("TakeTheLkeybind", {
+    Default = "C",
+    Text = "Take The L",
     Mode = "Toggle",
     Callback = function(key)
         if UserInputService:GetFocusedTextBox() then return end
-        if flossEnabled and animationTrack then
+        if takethelEnabled and animationTrack then
             if isPlaying then
                 animationTrack:Stop()
             else
@@ -4996,7 +4996,7 @@ LocalPlayer.CharacterAdded:Connect(function()
                 -- Phát lại animation
                 getgenv().animTrack = myHum:LoadAnimation(anim)
                 getgenv().animTrack:Play()
-                getgenv().animTrack:AdjustSpeed(10)
+                getgenv().animTrack:AdjustSpeed(1)
 
                 -- Teleport liên tục
                 getgenv().bangConnection = RunService.Heartbeat:Connect(function()
