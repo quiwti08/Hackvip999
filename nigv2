@@ -3,7 +3,8 @@ local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
-local Window = Library:CreateWindow({ Title = '                     $ Nigga.lol | Beta $                     ', AutoShow = true, TabPadding = 15, MenuFadeTime = 0.2 })
+local Window = Library:CreateWindow({ Title = '                     $ Nigga.lol | Beta $                     ', AutoShow = true, TabPadding = 15, MenuFadeTime = 0.2 }) 
+
 local Tabs = { Main = Window:AddTab('Main'), Character = Window:AddTab('Character'), Visuals = Window:AddTab('Visuals'), Misc = Window:AddTab('Misc'), Players = Window:AddTab('Players'), ['UI Settings'] = Window:AddTab('UI Settings') }
 local GunMods = Tabs.Main:AddRightGroupbox('Gun Mods')
 local KillAura = Tabs.Main:AddRightGroupbox('Combat')
@@ -52,7 +53,7 @@ local possibleRemotes = {
     "Remote",
     "Packages",
     "MainRemotes"
-}
+}  
 
 local tracer = Drawing.new("Line")
 tracer.Visible = true
@@ -482,30 +483,10 @@ function playHitsound()
 end
 
 GunMods:AddToggle('hstoggle', {
-    Text = 'stretch res',
-    Default = false,
-    Callback = function(state)
-        getgenv().hitsoundEnabled = state
-    end
-})
-
-GunMods:AddToggle('hstoggle', {
     Text = 'Hitsounds',
     Default = false,
     Callback = function(state)
-        getgenv().Resolution = {
-    [" "] = 0.65
-}
-
-local Camera = workspace.CurrentCamera
-if getgenv().gg_scripters == nil then
-    game:GetService("RunService").RenderStepped:Connect(
-        function()
-            Camera.CFrame = Camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, getgenv().Resolution[" "], 0, 0, 0, 1)
-        end
-    )
-end
-getgenv().gg_scripters = " "
+        getgenv().hitsoundEnabled = state
     end
 })
 
@@ -938,6 +919,20 @@ end)
 
 local CamLockBox = Tabs.Main:AddRightGroupbox('Legit')
 
+getgenv().YeuTuyen = {
+    Hitpart = "Head",
+    CheckIfJumped = true,
+    CheckIfJumpedAimPart = "HumanoidRootPart",
+    AutoPingSets = true,
+    UseShake = true,
+    ShakePower = 1,
+    PredictMovement = false,
+    PredictionVelocity = 0.17221418,
+    UnderGround = true,
+    DetectDesync = true,
+    Detection = 75,
+}
+
 local camLockEnabled = false
 local camLockTarget = nil
 local smoothness = 1
@@ -953,6 +948,7 @@ CamLockBox:AddToggle('CamLockToggle', {
     end,
 }):AddKeyPicker('CamLockKeybind', {
     Default = 'Q',
+    NoUI = false,
     Text = 'CamLock',
     Mode = 'Toggle',
     Callback = function()
@@ -989,6 +985,108 @@ CamLockBox:AddToggle('CamLockToggle', {
     end,
 })
 
+CamLockBox:AddDropdown('HitpartDropdown', {
+    Text = 'Hit Part',
+    Values = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "RightHand", "LeftHand", "RightFoot", "LeftFoot"},
+    Default = "Head",
+    Callback = function(Value)
+        getgenv().YeuTuyen.Hitpart = Value
+    end
+})
+
+CamLockBox:AddToggle('CheckIfJumpedToggle', {
+    Text = 'Air Part',
+    Default = true,
+    Callback = function(Value)
+        getgenv().YeuTuyen.CheckIfJumped = Value
+    end
+})
+
+CamLockBox:AddDropdown('AirpartDropdown', {
+    Text = 'Air Part',
+    Values = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "RightHand", "LeftHand", "RightFoot", "LeftFoot"},
+    Default = "HumanoidRootPart",
+    Callback = function(Value)
+        getgenv().YeuTuyen.CheckIfJumpedAimPart = Value
+    end
+})
+
+CamLockBox:AddToggle('UseShakeToggle', {
+    Text = 'Use Shake',
+    Default = true,
+    Callback = function(Value)
+        getgenv().YeuTuyen.UseShake = Value
+    end
+})
+
+CamLockBox:AddInput('ShakeInput', {
+    Default = '1',
+    Numeric = true,
+    Finished = false,
+    Text = 'Shake',
+    Tooltip = 'Controls the shake power (default: 1)',
+    Placeholder = 'Enter shake value...',
+    Callback = function(Value)
+        getgenv().YeuTuyen.ShakePower = tonumber(Value) or 1
+    end
+})
+
+CamLockBox:AddToggle('PredictMovementToggle', {
+    Text = 'Use prediction',
+    Default = false,
+    Callback = function(Value)
+        getgenv().YeuTuyen.PredictMovement = Value
+    end
+})
+
+CamLockBox:AddInput('PredictionVelocityInput', {
+    Default = '0.17221418',
+    Numeric = true,
+    Finished = false,
+    Text = 'Prediction Velocity',
+    Tooltip = 'Controls the prediction velocity (default: 0.17221418)',
+    Placeholder = 'Enter prediction velocity...',
+    Callback = function(Value)
+        getgenv().YeuTuyen.PredictionVelocity = tonumber(Value) or 0.17221418
+    end
+})
+
+CamLockBox:AddToggle('AutoPredictionToggle', {
+    Text = 'Auto Prediction',
+    Default = true,
+    Callback = function(Value)
+        getgenv().YeuTuyen.AutoPingSets = Value
+    end
+})
+
+CamLockBox:AddToggle('UnderGroundToggle', {
+    Text = 'Under Ground',
+    Default = true,
+    Callback = function(Value)
+        getgenv().YeuTuyen.UnderGround = Value
+    end
+})
+
+CamLockBox:AddToggle('DetectDesyncToggle', {
+    Text = 'Detect Desync',
+    Default = true,
+    Callback = function(Value)
+        getgenv().YeuTuyen.DetectDesync = Value
+    end
+})
+
+CamLockBox:AddInput('DetectionInput', {
+    Default = '75',
+    Numeric = true,
+    Finished = false,
+    Text = 'Detection',
+    Tooltip = 'Controls the detection threshold (default: 75)',
+    Placeholder = 'Enter detection value...',
+    Callback = function(Value)
+        getgenv().YeuTuyen.Detection = tonumber(Value) or 75
+    end
+})
+
 CamLockBox:AddInput('SmoothnessInput', {
     Default = '1',
     Numeric = true,
@@ -1003,12 +1101,107 @@ CamLockBox:AddInput('SmoothnessInput', {
 
 RunService.RenderStepped:Connect(function()
     if camLockEnabled and camLockTarget then
-        local character = camLockTarget.Character
+        local target = camLockTarget
+        local character = target.Character
         if character then
             local HRP = character:FindFirstChild("HumanoidRootPart")
-            if HRP then
+            local hum = character:FindFirstChild("Humanoid")
+            local part = character:FindFirstChild("Head") -- Default part, will be overridden
+
+            if target and part and hum and target.Character then
+                -- Chọn aimpart dựa trên CheckIfJumped
+                local aimPartName = getgenv().YeuTuyen.Hitpart
+                if getgenv().YeuTuyen.CheckIfJumped and hum:GetState() == Enum.HumanoidStateType.Freefall then
+                    aimPartName = getgenv().YeuTuyen.CheckIfJumpedAimPart
+                end
+                local aimPart = target.Character:FindFirstChild(aimPartName) or part 
+
+                -- Áp dụng UseShake
+                if getgenv().YeuTuyen.UseShake and aimPart then
+                    pcall(function()
+                        local shakeVec = Vector3.new(
+                            math.random(-getgenv().YeuTuyen.ShakePower, getgenv().YeuTuyen.ShakePower),
+                            math.random(-getgenv().YeuTuyen.ShakePower, getgenv().YeuTuyen.ShakePower),
+                            math.random(-getgenv().YeuTuyen.ShakePower, getgenv().YeuTuyen.ShakePower)
+                        ) * 0.1
+                        aimPart.Velocity = aimPart.Velocity + shakeVec
+                        aimPart.AssemblyLinearVelocity = aimPart.AssemblyLinearVelocity + shakeVec
+                    end)
+                end
+
+                -- Áp dụng UnderGround
+                if getgenv().YeuTuyen.UnderGround and aimPart then
+                    pcall(function()
+                        aimPart.Velocity = Vector3.new(aimPart.Velocity.X, 0, aimPart.Velocity.Z)
+                        aimPart.AssemblyLinearVelocity = Vector3.new(aimPart.AssemblyLinearVelocity.X, 0, aimPart.AssemblyLinearVelocity.Z)
+                    end)
+                end
+
+                -- Áp dụng DetectDesync
+                if getgenv().YeuTuyen.DetectDesync and target.Character:FindFirstChild("HumanoidRootPart") and
+                    target.Character.HumanoidRootPart.Velocity.Magnitude > getgenv().YeuTuyen.Detection and aimPart then
+                    pcall(function()
+                        aimPart.Velocity = Vector3.new(0, 0, 0)
+                        aimPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    end)
+                end
+
+                -- Áp dụng AutoPingSets
+                if getgenv().YeuTuyen.AutoPingSets then
+                    pcall(function()
+                        local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
+                        local split = string.split(pingvalue, "(")
+                        local ping = tonumber(split[1]) or 0
+                        if ping > 190 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.206547
+                        elseif ping > 180 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.19284
+                        elseif ping > 170 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.1923111
+                        elseif ping > 160 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.1823111
+                        elseif ping > 150 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.171
+                        elseif ping > 140 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.165773
+                        elseif ping > 130 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.1223333
+                        elseif ping > 120 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.143765
+                        elseif ping > 110 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.1455
+                        elseif ping > 100 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.130340
+                        elseif ping > 90 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.136
+                        elseif ping > 80 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.1347
+                        elseif ping > 70 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.119
+                        elseif ping > 60 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.12731
+                        elseif ping > 50 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.127668
+                        elseif ping > 40 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.125
+                        elseif ping > 30 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.11
+                        elseif ping > 20 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.12588
+                        elseif ping > 10 then
+                            getgenv().YeuTuyen.PredictionVelocity = 0.9
+                        end
+                    end)
+                end
+
+                -- Dự đoán chuyển động
+                local predictVec = aimPart.Position
+                if getgenv().YeuTuyen.PredictMovement and aimPart then
+                    predictVec = aimPart.Position + aimPart.Velocity * getgenv().YeuTuyen.PredictionVelocity
+                end
+
                 local camera = workspace.CurrentCamera
-                local targetPosition = HRP.Position
+                local targetPosition = predictVec
 
                 -- Get the current camera CFrame
                 local currentCFrame = camera.CFrame
@@ -1800,7 +1993,7 @@ local Settings = {
                 Width = 0.1
             },
             Aura = {
-                Color = Color3.fromRGB(152, 0, 252)
+                Color = Color3.fromRGB(255, 255, 255)
             }
         }
     }
@@ -2396,7 +2589,7 @@ animation.AnimationId = "rbxassetid://10714340543"
 
 local animationTrack
 local isPlaying = false
-local flossEnabled = false
+local takethelEnabled = false
 
 local function loadAnimationTrack(character)
     local humanoid = character:WaitForChild("Humanoid")
@@ -2404,7 +2597,7 @@ local function loadAnimationTrack(character)
     animationTrack.Looped = true
     animationTrack.Priority = Enum.AnimationPriority.Action
     
-    if flossEnabled then
+    if takethelEnabled then
         task.wait(0.6)
         animationTrack:Play()
         animationTrack:AdjustSpeed(AnimationSpeed)
@@ -2426,7 +2619,7 @@ stutz:AddToggle("FlossToggle", {
     Text = "floss",
     Default = false,
     Callback = function(state)
-        flossEnabled = state
+        takethelEnabled = state
         if state and animationTrack then
             animationTrack:Play()
             animationTrack:AdjustSpeed(AnimationSpeed)
@@ -2477,7 +2670,6 @@ stutz:AddToggle("NoClipToggle", {
         end
     end
 })
-
 
 DesyncBox = Tabs.Character:AddRightGroupbox("Anti Aim")
 
@@ -4195,37 +4387,6 @@ for description, command in pairs(getgenv().ScriptCommands) do
     SkidoGroup:AddLabel(description .. ": " .. command)  -- Hiển thị từng command
 end
 
--- UI Settings Tab
-local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
-
-MenuGroup:AddButton('Unload', function() Library:Unload() end)
-MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightAlt', NoUI = true, Text = 'Menu keybind' })
-Library.ToggleKeybind = Options.MenuKeybind
-
-MenuGroup:AddToggle('KeybindListToggle', {
-    Text = 'Show Keybind List',
-    Default = false,
-    Callback = function(state)
-        Library.KeybindFrame.Visible = state
-    end
-})
-
--- Theme and Save Manager
-ThemeManager:SetLibrary(Library)
-SaveManager:SetLibrary(Library)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
-ThemeManager:SetFolder('SkidoStand')
-SaveManager:SetFolder('SkidoStand/configs')
-SaveManager:BuildConfigSection(Tabs['UI Settings'])
-ThemeManager:ApplyToTab(Tabs['UI Settings'])
-SaveManager:LoadAutoloadConfig()
-
-Library:OnUnload(function()
-    print('Unloaded!')
-    Library.Unloaded = true
-end)
-
 local LeftGroupBox = Tabs.Misc:AddLeftGroupbox("Animation")
 
 local KeepOnDeath = false
@@ -4801,6 +4962,103 @@ PlayerInfo:AddInput('playerSearch', {
     end,
 })
 
+getgenv().animEnabled = false
+getgenv().animTrack = nil
+getgenv().bangConnection = nil
+
+-- Hàm dừng animation và teleport
+local function stopAnimAndTp()
+    if getgenv().animTrack then
+        getgenv().animTrack:Stop()
+        getgenv().animTrack = nil
+    end
+    if getgenv().bangConnection then
+        getgenv().bangConnection:Disconnect()
+        getgenv().bangConnection = nil
+    end
+    getgenv().animEnabled = false
+end
+
+-- Xử lý khi respawn (đặt ở cuối script, sau RunService.RenderStepped:Connect(...))
+LocalPlayer.CharacterAdded:Connect(function()
+    if getgenv().animEnabled then
+        task.wait(0.5) 
+        local target = Services.Players:FindFirstChild(getgenv().SelectedTarget)
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local myChar = LocalPlayer.Character
+            local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if myHum and myHRP then
+                -- Chọn lại animation theo rig type
+                local anim = Instance.new("Animation")
+                anim.AnimationId = myHum.RigType == Enum.HumanoidRigType.R6 and "rbxassetid://148840371" or "rbxassetid://5918726674"
+
+                -- Phát lại animation
+                getgenv().animTrack = myHum:LoadAnimation(anim)
+                getgenv().animTrack:Play()
+                getgenv().animTrack:AdjustSpeed(10)
+
+                -- Teleport liên tục
+                getgenv().bangConnection = RunService.Heartbeat:Connect(function()
+                    if getgenv().animEnabled and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                        myHRP.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
+                    else
+                        stopAnimAndTp()
+                    end
+                end)
+            end
+        else
+            stopAnimAndTp()
+        end
+    end
+end)
+
+PlayerInfo:AddToggle('BangPlayerToggle', {
+    Text = 'Bang Player',
+    Default = false,  -- Bắt đầu ở trạng thái OFF
+    Tooltip = 'Toggle Bang Player on selected target',  -- Tùy chọn: thêm tooltip
+    Callback = function(state)
+        getgenv().animEnabled = state
+        
+        if not state then
+            stopAnimAndTp()
+        else
+            local target = Services.Players:FindFirstChild(getgenv().SelectedTarget)
+            if not target then
+                getgenv().animEnabled = false
+                Library:Notify("No target selected!", 5)  -- Thông báo nếu không có target
+                return
+            end
+
+            local myChar = LocalPlayer.Character
+            local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if not (myHum and myHRP) then
+                getgenv().animEnabled = false
+                Library:Notify("Character not ready!", 5)
+                return
+            end
+
+            -- Chọn animation theo rig type
+            local anim = Instance.new("Animation")
+            anim.AnimationId = myHum.RigType == Enum.HumanoidRigType.R6 and "rbxassetid://148840371" or "rbxassetid://126786971779567"  -- Giữ nguyên từ code gốc, nhưng lưu ý ID này có thể sai, kiểm tra lại nếu cần
+
+            -- Phát animation
+            getgenv().animTrack = myHum:LoadAnimation(anim)
+            getgenv().animTrack:Play()
+            getgenv().animTrack:AdjustSpeed(1)
+
+            -- Teleport liên tục
+            getgenv().bangConnection = RunService.Heartbeat:Connect(function()
+                if getgenv().animEnabled and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                    myHRP.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
+                else
+                    stopAnimAndTp()
+                end
+            end)
+        end
+    end
+})
 
 getgenv().PlayerActions = Tabs.Players:AddRightGroupbox('Player Actions')
 
@@ -5248,18 +5506,41 @@ MenuGroup:AddButton('Rejoin Server', function()
     game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
 end)
 
-
-
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 ThemeManager:SetFolder('MaddieHack')
+-- Đường dẫn lưu themes
+local themeFolder = ThemeManager.Folder .. "\\themes"
+
+-- Đảm bảo folder themes tồn tại
+if not isfolder(themeFolder) then
+    makefolder(themeFolder)
+end
+
+-- Tạo default.txt nếu chưa có
+if not isfile(themeFolder .. "\\default.txt") then
+    writefile(themeFolder .. "\\default.txt", "pink.json")
+end
+
+-- Tạo pink.json nếu chưa có
+if not isfile(themeFolder .. "\\pink.json") then
+    local themeData = {
+        MainColor = "1e1e1e",
+        AccentColor = "ffb3ba",
+        OutlineColor = "141414",
+        BackgroundColor = "232323",
+        FontColor = "d7a1a1"
+    }
+    writefile(themeFolder .. "\\pink.json", game:GetService("HttpService"):JSONEncode(themeData))
+end
+
 SaveManager:SetFolder('MaddieHack/configs')
+
 SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
 SaveManager:LoadAutoloadConfig()
-
 Library:SetWatermarkVisibility(true)
 
 local StatsService = game:GetService("Stats")
