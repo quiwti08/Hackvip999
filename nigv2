@@ -3,7 +3,7 @@ local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
-local Window = Library:CreateWindow({ Title = '                     $ Nigga.lol | Beta $                     ', AutoShow = true, TabPadding = 15, MenuFadeTime = 0.2 }) 
+local Window = Library:CreateWindow({ Title = '                     $ Nigga.lol | Anhchangm52 $                     ', AutoShow = true, TabPadding = 15, MenuFadeTime = 0.2 }) 
 
 local Tabs = { Main = Window:AddTab('Main'), Character = Window:AddTab('Character'), Visuals = Window:AddTab('Visuals'), Misc = Window:AddTab('Misc'), Players = Window:AddTab('Players'), ['UI Settings'] = Window:AddTab('UI Settings') }
 local GunMods = Tabs.Main:AddRightGroupbox('Gun Mods')
@@ -969,17 +969,48 @@ getgenv().YeuTuyen = {
     Detection = 75,
 }
 
+getgenv().camLockTargets = {}  -- Danh sách các mục tiêu đã lock
 local camLockEnabled = false
-local camLockTarget = nil
 local smoothness = 1
+local tracers = {}  -- Lưu trữ các tracer cho từng mục tiêu
+
+-- Hàm tạo tracer
+local function createTracer(target)
+    local tracer = Drawing.new("Line")
+    tracer.Visible = true
+    tracer.Color = Color3.fromRGB(255, 179, 186)  -- Màu đỏ mặc định
+    tracer.Thickness = 2
+    tracer.Transparency = 1
+    tracers[target] = tracer
+end
+
+-- Hàm xóa tracer
+local function removeTracer(target)
+    if tracers[target] then
+        tracers[target]:Remove()
+        tracers[target] = nil
+    end
+end
+
+-- Hàm tính tuổi tài khoản
+local function getAccountAge(player)
+    return math.floor((os.time() - player.AccountAge * 86400) / 86400)
+end
 
 CamLockBox:AddToggle('CamLockToggle', {
     Text = 'CamLock',
     Default = false,
     Callback = function(state)
         camLockEnabled = state
-        if not state then
-            camLockTarget = nil
+        if state then
+            -- Tắt StickyAimEnabled và TracerEnabled nếu CamLock bật
+            getgenv().StickyAimEnabled = false
+            getgenv().TracerEnabled = false
+        else
+            getgenv().camLockTargets = {}  -- Clear danh sách khi tắt
+            for target, _ in pairs(tracers) do
+                removeTracer(target)
+            end
         end
     end,
 }):AddKeyPicker('CamLockKeybind', {
@@ -991,32 +1022,46 @@ CamLockBox:AddToggle('CamLockToggle', {
         if UserInputService:GetFocusedTextBox() then return end
         if not camLockEnabled then return end
 
-        if camLockTarget then
-            camLockTarget = nil
-        else
-            local closestPlayer = nil
-            local closestDistance = math.huge
-            local mousePos = UserInputService:GetMouseLocation()
+        local closestPlayer = nil
+        local closestDistance = math.huge
+        local mousePos = UserInputService:GetMouseLocation()
 
-            for _, Player in pairs(Players:GetPlayers()) do
-                if Player == LocalPlayer then continue end
-                local character = Player.Character
-                if character then
-                    local HRP = character:FindFirstChild("Head")
-                    if HRP then
-                        local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(HRP.Position)
-                        if onScreen then
-                            local distance = (Vector2.new(mousePos.X, mousePos.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                            if distance < closestDistance then
-                                closestDistance = distance
-                                closestPlayer = Player
-                            end
+        for _, Player in pairs(Players:GetPlayers()) do
+            if Player == LocalPlayer then continue end
+            local character = Player.Character
+            if character then
+                local HRP = character:FindFirstChild("Head")
+                if HRP then
+                    local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(HRP.Position)
+                    if onScreen then
+                        local distance = (Vector2.new(mousePos.X, mousePos.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                        if distance < closestDistance then
+                            closestDistance = distance
+                            closestPlayer = Player
                         end
                     end
                 end
             end
+        end
 
-            camLockTarget = closestPlayer
+        if closestPlayer then
+            local playerName = closestPlayer.Name
+            local foundIndex = nil
+            for i, target in ipairs(getgenv().camLockTargets) do
+                if target.Name == playerName then
+                    foundIndex = i
+                    break
+                end
+            end
+            if foundIndex then
+                table.remove(getgenv().camLockTargets, foundIndex)  -- Bỏ chọn nếu đã có
+                removeTracer(closestPlayer)
+                Library:Notify(string.format("Untarget: %s (@%s), age: %d days", closestPlayer.DisplayName, closestPlayer.Name, getAccountAge(closestPlayer)), 5)
+            else
+                table.insert(getgenv().camLockTargets, closestPlayer)  -- Thêm vào danh sách
+                createTracer(closestPlayer)
+                Library:Notify(string.format("Target: %s (@%s), age: %d days", closestPlayer.DisplayName, closestPlayer.Name, getAccountAge(closestPlayer)), 5)
+            end
         end
     end,
 })
@@ -1135,14 +1180,85 @@ CamLockBox:AddInput('SmoothnessInput', {
     end
 })
 
-RunService.RenderStepped:Connect(function()
-    if camLockEnabled and camLockTarget then
-        local target = camLockTarget
+local function getBestTarget()
+    local bestTarget = nil
+    local closestDistance = math.huge
+    local mousePos = UserInputService:GetMouseLocation()
+
+    for _, target in ipairs(getgenv().camLockTargets) do
         local character = target.Character
         if character then
+            -- Kiểm tra K.O và grab nếu tồn tại
+            local bodyEffects = character:FindFirstChild("BodyEffects")
+            local isKO = false
+            if bodyEffects then
+                local koValue = bodyEffects:FindFirstChild("K.O")
+                if koValue then
+                    isKO = koValue.Value
+                end
+            end
+            local isGrabbed = character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
+
+            if isKO or isGrabbed then
+                continue
+            end
+
+            local HRP = character:FindFirstChild("Head")
+            if HRP then
+                local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(HRP.Position)
+                if onScreen then
+                    -- Kiểm tra vật cản bằng raycast
+                    local camera = workspace.CurrentCamera
+                    local origin = camera.CFrame.Position
+                    local direction = (HRP.Position - origin).Unit * (HRP.Position - origin).Magnitude
+                    local raycastParams = RaycastParams.new()
+                    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+                    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+                    local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+                    local isVisible = raycastResult == nil or raycastResult.Instance == HRP
+
+                    if isVisible then
+                        local distance = (Vector2.new(mousePos.X, mousePos.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                        if distance < closestDistance then
+                            closestDistance = distance
+                            bestTarget = target
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return bestTarget
+end
+
+RunService.RenderStepped:Connect(function()
+
+    for target, tracer in pairs(tracers) do
+        if target.Character and target.Character:FindFirstChild("Head") then
+            local head = target.Character:FindFirstChild("Head")
+            local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
+            if onScreen then
+                tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
+                tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                tracer.Visible = true
+            else
+                tracer.Visible = false
+            end
+        else
+            tracer.Visible = false
+        end
+    end
+
+    if camLockEnabled and #getgenv().camLockTargets > 0 then
+        local bestTarget = getBestTarget()
+
+        if bestTarget then
+            local target = bestTarget
+            local character = target.Character
             local HRP = character:FindFirstChild("HumanoidRootPart")
             local hum = character:FindFirstChild("Humanoid")
-            local part = character:FindFirstChild("Head") -- Default part, will be overridden
+            local part = character:FindFirstChild("Head") -- Default part, sẽ bị ghi đè
 
             if target and part and hum and target.Character then
                 -- Chọn aimpart dựa trên CheckIfJumped
@@ -1150,7 +1266,7 @@ RunService.RenderStepped:Connect(function()
                 if getgenv().YeuTuyen.CheckIfJumped and hum:GetState() == Enum.HumanoidStateType.Freefall then
                     aimPartName = getgenv().YeuTuyen.CheckIfJumpedAimPart
                 end
-                local aimPart = target.Character:FindFirstChild(aimPartName) or part 
+                local aimPart = target.Character:FindFirstChild(aimPartName) or part
 
                 -- Áp dụng UseShake
                 if getgenv().YeuTuyen.UseShake and aimPart then
@@ -1239,17 +1355,17 @@ RunService.RenderStepped:Connect(function()
                 local camera = workspace.CurrentCamera
                 local targetPosition = predictVec
 
-                -- Get the current camera CFrame
+                -- Lấy CFrame hiện tại của camera
                 local currentCFrame = camera.CFrame
 
-                -- Calculate the new look direction
+                -- Tính toán hướng nhìn mới
                 local lookVector = (targetPosition - currentCFrame.Position).Unit
 
-                -- Smoothly interpolate the look direction
+                -- Nội suy mượt mà hướng nhìn
                 local currentLookVector = currentCFrame.LookVector
                 local smoothedLookVector = currentLookVector:Lerp(lookVector, smoothness)
 
-                -- Update the camera's CFrame to face the smoothed direction
+                -- Cập nhật CFrame của camera để nhìn theo hướng mượt
                 camera.CFrame = CFrame.new(currentCFrame.Position, currentCFrame.Position + smoothedLookVector)
             end
         end
@@ -2618,26 +2734,25 @@ uhhh:AddSlider('SpinSpeedSlider', {
     end,
 })
 
-local AnimationSpeed = 1
-
-local animation = Instance.new("Animation")
-animation.AnimationId = "rbxassetid://95656304023751"
-
-local animationTrack
-local isPlaying = false
-local takethelEnabled = false
+getgenv().selectedAnimationId = "rbxassetid://95656304023751"  -- Default: Take The L
+getgenv().AnimationSpeed = 1  -- Default speed
+getgenv().playAnimationEnabled = false  -- Thay vì takethelEnabled
+getgenv().animationTrack = nil
+getgenv().isPlaying = false
 
 local function loadAnimationTrack(character)
     local humanoid = character:WaitForChild("Humanoid")
-    animationTrack = humanoid:LoadAnimation(animation)
-    animationTrack.Looped = true
-    animationTrack.Priority = Enum.AnimationPriority.Action
+    local animation = Instance.new("Animation")
+    animation.AnimationId = getgenv().selectedAnimationId  -- Load ID từ lựa chọn
+    getgenv().animationTrack = humanoid:LoadAnimation(animation)
+    getgenv().animationTrack.Looped = true
+    getgenv().animationTrack.Priority = Enum.AnimationPriority.Action
     
-    if takethelEnabled then
+    if getgenv().playAnimationEnabled then
         task.wait(0.6)
-        animationTrack:Play()
-        animationTrack:AdjustSpeed(AnimationSpeed)
-        isPlaying = true
+        getgenv().animationTrack:Play()
+        getgenv().animationTrack:AdjustSpeed(getgenv().AnimationSpeed)
+        getgenv().isPlaying = true
     end
 end
 
@@ -2651,38 +2766,76 @@ end
 
 local stutz = Tabs.Character:AddRightGroupbox('Misc')
 
-stutz:AddToggle("TakeTheLToggle", {
-    Text = "Take The L",
-    Default = false,
-    Callback = function(state)
-        takethelEnabled = state
-        if state and animationTrack then
-            animationTrack:Play()
-            animationTrack:AdjustSpeed(AnimationSpeed)
-            isPlaying = true
-        elseif not state and animationTrack then
-            animationTrack:Stop()
-            isPlaying = false
+stutz:AddDropdown("AnimationDropdown", {
+    Values = {"Take The L", "Floss", "Jump Happier"},
+    Default = "Take The L",
+    Multi = false,
+    Text = "Select Animation",
+    Callback = function(value)
+        if value == "Take The L" then
+            getgenv().selectedAnimationId = "rbxassetid://95656304023751"
+        elseif value == "Floss" then
+            getgenv().selectedAnimationId = "rbxassetid://10714340543"
+        elseif value == "Jump Happier" then
+            getgenv().selectedAnimationId = "http://www.roblox.com/asset/?id=15609995579"
         end
-    end
-}):AddKeyPicker("TakeTheLkeybind", {
-    Default = "C",
-    Text = "Take The L",
-    Mode = "Toggle",
-    Callback = function(key)
-        if UserInputService:GetFocusedTextBox() then return end
-        if takethelEnabled and animationTrack then
-            if isPlaying then
-                animationTrack:Stop()
-            else
-                animationTrack:Play()
-                animationTrack:AdjustSpeed(AnimationSpeed)
-            end
-            isPlaying = not isPlaying
+        
+        -- Reload animation nếu đang bật
+        if getgenv().animationTrack then
+            getgenv().animationTrack:Stop()
+            getgenv().animationTrack = nil
+        end
+        if getgenv().playAnimationEnabled and LocalPlayer.Character then
+            loadAnimationTrack(LocalPlayer.Character)
         end
     end
 })
 
+stutz:AddSlider("AnimationSpeedSlider", {
+    Text = "Animation Speed",
+    Default = 1,
+    Min = 1,
+    Max = 50,
+    Rounding = 0,
+    Callback = function(value)
+        getgenv().AnimationSpeed = value
+        if getgenv().animationTrack then
+            getgenv().animationTrack:AdjustSpeed(getgenv().AnimationSpeed)
+        end
+    end
+})
+
+stutz:AddToggle("PlayAnimationToggle", {
+    Text = "Play Animation",
+    Default = false,
+    Callback = function(state)
+        getgenv().playAnimationEnabled = state
+        if state and getgenv().animationTrack then
+            getgenv().animationTrack:Play()
+            getgenv().animationTrack:AdjustSpeed(getgenv().AnimationSpeed)
+            getgenv().isPlaying = true
+        elseif not state and getgenv().animationTrack then
+            getgenv().animationTrack:Stop()
+            getgenv().isPlaying = false
+        end
+    end
+}):AddKeyPicker("PlayAnimationKeybind", {
+    Default = "C",
+    Text = "Play Animation",
+    Mode = "Toggle",
+    Callback = function(key)
+        if UserInputService:GetFocusedTextBox() then return end
+        if getgenv().playAnimationEnabled and getgenv().animationTrack then
+            if getgenv().isPlaying then
+                getgenv().animationTrack:Stop()
+            else
+                getgenv().animationTrack:Play()
+                getgenv().animationTrack:AdjustSpeed(getgenv().AnimationSpeed)
+            end
+            getgenv().isPlaying = not getgenv().isPlaying
+        end
+    end
+})
 stutz:AddToggle("NoClipToggle", {
     Text = "NoClip",
     Default = false,
@@ -2992,6 +3145,147 @@ game:GetService("RunService").Heartbeat:Connect(function()
 end)
 
 local stuffs = Tabs.Misc:AddRightGroupbox("Stuff")
+
+getgenv().jerkOffEnabled = false
+
+stuffs:AddToggle('JerkOffToggle', {
+    Text = 'Jerk Off',
+    Default = false,
+    Tooltip = 'Adds a Jerk Off tool to your backpack with animation',
+    Callback = function(state)
+        getgenv().jerkOffEnabled = state
+        if state then
+            local speaker = game.Players.LocalPlayer
+            local humanoid = speaker.Character and speaker.Character:FindFirstChildOfClass("Humanoid")
+            local backpack = speaker:FindFirstChild("Backpack")
+            if not humanoid or not backpack then
+                Library:Notify("Character or backpack not found!", 5)
+                return
+            end
+
+            local function createJerkOffTool()
+                local tool = Instance.new("Tool")
+                tool.Name = "Jerk Off"
+                tool.ToolTip = "in the stripped club. straight up \"jorking it\" . and by \"it\" , haha, well. let's justr say. My peanits."
+                tool.RequiresHandle = false
+                tool.Parent = backpack
+
+                local jorkin = false
+                local track = nil
+
+                local function stopTomfoolery()
+                    jorkin = false
+                    if track then
+                        track:Stop()
+                        track = nil
+                    end
+                end
+
+                tool.Equipped:Connect(function()
+                    jorkin = true
+                end)
+                tool.Unequipped:Connect(stopTomfoolery)
+                humanoid.Died:Connect(stopTomfoolery)
+
+                task.spawn(function()
+                    while task.wait() do
+                        if not jorkin then continue end
+                        local isR15 = humanoid.RigType == Enum.HumanoidRigType.R15
+                        if not track then
+                            local anim = Instance.new("Animation")
+                            anim.AnimationId = isR15 and "rbxassetid://698251653" or "rbxassetid://72042024"
+                            track = humanoid:LoadAnimation(anim)
+                        end
+                        track:Play()
+                        track:AdjustSpeed(isR15 and 0.7 or 0.65)
+                        track.TimePosition = 0.6
+                        task.wait(0.1)
+                        while track and track.TimePosition < (isR15 and 0.7 or 0.65) do
+                            task.wait(0.1)
+                        end
+                        if track then
+                            track:Stop()
+                            track = nil
+                        end
+                    end
+                end)
+            end
+
+            createJerkOffTool()
+        else
+            local speaker = game.Players.LocalPlayer
+            local backpack = speaker:FindFirstChild("Backpack")
+            local character = speaker.Character
+            if backpack then
+                local toolInBackpack = backpack:FindFirstChild("Jerk Off")
+                if toolInBackpack then
+                    toolInBackpack:Destroy()
+                end
+            end
+            if character then
+                local toolInCharacter = character:FindFirstChild("Jerk Off")
+                if toolInCharacter then
+                    toolInCharacter:Destroy()
+                end
+            end
+        end
+    end
+})
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    if getgenv().jerkOffEnabled then
+        task.wait(0.5)
+        local humanoid = newChar:FindFirstChildOfClass("Humanoid")
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if humanoid and backpack then
+            local tool = Instance.new("Tool")
+            tool.Name = "Jerk Off"
+            tool.ToolTip = "in the stripped club. straight up \"jorking it\" . and by \"it\" , haha, well. let's justr say. My peanits."
+            tool.RequiresHandle = false
+            tool.Parent = backpack
+
+            local jorkin = false
+            local track = nil
+
+            local function stopTomfoolery()
+                jorkin = false
+                if track then
+                    track:Stop()
+                    track = nil
+                end
+            end
+
+            tool.Equipped:Connect(function()
+                jorkin = true
+            end)
+            tool.Unequipped:Connect(stopTomfoolery)
+            humanoid.Died:Connect(stopTomfoolery)
+
+            task.spawn(function()
+                while task.wait() do
+                    if not jorkin then continue end
+                    local isR15 = humanoid.RigType == Enum.HumanoidRigType.R15
+                    if not track then
+                        local anim = Instance.new("Animation")
+                        anim.AnimationId = isR15 and "rbxassetid://698251653" or "rbxassetid://72042024"
+                        track = humanoid:LoadAnimation(anim)
+                    end
+                    track:Play()
+                    track:AdjustSpeed(isR15 and 0.7 or 0.65)
+                    track.TimePosition = 0.6
+                    task.wait(0.1)
+                    while track and track.TimePosition < (isR15 and 0.7 or 0.65) do
+                        task.wait(0.1)
+                    end
+                    if track then
+                        track:Stop()
+                        track = nil
+                    end
+                end
+            end)
+        end
+    end
+end)
 
 stuffs:AddToggle("ToolToggle", {
     Text = "Pqnd4 kick",
@@ -3436,6 +3730,48 @@ LocalPlayer.CharacterAdded:Connect(function()
     AutoBuyOnRespawnHandler()
 end)
 
+getgenv().AutoKnifeEnabled = false
+
+AutoBuy:AddToggle('AutoKnifeToggle', {
+    Text = 'Auto Knife',
+    Default = false,
+    Callback = function(state)
+        getgenv().AutoKnifeEnabled = state
+        if state then
+            task.spawn(function()
+                while getgenv().AutoKnifeEnabled do
+                    local player = game.Players.LocalPlayer
+                    local hasKnife = false
+
+                    -- Kiểm tra xem có knife trong Backpack hoặc Character không
+                    if player.Backpack:FindFirstChild("[Knife]") or (player.Character and player.Character:FindFirstChild("[Knife]")) then
+                        hasKnife = true
+                    end
+
+                    -- Nếu không có knife, thực hiện logic mua
+                    if not hasKnife and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        local knifeShop = game.Workspace.Ignored.Shop['[Knife] - $155']
+                        local originalPos = player.Character.HumanoidRootPart.Position
+
+                        -- Dịch chuyển đến vị trí shop
+                        player.Character.HumanoidRootPart.CFrame = knifeShop.Head.CFrame + Vector3.new(0, 3, 0)
+
+                        -- Kiểm tra khoảng cách
+                        if (player.Character.HumanoidRootPart.Position - knifeShop.Head.Position).Magnitude <= 50 then
+                            wait(0.2)
+                            fireclickdetector(knifeShop:FindFirstChild("ClickDetector"), 4)
+                            -- Trở về vị trí ban đầu
+                            player.Character.HumanoidRootPart.CFrame = CFrame.new(originalPos)
+                        end
+                    end
+
+                    task.wait(0.5) -- Đợi 0.5s để tránh lag
+                end
+            end)
+        end
+    end
+})
+
 Modifications:AddToggle('AntiVoid', {
     Text = 'Anti Void',
     Default = false,
@@ -3709,7 +4045,7 @@ Modifications:AddToggle('GrenadeDetection', {
 local webhook = Modifications:AddButton('Redeem Codes', function()
     local codes = {
         "MUSIC", "KINGPIN",
-       "BUBU", "SHRIMP", "VIP", "2025", "BLOSSOM", "VALENTINES24", "ShortCake", "Beary"
+       "BUBU", "BRAINROT", "LUXE", "TURBO", "BLOSSOM", "VALENTINES24", "ShortCake", "Beary"
    }
    local mainEvent = game:GetService("ReplicatedStorage"):WaitForChild("MainEvent") or nil
 
@@ -3722,6 +4058,36 @@ end)
 
 webhook:AddButton('Force Reset', function()
     game.Players.LocalPlayer.Character.Humanoid.Health = 0
+end)
+
+Modifications:AddButton('Unjail', function()
+    local plr = game.Players.LocalPlayer
+    if plr.DataFolder.Currency.Value >= 125 then
+        plr.Character.HumanoidRootPart.CFrame = CFrame.new(-270.94, 20.327, -242.38)--Key
+        plr.Character.HumanoidRootPart.CFrame = CFrame.new(-270.94, 20.327, -242.38)--Key(Backup)
+        wait()
+        fireclickdetector(game:GetService("Workspace").Ignored.Shop["[Key] - $125"].ClickDetector)
+        wait(.1)
+        fireclickdetector(game:GetService("Workspace").Ignored.Shop["[Key] - $125"].ClickDetector)
+        fireclickdetector(game:GetService("Workspace").Ignored.Shop["[Key] - $125"].ClickDetector)
+        repeat wait() until plr.Backpack:FindFirstChild('[Key]')
+        local Hum = plr.Character:FindFirstChildOfClass('Humanoid')
+        if Hum.Health > 0 then
+            key1 = plr.Backpack:FindFirstChild('[Key]')
+            if key1 then
+                Hum:EquipTool(key1)
+                for i,v in pairs(game:GetService'Players'.LocalPlayer.Character:GetChildren())do
+                    if v:isA("Tool") then
+                        plr.Character.Humanoid:EquipTool(key1)
+                        plr.Character.HumanoidRootPart.CFrame = CFrame.new(-485.668, 23.631, -285.169)--Bank
+                        v:Activate()
+                    end
+                end
+            end
+        end
+    elseif plr.DataFolder.Currency.Value < 125 then
+        Library:Notify('Not Enough Cash (Required 125$)', 5)
+    end
 end)
 
 local ChatEnabled = true
@@ -5165,7 +5531,7 @@ getgenv().BuyItem = function(itemName)
             local itemHead = item:FindFirstChild("Head")
             if itemHead then
                 LocalPlayer.Character.HumanoidRootPart.CFrame = itemHead.CFrame + Vector3.new(0, 3.2, 0)
-                task.wait(0.1) -- Reduced wait time for faster execution
+                task.wait(0.3) 
                 fireclickdetector(item:FindFirstChild("ClickDetector"))
             end
             break
@@ -5232,6 +5598,10 @@ getgenv().KillAllPlayers = function()
         while not (LocalPlayer.Backpack:FindFirstChild("[LMG]") or LocalPlayer.Character:FindFirstChild("[LMG]")) and getgenv().KillAllEnabled do
             getgenv().BuyItem("[LMG] - $4098")
             task.wait(0.2)
+            for i = 1, 5 do
+                getgenv().BuyItem("200 [LMG Ammo] - $328")
+                task.wait(1)
+            end
         end
 
         local lmgTool = getgenv().EquipLMG()
@@ -5252,7 +5622,7 @@ getgenv().KillAllPlayers = function()
                     -- Bắn cho đến khi target bị KO
                     while not getgenv().IsKnockedOut(player) and getgenv().KillAllEnabled do
                         -- Dịch lên trên mục tiêu 20 stud để bắn
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 20, 0)
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 100, 0)
                         getgenv().ShootPlayer(player, lmgTool)
                         task.wait(0)
                     end
@@ -5298,25 +5668,32 @@ getgenv().StompAllPlayers = function()
                         local sDeathValue = bodyEffects:FindFirstChild("SDeath")
 
                         if koValue and sDeathValue and koValue.Value and not sDeathValue.Value then
-                        getgenv().OriginalPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
-                            -- Dịch chuyển lên trên đầu 3 stud để tránh va chạm
+                            -- Lưu vị trí ban đầu
+                            getgenv().OriginalPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
+                            
+                            -- Dịch chuyển lên trên đầu 3 stud
                             LocalPlayer.Character.HumanoidRootPart.CFrame =
                                 CFrame.new(upperTorso.Position + Vector3.new(0, 3, 0))
 
                             -- Gửi Stomp
                             MainRemote:FireServer("Stomp")
 
-                            if getgenv().OriginalPosition then
-                                LocalPlayer.Character.HumanoidRootPart.CFrame = getgenv().OriginalPosition
-                            end
+                            -- Đợi 0.1 giây
+                            task.wait(0.1)
 
-                            -- Đợi một frame để tránh lag
-                            RunService.RenderStepped:Wait()
+                            -- Kiểm tra lại K.O
+                            if koValue and not koValue.Value then
+                                -- Nếu không còn K.O, trở về vị trí cũ
+                                if getgenv().OriginalPosition then
+                                    LocalPlayer.Character.HumanoidRootPart.CFrame = getgenv().OriginalPosition
+                                    getgenv().OriginalPosition = nil
+                                end
+                            end
                         end
                     end
                 end
             end
-            task.wait(0.1) -- vòng lặp liên tục nhưng không nặng
+            task.wait(0.2) -- Vòng lặp liên tục nhưng nhẹ
         end
     end)
 end
@@ -5489,7 +5866,7 @@ getgenv().autoShootToggle = AllPlayerActions:AddToggle('AutoShootToggle', {
 
 
 MenuGroup:AddButton('Unload', function() Library:Unload() end)
-MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightAlt', NoUI = true, Text = 'Menu keybind' })
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightCtrl', NoUI = true, Text = 'Menu keybind' })
 Library.ToggleKeybind = Options.MenuKeybind
 
 MenuGroup:AddToggle('KeybindListToggle', {
@@ -5623,7 +6000,7 @@ local WatermarkConnection = RunService.RenderStepped:Connect(function()
     local UptimeFormatted = string.format("%02d:%02d", math.floor(Uptime / 60), Uptime % 60)
     local GameName = getGameName(game.PlaceId)
 
-    Library:SetWatermark(("[ Nigga.lol ] | $ Beta $ |  %s | %s (%d) | Uptime: %s | FPS %d | %d ms"):format(
+    Library:SetWatermark(("[ Nigga.lol ] | $ Anhchangm52 $ |  %s | %s (%d) | Uptime: %s | FPS %d | %d ms"):format(
         Executor, GameName, game.PlaceId, UptimeFormatted, math.floor(FPS), Ping
     ))
 end)
