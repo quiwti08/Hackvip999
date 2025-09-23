@@ -1,5 +1,5 @@
 
-local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local repo = 'https://raw.githubusercontent.com/LionTheGreatRealFrFr/MobileLinoriaLib/main/'
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
@@ -2393,6 +2393,76 @@ targetstuffyh:AddDropdown("TracerMode", {
         targetToMouseTracer = (Value == "Mouse")
     end
 })
+
+-- Hàm tạo ScreenGui để chứa Toggle Button
+local function createScreenGui()
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "ToggleUiGui"
+    sg.Parent = game:GetService("CoreGui")
+    sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    sg.ResetOnSpawn = false
+    return sg
+end
+
+-- Hàm khởi tạo nút Toggle UI
+local function initializeToggleButton(screenGui)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 100, 0, 60)
+    button.Position = UDim2.new(1, -110, 0, 80) -- lệch phải màn hình
+    button.Text = "Toggle UI"
+    button.Font = Enum.Font.SourceSansBold
+    button.TextSize = 14
+    button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    button.BackgroundTransparency = 0.35
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.BorderSizePixel = 0
+    button.ClipsDescendants = true
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = button
+
+    button.Parent = screenGui
+
+    -- Biến cục bộ để xử lý drag
+    local dragging = false
+    local dragStart, startPos, dragInput
+
+    -- Sự kiện click để toggle UI
+    button.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if Library and Library.Toggle then
+                Library:Toggle()
+            end
+
+            dragging = true
+            dragStart = input.Position
+            startPos = button.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    -- Xử lý kéo thả
+    button.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            dragInput = input
+            local delta = dragInput.Position - dragStart
+            button.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- Tạo ScreenGui và gắn Toggle Button
+local screenGui = createScreenGui()
+initializeToggleButton(screenGui)
 
 getgenv().envt = Tabs.Visuals:AddRightGroupbox("Environment")
 
@@ -5920,54 +5990,6 @@ MenuGroup:AddInput('JobIdInput', {
         game:GetService('TeleportService'):TeleportToPlaceInstance(game.PlaceId, Value, game:GetService('Players').LocalPlayer)
     end
 })
-
-local function initializeToggleButton(screenGui)
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0, 100, 0, 60)
-    button.Position = UDim2.new(1, -100, 0, 80)
-    button.Text = "Toggle UI"
-    button.Font = Enum.Font.SourceSansBold
-    button.TextSize = 14
-    button.BackgroundColor3 = Color3.new(0, 0, 0)
-    button.BackgroundTransparency = 1
-    button.TextColor3 = Color3.new(1, 1, 1)
-    button.BorderSizePixel = 0
-
-    button.ClipsDescendants = true
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 5)
-    corner.Parent = button
-
-    button.Parent = screenGui
-
-    button.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            -- Trigger the toggle function on each click
-            Library:Toggle()
-
-            dragging = true
-            dragStart = input.Position
-            startPos = button.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    button.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
-            dragInput = input
-            local delta = dragInput.Position - dragStart
-            button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-end
-
-local screenGui = createScreenGui()
-initializeToggleButton(screenGui)
 
 MenuGroup:AddButton('Rejoin Server', function()
     game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
