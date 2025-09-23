@@ -1396,18 +1396,11 @@ KillAura:AddToggle('MainToggle', {
     Default = false,
     Callback = function(state)
         getgenv().enabled = state
+        getgenv().active = state
         if not state then
             getgenv().active = false
             getgenv().tracer.Transparency = 1
         end
-    end
-}):AddKeyPicker('Keybind', {
-    Default = 'K',
-    Text = 'kill aura',
-    Mode = 'Toggle',
-    Callback = function(state)
-        if not getgenv().enabled or UserInputService:GetFocusedTextBox() then return end
-        getgenv().active = state
     end
 })
 
@@ -2413,7 +2406,7 @@ local function initializeToggleButton(screenGui)
     button.Font = Enum.Font.SourceSansBold
     button.TextSize = 14
     button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    button.BackgroundTransparency = 0.35
+    button.BackgroundTransparency = 1
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.BorderSizePixel = 0
     button.ClipsDescendants = true
