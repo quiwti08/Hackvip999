@@ -1179,92 +1179,6 @@ CamLockBox:AddInput('SmoothnessInput', {
     end
 })
 
-local Sigmaballs = Instance.new("ScreenGui")
-Sigmaballs.Name = "Sigmaballs"
-Sigmaballs.Parent = game.CoreGui
-Sigmaballs.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Sigmaballs.ResetOnSpawn = false
-
-local ImageButton = Instance.new("ImageButton")
-ImageButton.Name = "ImageButton"
-ImageButton.Parent = Sigmaballs
-ImageButton.Active = true
-ImageButton.Draggable = true
-ImageButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-ImageButton.BackgroundTransparency = 0.5
-ImageButton.Size = UDim2.new(0, 90, 0, 90)
-ImageButton.Image = "rbxassetid://96086736054343"
-ImageButton.Position = UDim2.new(0.5, -25, 0.5, -25)
-
-local Ui2corner = Instance.new("UICorner")
-Ui2corner.CornerRadius = UDim.new(0.2, 0)
-Ui2corner.Parent = ImageButton
-
--- Handle button click for target selection
-ImageButton.MouseButton1Click:Connect(function()
-    if StickyAimEnabled or camLockEnabled then
-        local camera = workspace.CurrentCamera
-        local mouseLocation = UserInputService:GetMouseLocation()
-        local closestTarget, closestDistance = nil, math.huge
-
-        for _, otherPlayer in ipairs(Players:GetPlayers()) do
-            if otherPlayer ~= LocalPlayer and otherPlayer.Character and otherPlayer.Character:FindFirstChild(targetHitPart) then
-                local bodyEffects = otherPlayer.Character:FindFirstChild("BodyEffects")
-                local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
-                local isGrabbed = otherPlayer.Character:FindFirstChild("GRABBING_CONSTRAINT")
-
-                if (not grabCheckEnabled or not isGrabbed) and
-                   (not friendCheckEnabled or not LocalPlayer:IsFriendsWith(otherPlayer.UserId)) then
-
-                    local targetPart = otherPlayer.Character[targetHitPart]
-                    local screenPosition, onScreen = camera:WorldToViewportPoint(targetPart.Position)
-                    if onScreen then
-                        local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - mouseLocation).Magnitude
-                        if distance < closestDistance then
-                            closestTarget = otherPlayer
-                            closestDistance = distance
-                        end
-                    end
-                end
-            end
-        end
-
-        if closestTarget then
-            if StickyAimEnabled then
-                if lockedTarget == closestTarget then
-                    lockedTarget = nil
-                    ImageButton.Image = "rbxassetid://140623923630784"
-                    Library:Notify("Untarget: " .. closestTarget.DisplayName, 5)
-                else
-                    lockedTarget = closestTarget
-                    ImageButton.Image = "rbxassetid://96086736054343"
-                    Library:Notify("Target: " .. closestTarget.DisplayName, 5)
-                end
-            elseif camLockEnabled then
-                local playerName = closestTarget.Name
-                local foundIndex = nil
-                for i, target in ipairs(getgenv().camLockTargets) do
-                    if target.Name == playerName then
-                        foundIndex = i
-                        break
-                    end
-                end
-                if foundIndex then
-                    table.remove(getgenv().camLockTargets, foundIndex)
-                    removeTracer(closestTarget)
-                    ImageButton.Image = "rbxassetid://140623923630784"
-                    Library:Notify("Untarget: " .. closestTarget.DisplayName, 5)
-                else
-                    table.insert(getgenv().camLockTargets, closestTarget)
-                    createTracer(closestTarget)
-                    ImageButton.Image = "rbxassetid://96086736054343"
-                    Library:Notify("Target: " .. closestTarget.DisplayName, 5)
-                end
-            end
-        end
-    end
-end)
-
 local function getBestTarget()
     local bestTarget = nil
     local closestDistance = math.huge
@@ -1333,12 +1247,6 @@ RunService.RenderStepped:Connect(function()
         else
             tracer.Visible = false
         end
-    end
-
-    if StickyAimEnabled or camLockEnabled then
-        Sigmaballs.Enabled = true
-    else
-        Sigmaballs.Enabled = false
     end
 
     if camLockEnabled and #getgenv().camLockTargets > 0 then
@@ -2723,7 +2631,7 @@ uhhh:AddSlider('CFrameSpeedSlider', {
 })
 
 -- Kiểm tra nếu getgenv().walkSpeed bật thì mới tạo nút WalkSpeed
-if getgenv().walkSpeed then
+if getgenv().walkSpeedEnabled then
     local howmany = 0
     local MakeButton = LPH_NO_VIRTUALIZE(function(ButtonName, Color, callback, keycode)
         howmany = howmany + 1
