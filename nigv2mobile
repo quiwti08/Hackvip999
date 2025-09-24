@@ -2572,64 +2572,6 @@ uhhh:AddToggle('CFrameSpeedToggle', {
     end,
 })
 
-uhhh:AddToggle('WalkSpeedToggle', {
-    Text = 'WalkSpeed',
-    Default = false,
-    Callback = function(state)
-        getgenv().walkSpeedEnabled = state
-        if not state then getgenv().walkSpeedKeybindActive = false end
-    end,
-}):AddKeyPicker('WalkSpeedKeybind', {
-    Default = 'T',
-    Text = 'Velocity',
-    Mode = 'Toggle',
-    Callback = function(state)
-        if game:GetService("UserInputService"):GetFocusedTextBox() then return end
-        if getgenv().walkSpeedEnabled then getgenv().walkSpeedKeybindActive = state end
-    end,
-})
-
-uhhh:AddToggle('JumpPowerToggle', {
-    Text = 'JumpPower',
-    Default = false,
-    Callback = function(state)
-        getgenv().jumpPowerEnabled = state
-    end,
-})
-
-uhhh:AddSlider('WalkSpeedSlider', {
-    Text = 'WalkSpeed',
-    Default = 16,
-    Min = 16,
-    Max = 500,
-    Rounding = 0,
-    Callback = function(value)
-        getgenv().walkSpeed = value
-    end,
-})
-
-uhhh:AddSlider('JumpPowerSlider', {
-    Text = 'JumpPower',
-    Default = 50,
-    Min = 50,
-    Max = 500,
-    Rounding = 0,
-    Callback = function(value)
-        getgenv().jumpPower = value
-    end,
-})
-
-uhhh:AddSlider('CFrameSpeedSlider', {
-    Text = 'Speed',
-    Default = 10,
-    Min = 1,
-    Max = 200,
-    Rounding = 1,
-    Callback = function(value)
-        getgenv().cframeSpeed = value
-    end,
-})
-
 -- Tạo ScreenGui cho nút WalkSpeed
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game:GetService("CoreGui")
@@ -2733,14 +2675,64 @@ TextLabel.InputChanged:Connect(function(input)
     end
 end)
 
--- Cập nhật trạng thái Visible dựa trên getgenv().walkSpeedEnabled
-game:GetService("RunService").RenderStepped:Connect(function()
-    if getgenv().walkSpeedEnabled then
+uhhh:AddToggle('WalkSpeedToggle', {
+    Text = 'WalkSpeed',
+    Default = false,
+    Callback = function(state)
+        getgenv().walkSpeedEnabled = state
         ScreenGui.Enabled = true
-    else
-        ScreenGui.Enabled = false
-    end
-end)
+        if not state then getgenv().walkSpeedKeybindActive = false and ScreenGui.Enabled = false end
+    end,
+}):AddKeyPicker('WalkSpeedKeybind', {
+    Default = 'T',
+    Text = 'Velocity',
+    Mode = 'Toggle',
+    Callback = function(state)
+        if game:GetService("UserInputService"):GetFocusedTextBox() then return end
+        if getgenv().walkSpeedEnabled then getgenv().walkSpeedKeybindActive = state end
+    end,
+})
+
+uhhh:AddToggle('JumpPowerToggle', {
+    Text = 'JumpPower',
+    Default = false,
+    Callback = function(state)
+        getgenv().jumpPowerEnabled = state
+    end,
+})
+
+uhhh:AddSlider('WalkSpeedSlider', {
+    Text = 'WalkSpeed',
+    Default = 16,
+    Min = 16,
+    Max = 500,
+    Rounding = 0,
+    Callback = function(value)
+        getgenv().walkSpeed = value
+    end,
+})
+
+uhhh:AddSlider('JumpPowerSlider', {
+    Text = 'JumpPower',
+    Default = 50,
+    Min = 50,
+    Max = 500,
+    Rounding = 0,
+    Callback = function(value)
+        getgenv().jumpPower = value
+    end,
+})
+
+uhhh:AddSlider('CFrameSpeedSlider', {
+    Text = 'Speed',
+    Default = 10,
+    Min = 1,
+    Max = 200,
+    Rounding = 1,
+    Callback = function(value)
+        getgenv().cframeSpeed = value
+    end,
+})
 
 game:GetService('RunService').RenderStepped:Connect(function()
     local player = game.Players.LocalPlayer
