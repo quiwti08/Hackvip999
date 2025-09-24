@@ -1179,6 +1179,92 @@ CamLockBox:AddInput('SmoothnessInput', {
     end
 })
 
+local Sigmaballs = Instance.new("ScreenGui")
+Sigmaballs.Name = "Sigmaballs"
+Sigmaballs.Parent = game.CoreGui
+Sigmaballs.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Sigmaballs.ResetOnSpawn = false
+
+local ImageButton = Instance.new("ImageButton")
+ImageButton.Name = "ImageButton"
+ImageButton.Parent = Sigmaballs
+ImageButton.Active = true
+ImageButton.Draggable = true
+ImageButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ImageButton.BackgroundTransparency = 0.5
+ImageButton.Size = UDim2.new(0, 90, 0, 90)
+ImageButton.Image = "rbxassetid://96086736054343"
+ImageButton.Position = UDim2.new(0.5, -25, 0.5, -25)
+
+local Ui2corner = Instance.new("UICorner")
+Ui2corner.CornerRadius = UDim.new(0.2, 0)
+Ui2corner.Parent = ImageButton
+
+-- Handle button click for target selection
+ImageButton.MouseButton1Click:Connect(function()
+    if StickyAimEnabled or camLockEnabled then
+        local camera = workspace.CurrentCamera
+        local mouseLocation = UserInputService:GetMouseLocation()
+        local closestTarget, closestDistance = nil, math.huge
+
+        for _, otherPlayer in ipairs(Players:GetPlayers()) do
+            if otherPlayer ~= LocalPlayer and otherPlayer.Character and otherPlayer.Character:FindFirstChild(targetHitPart) then
+                local bodyEffects = otherPlayer.Character:FindFirstChild("BodyEffects")
+                local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+                local isGrabbed = otherPlayer.Character:FindFirstChild("GRABBING_CONSTRAINT")
+
+                if (not grabCheckEnabled or not isGrabbed) and
+                   (not friendCheckEnabled or not LocalPlayer:IsFriendsWith(otherPlayer.UserId)) then
+
+                    local targetPart = otherPlayer.Character[targetHitPart]
+                    local screenPosition, onScreen = camera:WorldToViewportPoint(targetPart.Position)
+                    if onScreen then
+                        local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - mouseLocation).Magnitude
+                        if distance < closestDistance then
+                            closestTarget = otherPlayer
+                            closestDistance = distance
+                        end
+                    end
+                end
+            end
+        end
+
+        if closestTarget then
+            if StickyAimEnabled then
+                if lockedTarget == closestTarget then
+                    lockedTarget = nil
+                    ImageButton.Image = "rbxassetid://140623923630784"
+                    Library:Notify("Untarget: " .. closestTarget.DisplayName, 5)
+                else
+                    lockedTarget = closestTarget
+                    ImageButton.Image = "rbxassetid://96086736054343"
+                    Library:Notify("Target: " .. closestTarget.DisplayName, 5)
+                end
+            elseif camLockEnabled then
+                local playerName = closestTarget.Name
+                local foundIndex = nil
+                for i, target in ipairs(getgenv().camLockTargets) do
+                    if target.Name == playerName then
+                        foundIndex = i
+                        break
+                    end
+                end
+                if foundIndex then
+                    table.remove(getgenv().camLockTargets, foundIndex)
+                    removeTracer(closestTarget)
+                    ImageButton.Image = "rbxassetid://140623923630784"
+                    Library:Notify("Untarget: " .. closestTarget.DisplayName, 5)
+                else
+                    table.insert(getgenv().camLockTargets, closestTarget)
+                    createTracer(closestTarget)
+                    ImageButton.Image = "rbxassetid://96086736054343"
+                    Library:Notify("Target: " .. closestTarget.DisplayName, 5)
+                end
+            end
+        end
+    end
+end)
+
 local function getBestTarget()
     local bestTarget = nil
     local closestDistance = math.huge
@@ -1247,6 +1333,12 @@ RunService.RenderStepped:Connect(function()
         else
             tracer.Visible = false
         end
+    end
+
+    if StickyAimEnabled or camLockEnabled then
+        Sigmaballs.Enabled = true
+    else
+        Sigmaballs.Enabled = false
     end
 
     if camLockEnabled and #getgenv().camLockTargets > 0 then
@@ -2629,6 +2721,121 @@ uhhh:AddSlider('CFrameSpeedSlider', {
         getgenv().cframeSpeed = value
     end,
 })
+
+-- Kiểm tra nếu getgenv().walkSpeed bật thì mới tạo nút WalkSpeed
+if getgenv().walkSpeed then
+    local howmany = 0
+    local MakeButton = LPH_NO_VIRTUALIZE(function(ButtonName, Color, callback, keycode)
+        howmany = howmany + 1
+
+        local ScreenGui = Instance.new("ScreenGui")
+        ScreenGui.Parent = game:GetService("CoreGui")
+        ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+        local Frame = Instance.new("Frame")
+        local TextButton = Instance.new("ImageLabel")
+        local TextLabel = Instance.new("TextButton")
+        local UITextSizeConstraint = Instance.new("UITextSizeConstraint")
+
+        Frame.Parent = ScreenGui
+        Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        Frame.BackgroundTransparency = 0.3
+        Frame.Position = UDim2.new(1, -150, 0, (howmany - 1) * 60)
+        Frame.Size = UDim2.new(0, 120, 0, 40)
+
+        local uiStroke = Instance.new("UIStroke")
+        uiStroke.Parent = Frame
+        uiStroke.Color = Color
+        uiStroke.Thickness = 1.2
+        uiStroke.Transparency = 0
+
+        TextButton.Parent = Frame
+        TextButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        TextButton.BackgroundTransparency = 1
+        TextButton.Size = UDim2.new(0, 28, 0, 28)
+        TextButton.AnchorPoint = Vector2.new(0, 0.5)
+        TextButton.Position = UDim2.new(0.05, 0, 0.5, 0)
+        TextButton.Image = "rbxassetid://10734923214"
+        TextButton.ImageColor3 = Color
+
+        TextLabel.Parent = Frame
+        TextLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        TextLabel.BackgroundTransparency = 1
+        TextLabel.Size = UDim2.new(0, 80, 0, 28)
+        TextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+        TextLabel.Position = UDim2.new(0.65, 0, 0.5, 0)
+        TextLabel.Font = Enum.Font.Arimo
+        TextLabel.Text = ButtonName
+        TextLabel.TextColor3 = Color
+        TextLabel.TextScaled = true
+        TextLabel.TextSize = 25
+        TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        TextLabel.TextStrokeTransparency = 1
+
+        local uiCorner = Instance.new("UICorner", Frame)
+        uiCorner.CornerRadius = UDim.new(0, 8)
+
+        local buttonState = false
+
+        TextLabel.MouseButton1Down:Connect(function()
+            buttonState = not buttonState
+            callback(buttonState)
+
+            if buttonState then
+                TextButton.Image = "rbxassetid://10735024209"
+            else
+                TextButton.Image = "rbxassetid://10734923214"
+            end
+        end)
+
+        local UserInputService = game:GetService("UserInputService")
+        if keycode then
+            UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                if gameProcessed then return end
+
+                if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == keycode then
+                    buttonState = not buttonState
+                    callback(buttonState)
+
+                    if buttonState then
+                        TextButton.Image = "rbxassetid://10735024209"
+                    else
+                        TextButton.Image = "rbxassetid://10734923214"
+                    end
+                end
+            end)
+        end
+
+        local dragStart, startPos
+        TextLabel.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragStart = input.Position
+                startPos = Frame.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragStart = nil
+                    end
+                end)
+            end
+        end)
+
+        TextLabel.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                if dragStart then
+                    local delta = input.Position - dragStart
+                    Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                end
+            end
+        end)
+
+        UITextSizeConstraint.Parent = TextLabel
+        UITextSizeConstraint.MaxTextSize = 25
+    end)
+
+    MakeButton("WalkSpeed", Color3.fromRGB(255, 255, 255), function(state)
+        getgenv().walkSpeedKeybindActive = state
+    end, Enum.KeyCode.T)
+end
 
 game:GetService('RunService').RenderStepped:Connect(function()
     local player = game.Players.LocalPlayer
