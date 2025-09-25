@@ -23,6 +23,7 @@ local selected = {}   -- map player -> Highlight instance
 local Notifications = {}
 local Notifications_Frame = nil
 local aimlockEnabled = false
+local camlockEnabled = false
 
 local possibleRemotes = {
     "MAINEVENT",
@@ -340,6 +341,23 @@ local function getNearestSelectedAliveVisible()
     return best, bestDist
 end
 
+local function getNearestSelectedPlayer()
+    local best, bestDist = nil, math.huge
+    for ply, hl in pairs(selected) do
+        if ply and hl and hl.Enabled and isAlive(ply) and ply.Character then
+            local root = ply.Character:FindFirstChild("HumanoidRootPart") or ply.Character.PrimaryPart
+            if root then
+                local dist = (root.Position - Cam.CFrame.Position).Magnitude
+                if dist < bestDist then
+                    bestDist = dist
+                    best = ply
+                end
+            end
+        end
+    end
+    return best
+end
+
 -- cleanup when players leave
 Players.PlayerRemoving:Connect(function(p)
     if selected[p] then fullyRemoveHighlight(p) end
@@ -407,6 +425,35 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
                 Notify("Aimlock: OFF", 2)
             end
             return
+        end
+    end
+end)
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.B then
+        camlockEnabled = not camlockEnabled
+        if camlockEnabled then
+            local target = getNearestSelectedPlayer()
+            if target and target.Character then
+                local head = target.Character:FindFirstChild("Head")
+                if head then
+                    Cam.CameraSubject = head
+                    Notify("Camera locked to "..target.Name.."'s head", 2)
+                else
+                    camlockEnabled = false
+                    Notify("Target has no head.", 2)
+                end
+            else
+                camlockEnabled = false
+                Notify("No valid target.", 2)
+            end
+        else
+            local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                Cam.CameraSubject = hum
+            end
+            Notify("Camera lock disabled", 2)
         end
     end
 end)
