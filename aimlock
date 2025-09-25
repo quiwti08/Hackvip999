@@ -623,7 +623,7 @@ MakeButton("WalkSpeed", Color3.fromRGB(255, 255, 255), function(state)
     if not humanoid then return end
 
     if dog then
-        humanoid.WalkSpeed = 50 -- Thay Psalms.Tech.MacroSpeed * 1000 bằng giá trị cố định
+        humanoid.WalkSpeed = 150 -- Thay Psalms.Tech.MacroSpeed * 1000 bằng giá trị cố định
         humanoid.JumpPower = 80
         Notify("WalkSpeed ON: 50, JumpPower: 80", 2)
     else
@@ -634,7 +634,7 @@ MakeButton("WalkSpeed", Color3.fromRGB(255, 255, 255), function(state)
 
     humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
         if dog then
-            humanoid.WalkSpeed = 50
+            humanoid.WalkSpeed = 150
         end
     end)
     humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
