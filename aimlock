@@ -279,10 +279,12 @@ local function toggleSelectPlayer(ply)
         removeHighlightFromPlayer(ply)
         removeTracer(ply) -- gỡ tracer khi bỏ chọn
         Notify(string.format("Deselected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 2)
+        ImageButton.Image = "rbxassetid://140623923630784"
     else
         addHighlightToPlayer(ply)
         createTracer(ply) -- tạo tracer khi chọn
         Notify(string.format("Selected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 3)
+        ImageButton.Image = "rbxassetid://96086736054343"
     end
 end
 
