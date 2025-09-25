@@ -1,13 +1,11 @@
--- Selection + Highlight + Notifications + Aimlock -> HEAD only, with filters (selected, isAlive, visible)
--- Highlight màu: RGB(214,112,122)
--- Chọn/bỏ chọn: nhấn Q (lấy player gần con trỏ nhất, xuyên tường khi chọn)
--- Aimlock toggle: V
--- Prediction: 0.17221418 (fixed)
 
 local Players = game:GetService("Players")
 local UIS     = game:GetService("UserInputService")
 local Run     = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local VIM = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService('ReplicatedStorage')
+local LocalPlayer = Players.LocalPlayer
 local LP      = Players.LocalPlayer
 local Mouse   = LP:GetMouse()
 local Cam     = workspace.CurrentCamera
@@ -24,8 +22,60 @@ local maxSelectPx = 99999 -- no hard limit; change if you want a max selection r
 local selected = {}   -- map player -> Highlight instance
 local Notifications = {}
 local Notifications_Frame = nil
-
 local aimlockEnabled = false
+
+local possibleRemotes = {
+    "MAINEVENT",
+    "MainEvent",
+    "Remote",
+    "Packages",
+    "MainRemotes"
+}  
+
+local tracer = Drawing.new("Line")
+tracer.Visible = true
+tracer.Thickness = 1
+tracer.Color = Color3.fromRGB(255, 255, 255)
+
+local function getMainRemote()
+    if ReplicatedStorage:FindFirstChild("MainEvent") then
+        return ReplicatedStorage.MainEvent
+    end
+    if ReplicatedStorage:FindFirstChild("MAINEVENT") then
+        return ReplicatedStorage.MAINEVENT
+    end
+
+    if ReplicatedStorage:FindFirstChild("Remote") then
+        return ReplicatedStorage.Remote
+    end
+
+    -- 3. MainRemotes.MainRemoteEvent
+    local mainRemotes = ReplicatedStorage:FindFirstChild("MainRemotes")
+    if mainRemotes and mainRemotes:FindFirstChild("MainRemoteEvent") then
+        return mainRemotes.MainRemoteEvent
+    end
+
+    -- 4. Packages.Knit.Services.ToolService.RE.UpdateAim
+    local packages = ReplicatedStorage:FindFirstChild("Packages")
+    if packages then
+        local knit = packages:FindFirstChild("Knit")
+        if knit and knit:FindFirstChild("Services") then
+            local toolService = knit.Services:FindFirstChild("ToolService")
+            if toolService and toolService:FindFirstChild("RE") then
+                local re = toolService.RE
+                if re:FindFirstChild("UpdateAim") then
+                    return re.UpdateAim
+                end
+            end
+        end
+    end
+
+    -- fallback: không tìm thấy
+    return nil
+end
+
+
+local MainRemote = getMainRemote()
 
 -- ====== HELPERS ======
 local function GetDictionaryLength(t)
@@ -230,6 +280,12 @@ local function toggleSelectPlayer(ply)
     end
 end
 
+function click()
+    VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)   -- ấn chuột trái
+    task.wait(0.2)
+    VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)  -- nhả chuột trái
+end
+
 -- Distance from world pos to mouse cursor in px (no visibility check here)
 local function distToCursorFromWorldPos(pos)
     local v = Cam:WorldToViewportPoint(pos)
@@ -342,11 +398,68 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
                         if hum then Cam.CameraSubject = hum end
                     end
                 end)
+
+                for ply, hl in pairs(selected) do
+                    fullyRemoveHighlight(ply) -- xóa highlight
+                    removeTracer(ply)         -- xóa tracer
+                end
+                selected = {}
                 Notify("Aimlock: OFF", 2)
             end
             return
         end
     end
+end)
+
+-- chọn player gần tâm màn hình nhất
+local function selectNearestPlayerToCenter()
+    local center = Vector2.new(Cam.ViewportSize.X/2, Cam.ViewportSize.Y/2)
+    local best, bestDist = nil, math.huge
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character then
+            local root = p.Character:FindFirstChild("HumanoidRootPart") or p.Character:FindFirstChild("UpperTorso") or p.Character.PrimaryPart
+            if root and root.Position then
+                local v = Cam:WorldToViewportPoint(root.Position)
+                local screenPos = Vector2.new(v.X, v.Y)
+                local d = (screenPos - center).Magnitude
+                if d < bestDist then
+                    bestDist = d
+                    best = p
+                end
+            end
+        end
+    end
+
+    if best then
+        toggleSelectPlayer(best)
+    else
+        Notify("No valid target found.", 2)
+    end
+end
+
+local Sigmaballs = Instance.new("ScreenGui")
+Sigmaballs.Name = "Sigmaballs"
+Sigmaballs.Parent = game.CoreGui
+Sigmaballs.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Sigmaballs.ResetOnSpawn = false
+
+local ImageButton = Instance.new("ImageButton")
+ImageButton.Name = "ImageButton"
+ImageButton.Parent = Sigmaballs
+ImageButton.Active = true
+ImageButton.Draggable = true
+ImageButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ImageButton.BackgroundTransparency = 0.5
+ImageButton.Size = UDim2.new(0, 90, 0, 90)
+ImageButton.Image = "rbxassetid://96086736054343"
+ImageButton.Position = UDim2.new(0.5, -25, 0.5, -25)
+
+local Ui2corner = Instance.new("UICorner")
+Ui2corner.CornerRadius = UDim.new(0.2, 0)
+Ui2corner.Parent = ImageButton
+
+ImageButton.MouseButton1Click:Connect(function()
+    selectNearestPlayerToCenter()
 end)
 
 local key = Enum.KeyCode.Y
@@ -367,6 +480,20 @@ end)
 
 -- ====== AIMLOCK LOOP ======
 Run.RenderStepped:Connect(function(dt)
+
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local tool = char:FindFirstChildWhichIsA("Tool")
+    if not tool then return end
+
+    local ammo = tool:FindFirstChild("Ammo")
+    if ammo and ammo.Value <= 0 then
+        -- Reload (Normal)
+        MainRemote:FireServer("Reload", tool)
+        task.wait(3.7)
+    end
+
     if not aimlockEnabled then return end
 
     -- choose nearest selected & alive & visible target (head only)
@@ -389,6 +516,31 @@ Run.RenderStepped:Connect(function(dt)
     local alpha = math.clamp(aimSmoothing, 0, 1)
     local newCFrame = Cam.CFrame:Lerp(desiredCFrame, alpha)
     pcall(function() Cam.CFrame = newCFrame end)
+end)
+
+Run.Heartbeat:Connect(function()
+    local character = LocalPlayer.Character
+    if character then
+        local bodyEffects = character:FindFirstChild("BodyEffects")
+        if bodyEffects then
+            local movement = bodyEffects:FindFirstChild("Movement")
+            if movement then
+                local noJumping = movement:FindFirstChild("NoJumping")
+                if noJumping then noJumping:Destroy() end
+                
+                local reduceWalk = movement:FindFirstChild("ReduceWalk")
+                if reduceWalk then reduceWalk:Destroy() end
+                
+                local noWalkSpeed = movement:FindFirstChild("NoWalkSpeed")
+                if noWalkSpeed then noWalkSpeed:Destroy() end
+            end
+            
+            local reload = bodyEffects:FindFirstChild("Reload")
+            if reload and reload.Value then
+                reload.Value = false
+            end
+        end
+    end
 end)
 
 Notify("Aimlock | anhchanhm52", 2)
