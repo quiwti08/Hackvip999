@@ -664,10 +664,12 @@ MakeButton("Stomp", Color3.fromRGB(255, 255, 255), function(state)
             if #koPlayers == 0 then
                 Notify("No KO targets found.", 2)
                 stomptarget = false
+                Notify("Stomp: OFF", 2)
+                TextButton.Image = "rbxassetid://10734923214"
                 return
             end
 
-            for _, ply in ipairs(koPlayers) do
+                        for _, ply in ipairs(koPlayers) do
                 local targetChar = ply.Character
                 local upperTorso = targetChar:FindFirstChild("UpperTorso")
                 if upperTorso then
@@ -686,6 +688,7 @@ MakeButton("Stomp", Color3.fromRGB(255, 255, 255), function(state)
             hrp.Position = originalPos
             stomptarget = false
             Notify("Stomp completed.", 2)
+            TextButton.Image = "rbxassetid://10734923214"
         end)
     else
         Notify("Stomp: OFF", 2)
