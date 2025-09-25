@@ -168,6 +168,32 @@ TargetingGroup:AddToggle("StickyAim", {
     end
 })
 
+TargetingGroup:AddToggle("TracerToggle", {
+    Text = "Draw Tracer",
+    Default = true,
+    Callback = function(Value)
+        TracerEnabled = Value
+        if not Value then
+            tracer.Visible = false
+        end
+    end
+}):AddColorPicker('HitboxColorPicker', {
+    Text = '',
+    Default = Color3.fromRGB(214, 112, 122),
+    Callback = function(color)
+        tracer.Color = color
+    end,
+})
+
+TargetingGroup:AddDropdown("TracerMode", {
+    Text = "Tracer Mode",
+    Values = {"Mouse", "HumanoidRootPart"},
+    Default = "Mouse",
+    Callback = function(Value)
+        targetToMouseTracer = (Value == "Mouse")
+    end
+})
+
 local Target = Tabs.Main:AddLeftGroupbox('Target')
 
 maddieplsnomad = false
@@ -585,7 +611,7 @@ RunService.RenderStepped:Connect(function()
         end
 
         -- Tracer
-        if TracerEnabled and targetPart then
+        if TracerEnabled and targetPart and StickyAimEnabled then
             tracer.Visible = true
             local camera = workspace.CurrentCamera
             local targetScreenPos, onScreen = camera:WorldToViewportPoint(targetPart.Position)
@@ -1005,7 +1031,6 @@ CamLockBox:AddToggle('CamLockToggle', {
         if state then
             -- Tắt StickyAimEnabled và TracerEnabled nếu CamLock bật
             getgenv().StickyAimEnabled = false
-            getgenv().TracerEnabled = false
         else
             getgenv().camLockTargets = {}  -- Clear danh sách khi tắt
             for target, _ in pairs(tracers) do
@@ -1235,12 +1260,16 @@ end
 RunService.RenderStepped:Connect(function()
 
     for target, tracer in pairs(tracers) do
-        if target.Character and target.Character:FindFirstChild("Head") then
-            local head = target.Character:FindFirstChild("Head")
-            local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
-            if onScreen then
-                tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
-                tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+        if target.Character and target.Character:FindFirstChild("UpperTorso") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("UpperTorso") then
+           local targetTorso = target.Character:FindFirstChild("UpperTorso")
+            local myTorso = LocalPlayer.Character:FindFirstChild("UpperTorso")
+            
+            local targetScreenPos, targetOnScreen = workspace.CurrentCamera:WorldToViewportPoint(targetTorso.Position)
+            local myScreenPos, myOnScreen = workspace.CurrentCamera:WorldToViewportPoint(myTorso.Position)
+            
+            if targetOnScreen and myOnScreen then
+                tracer.From = Vector2.new(myScreenPos.X, myScreenPos.Y)
+                tracer.To = Vector2.new(targetScreenPos.X, targetScreenPos.Y)
                 tracer.Visible = true
             else
                 tracer.Visible = false
@@ -2020,9 +2049,9 @@ local defaultTextHP = " Health "
 local defaultTextArmor = "                   Armor"
 local defaultTextEnergy = "Dark Energy              "
 
-local defaultColorHP = Color3.new(0.941176, 0.031373, 0.819608)
-local defaultColorArmor = Color3.new(0.376471, 0.031373, 0.933333)
-local defaultColorEnergy = Color3.new(0.768627, 0.039216, 0.952941)
+local defaultColorHP = Color3.new(1, 1, 1)
+local defaultColorArmor = Color3.new(1, 0.701960784, 0.729411765)
+local defaultColorEnergy = Color3.new(0.878431373, 0.439215686, 0.478431373)
 
 local textHP, textArmor, textEnergy = defaultTextHP, defaultTextArmor, defaultTextEnergy
 local colorHP, colorArmor, colorEnergy = defaultColorHP, defaultColorArmor, defaultColorEnergy
@@ -2364,34 +2393,6 @@ Auras:AddDropdown("AuraType", {
         if getgenv().auraEnabled then
             applyAura(selected)
         end
-    end
-})
-
-local targetstuffyh = Tabs.Visuals:AddLeftGroupbox('target visuals')
-
-targetstuffyh:AddToggle("TracerToggle", {
-    Text = "Draw Tracer",
-    Default = true,
-    Callback = function(Value)
-        TracerEnabled = Value
-        if not Value then
-            tracer.Visible = false
-        end
-    end
-}):AddColorPicker('HitboxColorPicker', {
-    Text = '',
-    Default = Color3.new(0, 1, 1),
-    Callback = function(color)
-        tracer.Color = color
-    end,
-})
-
-targetstuffyh:AddDropdown("TracerMode", {
-    Text = "Tracer Mode",
-    Values = {"Mouse", "HumanoidRootPart"},
-    Default = "Mouse",
-    Callback = function(Value)
-        targetToMouseTracer = (Value == "Mouse")
     end
 })
 
