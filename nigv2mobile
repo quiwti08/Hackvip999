@@ -22,7 +22,7 @@ local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
 
 
 local lockedTarget = nil
-local StickyAimEnabled = true
+local StickyAimEnabled = false
 local HighlightEnabled = false
 local TracerEnabled = true
 local ViewTargetEnabled = false
@@ -111,7 +111,7 @@ local TargetingGroup = Tabs.Main:AddLeftGroupbox('Targeting')
 
 TargetingGroup:AddToggle("StickyAim", {
     Text = "Sticky Aim",
-    Default = true,
+    Default = false,
     Callback = function(Value)
         StickyAimEnabled = Value
         if not Value then
@@ -164,6 +164,32 @@ TargetingGroup:AddToggle("StickyAim", {
                 lockedTarget = closestTarget
             end
         end
+    end
+})
+
+TargetingGroup:AddToggle("TracerToggle", {
+    Text = "Draw Tracer",
+    Default = true,
+    Callback = function(Value)
+        TracerEnabled = Value
+        if not Value then
+            tracer.Visible = false
+        end
+    end
+}):AddColorPicker('HitboxColorPicker', {
+    Text = '',
+    Default = Color3.fromRGB(214, 112, 122),
+    Callback = function(color)
+        tracer.Color = color
+    end,
+})
+
+TargetingGroup:AddDropdown("TracerMode", {
+    Text = "Tracer Mode",
+    Values = {"Mouse", "HumanoidRootPart"},
+    Default = "HumanoidRootPart",
+    Callback = function(Value)
+        targetToMouseTracer = (Value == "HumanoidRootPart")
     end
 })
 
@@ -584,7 +610,7 @@ RunService.RenderStepped:Connect(function()
         end
 
         -- Tracer
-        if TracerEnabled and targetPart then
+        if TracerEnabled and targetPart and StickyAimEnabled then
             tracer.Visible = true
             local camera = workspace.CurrentCamera
             local targetScreenPos, onScreen = camera:WorldToViewportPoint(targetPart.Position)
@@ -635,16 +661,13 @@ RunService.RenderStepped:Connect(function()
             end
         end
     else
-        -- Không có target -> về chỗ cũ
-        if oldPosition then
-            local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                root.CFrame = oldPosition
-            end
-            oldPosition = nil
-        end
+-- Không có target
         workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
         tracer.Visible = false
+        if visualizeModel then
+            visualizeModel:Destroy()
+            visualizeModel = nil
+        end
     end
 end)
 
@@ -1002,9 +1025,7 @@ CamLockBox:AddToggle('CamLockToggle', {
     Callback = function(state)
         camLockEnabled = state
         if state then
-            -- Tắt StickyAimEnabled và TracerEnabled nếu CamLock bật
             getgenv().StickyAimEnabled = false
-            getgenv().TracerEnabled = false
         else
             getgenv().camLockTargets = {}  -- Clear danh sách khi tắt
             for target, _ in pairs(tracers) do
@@ -1234,12 +1255,16 @@ end
 RunService.RenderStepped:Connect(function()
 
     for target, tracer in pairs(tracers) do
-        if target.Character and target.Character:FindFirstChild("Head") then
-            local head = target.Character:FindFirstChild("Head")
-            local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
-            if onScreen then
-                tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
-                tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+        if target.Character and target.Character:FindFirstChild("UpperTorso") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("UpperTorso") then
+           local targetTorso = target.Character:FindFirstChild("UpperTorso")
+            local myTorso = LocalPlayer.Character:FindFirstChild("UpperTorso")
+            
+            local targetScreenPos, targetOnScreen = workspace.CurrentCamera:WorldToViewportPoint(targetTorso.Position)
+            local myScreenPos, myOnScreen = workspace.CurrentCamera:WorldToViewportPoint(myTorso.Position)
+            
+            if targetOnScreen and myOnScreen then
+                tracer.From = Vector2.new(myScreenPos.X, myScreenPos.Y)
+                tracer.To = Vector2.new(targetScreenPos.X, targetScreenPos.Y)
                 tracer.Visible = true
             else
                 tracer.Visible = false
@@ -2012,9 +2037,9 @@ local defaultTextHP = " Health "
 local defaultTextArmor = "                   Armor"
 local defaultTextEnergy = "Dark Energy              "
 
-local defaultColorHP = Color3.new(0.941176, 0.031373, 0.819608)
-local defaultColorArmor = Color3.new(0.376471, 0.031373, 0.933333)
-local defaultColorEnergy = Color3.new(0.768627, 0.039216, 0.952941)
+local defaultColorHP = Color3.new(1, 1, 1)
+local defaultColorArmor = Color3.new(1, 0.701960784, 0.729411765)
+local defaultColorEnergy = Color3.new(0.878431373, 0.439215686, 0.478431373)
 
 local textHP, textArmor, textEnergy = defaultTextHP, defaultTextArmor, defaultTextEnergy
 local colorHP, colorArmor, colorEnergy = defaultColorHP, defaultColorArmor, defaultColorEnergy
@@ -2359,34 +2384,6 @@ Auras:AddDropdown("AuraType", {
     end
 })
 
-local targetstuffyh = Tabs.Visuals:AddLeftGroupbox('target visuals')
-
-targetstuffyh:AddToggle("TracerToggle", {
-    Text = "Draw Tracer",
-    Default = true,
-    Callback = function(Value)
-        TracerEnabled = Value
-        if not Value then
-            tracer.Visible = false
-        end
-    end
-}):AddColorPicker('HitboxColorPicker', {
-    Text = '',
-    Default = Color3.new(0, 1, 1),
-    Callback = function(color)
-        tracer.Color = color
-    end,
-})
-
-targetstuffyh:AddDropdown("TracerMode", {
-    Text = "Tracer Mode",
-    Values = {"Mouse", "HumanoidRootPart"},
-    Default = "Mouse",
-    Callback = function(Value)
-        targetToMouseTracer = (Value == "Mouse")
-    end
-})
-
 -- Hàm tạo ScreenGui để chứa Toggle Button
 local function createScreenGui()
     local sg = Instance.new("ScreenGui")
@@ -2572,116 +2569,12 @@ uhhh:AddToggle('CFrameSpeedToggle', {
     end,
 })
 
--- Tạo ScreenGui cho nút WalkSpeed
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = game:GetService("CoreGui")
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-local Frame = Instance.new("Frame")
-Frame.Parent = ScreenGui
-Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Frame.BackgroundTransparency = 0.3
-Frame.Position = UDim2.new(1, -150, 0, 0)
-Frame.Size = UDim2.new(0, 120, 0, 40)
-
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Parent = Frame
-uiStroke.Color = Color3.fromRGB(255, 255, 255)
-uiStroke.Thickness = 1.2
-uiStroke.Transparency = 0
-
-local TextButton = Instance.new("ImageLabel")
-TextButton.Parent = Frame
-TextButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-TextButton.BackgroundTransparency = 1
-TextButton.Size = UDim2.new(0, 28, 0, 28)
-TextButton.AnchorPoint = Vector2.new(0, 0.5)
-TextButton.Position = UDim2.new(0.05, 0, 0.5, 0)
-TextButton.Image = "rbxassetid://10734923214"
-TextButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
-
-local TextLabel = Instance.new("TextButton")
-TextLabel.Parent = Frame
-TextLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-TextLabel.BackgroundTransparency = 1
-TextLabel.Size = UDim2.new(0, 80, 0, 28)
-TextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-TextLabel.Position = UDim2.new(0.65, 0, 0.5, 0)
-TextLabel.Font = Enum.Font.Arimo
-TextLabel.Text = "WalkSpeed"
-TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TextLabel.TextScaled = true
-TextLabel.TextSize = 25
-TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-TextLabel.TextStrokeTransparency = 1
-
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 8)
-uiCorner.Parent = Frame
-
-local UITextSizeConstraint = Instance.new("UITextSizeConstraint")
-UITextSizeConstraint.Parent = TextLabel
-UITextSizeConstraint.MaxTextSize = 25
-
--- Xử lý trạng thái nút
-local buttonState = false
-TextLabel.MouseButton1Down:Connect(function()
-    buttonState = not buttonState
-    getgenv().walkSpeedKeybindActive = buttonState
-
-    if buttonState then
-        TextButton.Image = "rbxassetid://10735024209"
-    else
-        TextButton.Image = "rbxassetid://10734923214"
-    end
-end)
-
--- Xử lý phím tắt (T)
-local UserInputService = game:GetService("UserInputService")
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.T then
-        buttonState = not buttonState
-        getgenv().walkSpeedKeybindActive = buttonState
-
-        if buttonState then
-            TextButton.Image = "rbxassetid://10735024209"
-        else
-            TextButton.Image = "rbxassetid://10734923214"
-        end
-    end
-end)
-
--- Xử lý kéo thả nút
-local dragStart, startPos
-TextLabel.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragStart = input.Position
-        startPos = Frame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragStart = nil
-            end
-        end)
-    end
-end)
-
-TextLabel.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        if dragStart then
-            local delta = input.Position - dragStart
-            Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end
-end)
-
 uhhh:AddToggle('WalkSpeedToggle', {
     Text = 'WalkSpeed',
     Default = false,
     Callback = function(state)
         getgenv().walkSpeedEnabled = state
-        ScreenGui.Enabled = true
-        if not state then getgenv().walkSpeedKeybindActive = false and ScreenGui.Enabled = false end
+        getgenv().walkSpeedKeybindActive = state
     end,
 }):AddKeyPicker('WalkSpeedKeybind', {
     Default = 'T',
@@ -2753,7 +2646,6 @@ task.spawn(function()
         end
     end
 end)
-
 
 getgenv().FlightKeybind = Enum.KeyCode.X
 getgenv().FlySpeed = 50
