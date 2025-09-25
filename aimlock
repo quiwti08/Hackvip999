@@ -1,0 +1,394 @@
+-- Selection + Highlight + Notifications + Aimlock -> HEAD only, with filters (selected, isAlive, visible)
+-- Highlight màu: RGB(214,112,122)
+-- Chọn/bỏ chọn: nhấn Q (lấy player gần con trỏ nhất, xuyên tường khi chọn)
+-- Aimlock toggle: V
+-- Prediction: 0.17221418 (fixed)
+
+local Players = game:GetService("Players")
+local UIS     = game:GetService("UserInputService")
+local Run     = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local LP      = Players.LocalPlayer
+local Mouse   = LP:GetMouse()
+local Cam     = workspace.CurrentCamera
+
+-- ====== CONFIG ======
+local selectKey    = Enum.KeyCode.Q
+local aimlockKey   = Enum.KeyCode.T
+local highlightColor = Color3.fromRGB(214,112,122)
+local predictionTime = 0.17221418
+local aimSmoothing = 1 -- 1 = instant; <1 = smoothing (lerp factor)
+local maxSelectPx = 99999 -- no hard limit; change if you want a max selection radius
+
+-- ====== STATE ======
+local selected = {}   -- map player -> Highlight instance
+local Notifications = {}
+local Notifications_Frame = nil
+
+local aimlockEnabled = false
+
+-- ====== HELPERS ======
+local function GetDictionaryLength(t)
+    local c = 0
+    for _ in pairs(t) do c = c + 1 end
+    return c
+end
+
+-- isAlive as you provided
+local function isAlive(plr)
+    if not plr or not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then
+        return false
+    end
+
+    -- Check riêng cho Da Hood (BodyEffects)
+    local be = plr.Character:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
+        if (ko and ko.Value) or (grabbed and grabbed.Value) then
+            return false
+        end
+    end
+
+    return true
+end
+
+-- Notifications (non-blocking)
+local function ensureNotificationsGui()
+    if Notifications_Frame and Notifications_Frame.Parent then return end
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "TB_Notifications"
+    sg.ResetOnSpawn = false
+    sg.Parent = game.CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Name = "Notifications"
+    frame.Size = UDim2.new(0, 300, 0, 200)
+    frame.Position = UDim2.new(0.5, -150, 1, -220)
+    frame.BackgroundTransparency = 1
+    frame.Parent = sg
+    Notifications_Frame = frame
+end
+
+local function Notify(Content, Delay)
+    assert(type(Content) == "string", "missing argument #1, (string expected got " .. type(Content) .. ")")
+    local Delay = type(Delay) == "number" and Delay or 3
+    ensureNotificationsGui()
+
+    local Text = Instance.new("TextLabel")
+    Text.Name = "Notification"
+    Text.BackgroundTransparency = 1
+    Text.Position = UDim2.new(0, 0, 0, GetDictionaryLength(Notifications)*22)
+    Text.Size = UDim2.new(1, 0, 0, 20)
+    Text.Text = Content
+    Text.Font = Enum.Font.SourceSansBold
+    Text.TextSize = 16
+    Text.TextColor3 = Color3.new(1,1,1)
+    Text.TextStrokeTransparency = 0.4
+    Text.TextTransparency = 1
+    Text.RichText = false
+    Text.ZIndex = 5
+    Text.Parent = Notifications_Frame
+
+    local Notification = { self = Text }
+    Notifications[Notification] = Notification
+
+    local tweenIn = TweenService:Create(Text, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {TextTransparency = 0})
+    local tweenOut = TweenService:Create(Text, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {TextTransparency = 1})
+
+    tweenIn:Play()
+    tweenIn.Completed:Connect(function()
+        task.delay(Delay, function()
+            tweenOut:Play()
+            tweenOut.Completed:Connect(function()
+                Notifications[Notification] = nil
+                if Text and Text.Parent then Text:Destroy() end
+                local idx = 0
+                for k,v in pairs(Notifications) do
+                    local t = v.self
+                    if t and t.Parent then
+                        t.Position = UDim2.new(0, 0, 0, idx * 22)
+                    end
+                    idx = idx + 1
+                end
+            end)
+        end)
+    end)
+end
+
+-- Highlight helpers (create once, enable/disable)
+local function createOrGetHighlightForPlayer(ply)
+    if not ply then return nil end
+    local existing = selected[ply]
+    if existing and existing:IsA("Highlight") then
+        return existing
+    end
+    local hl = Instance.new("Highlight")
+    hl.Name = "TB_Highlight"
+    hl.Adornee = ply.Character or nil
+    hl.FillColor = highlightColor
+    hl.OutlineColor = highlightColor
+    hl.FillTransparency = 0.7
+    hl.OutlineTransparency = 0
+    hl.Enabled = false
+    hl.Parent = workspace
+    selected[ply] = hl
+    return hl
+end
+
+local tracers = {} -- map player -> Beam
+
+local function createTracer(ply)
+    if not LP.Character or not ply.Character then return end
+    local hrp1 = LP.Character:FindFirstChild("HumanoidRootPart")
+    local hrp2 = ply.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp1 or not hrp2 then return end
+
+    -- Nếu đã có tracer cũ thì xóa
+    if tracers[ply] then
+        tracers[ply]:Destroy()
+        tracers[ply] = nil
+    end
+
+    local att1 = Instance.new("Attachment", hrp1)
+    local att2 = Instance.new("Attachment", hrp2)
+
+    local beam = Instance.new("Beam")
+    beam.Attachment0 = att1
+    beam.Attachment1 = att2
+    beam.Color = ColorSequence.new(Color3.fromRGB(214, 112, 122))
+    beam.Width0 = 0.08
+    beam.Width1 = 0.08
+    beam.Parent = hrp1
+
+    tracers[ply] = beam
+
+    -- Cập nhật khi target respawn
+    ply.CharacterAdded:Connect(function(newChar)
+        task.wait(0.2)
+        if tracers[ply] then
+            local newHrp = newChar:WaitForChild("HumanoidRootPart")
+            local newAtt = Instance.new("Attachment", newHrp)
+            tracers[ply].Attachment1 = newAtt
+        end
+    end)
+end
+
+local function removeTracer(ply)
+    if tracers[ply] then
+        tracers[ply]:Destroy()
+        tracers[ply] = nil
+    end
+end
+
+local function removeAllTracers()
+    for ply, beam in pairs(tracers) do
+        if beam then beam:Destroy() end
+    end
+    tracers = {}
+end
+
+local function addHighlightToPlayer(ply)
+    if not ply then return end
+    local hl = createOrGetHighlightForPlayer(ply)
+    if hl then
+        hl.Adornee = ply.Character or hl.Adornee
+        hl.Enabled = true
+    end
+end
+
+local function removeHighlightFromPlayer(ply)
+    if not ply then return end
+    local hl = selected[ply]
+    if hl and hl:IsA("Highlight") then
+        pcall(function() hl.Enabled = false end)
+    end
+end
+
+local function fullyRemoveHighlight(ply)
+    if not ply then return end
+    local hl = selected[ply]
+    if hl and hl.Destroy then
+        pcall(function() hl:Destroy() end)
+    end
+    selected[ply] = nil
+end
+
+local function toggleSelectPlayer(ply)
+    if not ply then return end
+    local hl = createOrGetHighlightForPlayer(ply)
+    if hl and hl.Enabled then
+        removeHighlightFromPlayer(ply)
+        removeTracer(ply) -- gỡ tracer khi bỏ chọn
+        Notify(string.format("Deselected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 2)
+    else
+        addHighlightToPlayer(ply)
+        createTracer(ply) -- tạo tracer khi chọn
+        Notify(string.format("Selected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 3)
+    end
+end
+
+-- Distance from world pos to mouse cursor in px (no visibility check here)
+local function distToCursorFromWorldPos(pos)
+    local v = Cam:WorldToViewportPoint(pos)
+    local screenPos = Vector2.new(v.X, v.Y)
+    local mousePos = UIS:GetMouseLocation()
+    return (screenPos - Vector2.new(mousePos.X, mousePos.Y)).Magnitude
+end
+
+-- VISIBILITY CHECK: returns true if direct line from camera to targetHead hits the target (or nothing)
+local function isVisibleFromCamera(targetHead)
+    if not targetHead or not targetHead.Position then return false end
+    local origin = Cam.CFrame.Position
+    local direction = (targetHead.Position - origin)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    -- ignore local character so it doesn't block
+    if LP.Character then
+        params.FilterDescendantsInstances = {LP.Character}
+    else
+        params.FilterDescendantsInstances = {}
+    end
+    local res = workspace:Raycast(origin, direction, params)
+    if not res then
+        -- nothing hit => clear line
+        return true
+    end
+    if res.Instance and res.Instance:IsDescendantOf(targetHead.Parent) then
+        return true
+    end
+    return false
+end
+
+-- get nearest SELECTED, ALIVE, VISIBLE player to cursor (head target). returns player or nil
+local function getNearestSelectedAliveVisible()
+    local best, bestDist = nil, math.huge
+    for ply, hl in pairs(selected) do
+        if ply and hl and hl.Enabled then
+            if isAlive(ply) and ply.Character then
+                local head = ply.Character:FindFirstChild("Head")
+                if head and head.Position then
+                    if isVisibleFromCamera(head) then
+                        local d = distToCursorFromWorldPos(head.Position)
+                        if d < bestDist and d <= maxSelectPx then
+                            bestDist = d
+                            best = ply
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best, bestDist
+end
+
+-- cleanup when players leave
+Players.PlayerRemoving:Connect(function(p)
+    if selected[p] then fullyRemoveHighlight(p) end
+end)
+
+-- respawn handling
+local function onCharacterAdded(char)
+    local ply = Players:GetPlayerFromCharacter(char)
+    if ply then
+        local hl = selected[ply]
+        if hl and hl:IsA("Highlight") then
+            hl.Adornee = char
+            -- keep enabled/disabled state as before
+        end
+    end
+end
+Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(onCharacterAdded) end)
+for _,p in ipairs(Players:GetPlayers()) do p.CharacterAdded:Connect(onCharacterAdded) end
+
+-- ====== SELECT INPUT ======
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == selectKey then
+            -- find nearest player to cursor (across all players) — this is for toggling selection
+            local best, bestDist = nil, math.huge
+            for _,p in ipairs(Players:GetPlayers()) do
+                if p ~= LP and p.Character then
+                    local root = p.Character:FindFirstChild("HumanoidRootPart") or p.Character:FindFirstChild("UpperTorso") or p.Character.PrimaryPart
+                    if root and root.Position then
+                        local d = distToCursorFromWorldPos(root.Position)
+                        if d < bestDist then
+                            bestDist = d
+                            best = p
+                        end
+                    end
+                end
+            end
+
+            if best then
+                toggleSelectPlayer(best)
+            else
+                Notify("No valid target found.", 2)
+            end
+            return
+        end
+
+        if input.KeyCode == aimlockKey then
+            aimlockEnabled = not aimlockEnabled
+            if aimlockEnabled then
+                Notify("Aimlock: ON", 2)
+            else
+                pcall(function()
+                    if LP.Character then
+                        local hum = LP.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then Cam.CameraSubject = hum end
+                    end
+                end)
+                Notify("Aimlock: OFF", 2)
+            end
+            return
+        end
+    end
+end)
+
+local key = Enum.KeyCode.Y
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == key then
+        local char = LP.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.Health = 0
+                Notify("Died", 2)
+            end
+        end
+    end
+end)
+
+-- ====== AIMLOCK LOOP ======
+Run.RenderStepped:Connect(function(dt)
+    if not aimlockEnabled then return end
+
+    -- choose nearest selected & alive & visible target (head only)
+    local target, dist = getNearestSelectedAliveVisible()
+    if not target then
+        return
+    end
+
+    -- get head and predict
+    local head = target.Character and target.Character:FindFirstChild("Head")
+    if not head then return end
+    local vel = head.Velocity or Vector3.new(0,0,0)
+    local predicted = head.Position + vel * predictionTime
+
+    -- desired camera CFrame looking from current cam position to predicted point
+    local camPos = Cam.CFrame.Position
+    local desiredCFrame = CFrame.new(camPos, predicted)
+
+    -- apply smoothing (alpha = aimSmoothing)
+    local alpha = math.clamp(aimSmoothing, 0, 1)
+    local newCFrame = Cam.CFrame:Lerp(desiredCFrame, alpha)
+    pcall(function() Cam.CFrame = newCFrame end)
+end)
+
+Notify("Aimlock | anhchanhm52", 2)
