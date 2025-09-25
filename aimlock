@@ -22,7 +22,7 @@ local maxSelectPx = 99999 -- no hard limit; change if you want a max selection r
 local selected = {}   -- map player -> Highlight instance
 local Notifications = {}
 local Notifications_Frame = nil
-local aimlockEnabled = false
+local aimlockEnabled = true
 local camlockEnabled = false
 
 local possibleRemotes = {
