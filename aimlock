@@ -822,6 +822,141 @@ MakeButton("Stomp", Color3.fromRGB(255, 255, 255), function(state)
     end
 end, Enum.KeyCode.G)
 
+-- Biến autoshoot
+local tbEnabled = false
+local fovRadius = 20
+
+-- Danh sách các bộ phận có thể bắn
+local hitParts = {
+    "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
+    "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+    "RightUpperLeg", "RightLowerLeg", "RightFoot", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"
+}
+
+-- Hàm kiểm tra bộ phận hợp lệ
+local function validPart(p)
+    if not p or not p.Parent or not p.Parent:FindFirstChild("Humanoid") then return false end
+    local player = Players:GetPlayerFromCharacter(p.Parent)
+    if not player or not selected[player] or not selected[player].Enabled then return false end
+    for _, n in ipairs(hitParts) do
+        if p.Name:lower() == n:lower() then return true end
+    end
+    return false
+end
+
+-- Hàm tính khoảng cách từ bộ phận đến con trỏ
+local function distToCursor(part)
+    local v, vis = Cam:WorldToViewportPoint(part.Position)
+    if not vis then return math.huge end
+    local m = UIS.TouchEnabled and Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2) or UIS:GetMouseLocation()
+    return (Vector2.new(v.X, v.Y) - Vector2.new(m.X, m.Y)).Magnitude
+end
+
+-- Hàm giả lập click
+local function click()
+    if UIS.TouchEnabled then
+        local touchPos = UIS:GetMouseLocation()
+        VIM:SendTouchEvent(0, Enum.UserInputState.Begin, touchPos)
+        task.wait()
+        VIM:SendTouchEvent(0, Enum.UserInputState.End, touchPos)
+    else
+        -- Kiểm tra sự tồn tại của mouse1press/mouse1release hoặc mouse1click
+        if mouse1press and mouse1release then
+            pcall(function()
+                mouse1press()
+                mouse1release()
+            end)
+        elseif mouse1click then
+            pcall(function()
+                mouse1click()
+            end)
+        else
+            -- Fallback: Giả lập click chuột trái nếu các hàm trên không tồn tại
+            pcall(function()
+                VIM:SendMouseButtonEvent(0, 0, 0, true) -- MouseButton1 down
+                task.wait()
+                VIM:SendMouseButtonEvent(0, 0, 0, false) -- MouseButton1 up
+            end)
+        end
+    end
+end
+
+-- Hàm tìm bộ phận mục tiêu tốt nhất
+local function GetBestTargetPart()
+    local bestPart, bestDist = nil, fovRadius
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and selected[plr] and selected[plr].Enabled and isAlive(plr) and plr.Character then
+            for _, partName in ipairs(hitParts) do
+                local part = plr.Character:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    local dist = distToCursor(part)
+                    if dist < bestDist then
+                        bestPart = part
+                        bestDist = dist
+                    end
+                end
+            end
+        end
+    end
+    return bestPart
+end
+
+-- Thêm nút MakeButton cho autoshoot
+MakeButton("AutoShoot", Color3.fromRGB(255, 255, 255), function(state)
+    tbEnabled = state
+    if tbEnabled then
+        Notify("AutoShoot: ON", 2)
+    else
+        Notify("AutoShoot: OFF", 2)
+    end
+end, Enum.KeyCode.Z) -- Phím Z để bật/tắt
+
+-- Vòng lặp autoshoot
+Run.RenderStepped:Connect(function()
+    if tbEnabled then
+        local part = GetBestTargetPart()
+        if part then
+            task.spawn(function()
+                local cap = part
+                task.wait(0)
+                if tbEnabled and distToCursor(cap) <= fovRadius then
+                    local origin = Cam.CFrame.Position
+                    local direction = (cap.Position - origin)
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character or {}}
+
+                    local result = workspace:Raycast(origin, direction, rayParams)
+
+                    -- Chỉ bắn nếu raycast trúng chính xác target (không bị che)
+                    if not result or result.Instance:IsDescendantOf(cap.Parent) then
+                        if UIS.TouchEnabled and not UIS.MouseEnabled then
+                            -- Mobile
+                            local char = LocalPlayer.Character
+                            local fired = false
+                            if char then
+                                for _, tool in ipairs(char:GetChildren()) do
+                                    if tool:IsA("Tool") then
+                                        pcall(function() tool:Activate() end)
+                                        fired = true
+                                        break
+                                    end
+                                end
+                            end
+                            if not fired then
+                                click() -- Fallback tap
+                            end
+                        else
+                            -- PC
+                            click()
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
 local key = Enum.KeyCode.Y
 
 UIS.InputBegan:Connect(function(input, gpe)
