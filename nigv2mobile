@@ -3,7 +3,7 @@ local repo = 'https://raw.githubusercontent.com/LionTheGreatRealFrFr/MobileLinor
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
-local Window = Library:CreateWindow({ Title = '                     $ Nigga.lol | Anhchangm52 $                     ', AutoShow = true, TabPadding = 15, MenuFadeTime = 0.2 }) 
+local Window = Library:CreateWindow({ Title = '                     $ Nigga.lol | Anhchangm52 $Mobile                     ', AutoShow = true, TabPadding = 15, MenuFadeTime = 0.2 }) 
 local Tabs = { Main = Window:AddTab('Main'), Character = Window:AddTab('Character'), Visuals = Window:AddTab('Visuals'), Misc = Window:AddTab('Misc'), Players = Window:AddTab('Players'), ['UI Settings'] = Window:AddTab('UI Settings') }
 local GunMods = Tabs.Main:AddRightGroupbox('Gun Mods')
 local KillAura = Tabs.Main:AddRightGroupbox('Combat')
@@ -119,50 +119,6 @@ TargetingGroup:AddToggle("StickyAim", {
             workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
             targetHighlight.Enabled = true
             tracer.Visible = true
-        end
-    end
-}):AddKeyPicker("StickyAimKeybind", {
-    Default = "Q",
-    NoUI = false,
-    Text = "Sticky Aim",
-    Mode = "Toggle",
-    Callback = function()
-        if UserInputService:GetFocusedTextBox() then return end
-        if lockedTarget then
-            lockedTarget = nil
-            workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
-            targetHighlight.Enabled = true
-            tracer.Visible = true
-        else
-            local camera = workspace.CurrentCamera
-            local mouseLocation = UserInputService:GetMouseLocation()
-            local closestTarget, closestDistance = nil, math.huge
-
-            for _, otherPlayer in ipairs(Players:GetPlayers()) do
-                if otherPlayer ~= LocalPlayer and otherPlayer.Character and otherPlayer.Character:FindFirstChild(targetHitPart) then
-                    local bodyEffects = otherPlayer.Character:FindFirstChild("BodyEffects")
-                    local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
-                    local isGrabbed = otherPlayer.Character:FindFirstChild("GRABBING_CONSTRAINT")
-
-                    if (not grabCheckEnabled or not isGrabbed) and
-                       (not friendCheckEnabled or not LocalPlayer:IsFriendsWith(otherPlayer.UserId)) then
-
-                        local targetPart = otherPlayer.Character[targetHitPart]
-                        local screenPosition, onScreen = camera:WorldToViewportPoint(targetPart.Position)
-                        if onScreen then
-                            local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - mouseLocation).Magnitude
-                            if distance < closestDistance then
-                                closestTarget = otherPlayer
-                                closestDistance = distance
-                            end
-                        end
-                    end
-                end
-            end
-
-            if closestTarget then
-                lockedTarget = closestTarget
-            end
         end
     end
 })
@@ -975,469 +931,112 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-local CamLockBox = Tabs.Main:AddRightGroupbox('Legit')
+local LegitBox = Tabs.Main:AddRightGroupbox('Legit')
 
-getgenv().YeuTuyen = {
-    Hitpart = "Head",
-    CheckIfJumped = true,
-    CheckIfJumpedAimPart = "HumanoidRootPart",
-    AutoPingSets = true,
-    UseShake = true,
-    ShakePower = 1,
-    PredictMovement = false,
-    PredictionVelocity = 0.17221418,
-    UnderGround = true,
-    DetectDesync = true,
-    Detection = 75,
-}
+local howmany = 0 -- Đếm số nút
 
-getgenv().camLockTargets = {}  -- Danh sách các mục tiêu đã lock
-local camLockEnabled = false
-local smoothness = 1
-local tracers = {}  -- Lưu trữ các tracer cho từng mục tiêu
+-- [Giữ nguyên các hàm getMainRemote, GetDictionaryLength, isAlive, ensureNotificationsGui, Notify, v.v.]
 
--- Hàm tạo tracer
-local function createTracer(target)
-    local tracer = Drawing.new("Line")
-    tracer.Visible = true
-    tracer.Color = Color3.fromRGB(255, 179, 186)  -- Màu đỏ mặc định
-    tracer.Thickness = 2
-    tracer.Transparency = 1
-    tracers[target] = tracer
-end
+-- [Giữ nguyên các hàm highlight, tracer, và logic chọn mục tiêu]
 
--- Hàm xóa tracer
-local function removeTracer(target)
-    if tracers[target] then
-        tracers[target]:Remove()
-        tracers[target] = nil
-    end
-end
+-- Hàm MakeButton (đã chỉnh sửa để sử dụng Sigmaballs)
+local MakeButton = function(ButtonName, Color, callback, keycode)
+    howmany = howmany + 1
 
--- Hàm tính tuổi tài khoản
-local function getAccountAge(player)
-    return math.floor((os.time() - player.AccountAge * 86400) / 86400)
-end
+    local Frame = Instance.new("Frame")
+    local TextButton = Instance.new("ImageLabel")
+    local TextLabel = Instance.new("TextButton")
+    local UITextSizeConstraint = Instance.new("UITextSizeConstraint")
 
-CamLockBox:AddToggle('CamLockToggle', {
-    Text = 'CamLock',
-    Default = false,
-    Callback = function(state)
-        camLockEnabled = state
-        if state then
-            getgenv().StickyAimEnabled = false
+    Frame.Parent = Sigmaballs -- Sử dụng Sigmaballs thay vì tạo ScreenGui mới
+    Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    Frame.BackgroundTransparency = 0.3
+    Frame.Position = UDim2.new(0.85, -120, 0.1, (howmany - 1) * 50) -- Điều chỉnh vị trí cho mobile
+    Frame.Size = UDim2.new(0, 120, 0, 40)
+
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Parent = Frame
+    uiStroke.Color = Color
+    uiStroke.Thickness = 1.2
+    uiStroke.Transparency = 0
+
+    TextButton.Parent = Frame
+    TextButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    TextButton.BackgroundTransparency = 1
+    TextButton.Size = UDim2.new(0, 28, 0, 28)
+    TextButton.AnchorPoint = Vector2.new(0, 0.5)
+    TextButton.Position = UDim2.new(0.05, 0, 0.5, 0)
+    TextButton.Image = "rbxassetid://10734923214"
+    TextButton.ImageColor3 = Color
+
+    TextLabel.Parent = Frame
+    TextLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    TextLabel.BackgroundTransparency = 1
+    TextLabel.Size = UDim2.new(0, 80, 0, 28)
+    TextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+    TextLabel.Position = UDim2.new(0.65, 0, 0.5, 0)
+    TextLabel.Font = Enum.Font.Arimo
+    TextLabel.Text = ButtonName
+    TextLabel.TextColor3 = Color
+    TextLabel.TextScaled = true
+    TextLabel.TextSize = 25
+    TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    TextLabel.TextStrokeTransparency = 1
+
+    local uiCorner = Instance.new("UICorner", Frame)
+    uiCorner.CornerRadius = UDim.new(0, 8)
+
+    local buttonState = false
+
+    TextLabel.Activated:Connect(function() -- Sử dụng Activated thay vì MouseButton1Down để hỗ trợ mobile
+        buttonState = not buttonState
+        callback(buttonState)
+        if buttonState then
+            TextButton.Image = "rbxassetid://10735024209"
         else
-            getgenv().camLockTargets = {}  -- Clear danh sách khi tắt
-            for target, _ in pairs(tracers) do
-                removeTracer(target)
+            TextButton.Image = "rbxassetid://10734923214"
+        end
+    end)
+
+    if keycode then
+        UIS.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == keycode then
+                buttonState = not buttonState
+                callback(buttonState)
+                if buttonState then
+                    TextButton.Image = "rbxassetid://10735024209"
+                else
+                    TextButton.Image = "rbxassetid://10734923214"
+                end
+            end
+        end)
+    end
+
+    local dragStart, startPos
+    TextLabel.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragStart = input.Position
+            startPos = Frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragStart = nil
+                end
+            end)
+        end
+    end)
+
+    TextLabel.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            if dragStart then
+                local delta = input.Position - dragStart
+                Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end
-    end,
-}):AddKeyPicker('CamLockKeybind', {
-    Default = 'Q',
-    NoUI = false,
-    Text = 'CamLock',
-    Mode = 'Toggle',
-    Callback = function()
-        if UserInputService:GetFocusedTextBox() then return end
-        if not camLockEnabled then return end
+    end)
 
-        local closestPlayer = nil
-        local closestDistance = math.huge
-        local mousePos = UserInputService:GetMouseLocation()
-
-        for _, Player in pairs(Players:GetPlayers()) do
-            if Player == LocalPlayer then continue end
-            local character = Player.Character
-            if character then
-                local HRP = character:FindFirstChild("Head")
-                if HRP then
-                    local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(HRP.Position)
-                    if onScreen then
-                        local distance = (Vector2.new(mousePos.X, mousePos.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                        if distance < closestDistance then
-                            closestDistance = distance
-                            closestPlayer = Player
-                        end
-                    end
-                end
-            end
-        end
-
-        if closestPlayer then
-            local playerName = closestPlayer.Name
-            local foundIndex = nil
-            for i, target in ipairs(getgenv().camLockTargets) do
-                if target.Name == playerName then
-                    foundIndex = i
-                    break
-                end
-            end
-            if foundIndex then
-                table.remove(getgenv().camLockTargets, foundIndex)  -- Bỏ chọn nếu đã có
-                removeTracer(closestPlayer)
-                Library:Notify(string.format("Untarget: %s (@%s), age: %d days", closestPlayer.DisplayName, closestPlayer.Name, getAccountAge(closestPlayer)), 5)
-            else
-                table.insert(getgenv().camLockTargets, closestPlayer)  -- Thêm vào danh sách
-                createTracer(closestPlayer)
-                Library:Notify(string.format("Target: %s (@%s), age: %d days", closestPlayer.DisplayName, closestPlayer.Name, getAccountAge(closestPlayer)), 5)
-            end
-        end
-    end,
-})
-
-CamLockBox:AddDropdown('HitpartDropdown', {
-    Text = 'Hit Part',
-    Values = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "RightHand", "LeftHand", "RightFoot", "LeftFoot"},
-    Default = "Head",
-    Callback = function(Value)
-        getgenv().YeuTuyen.Hitpart = Value
-    end
-})
-
-CamLockBox:AddToggle('CheckIfJumpedToggle', {
-    Text = 'Air Part',
-    Default = true,
-    Callback = function(Value)
-        getgenv().YeuTuyen.CheckIfJumped = Value
-    end
-})
-
-CamLockBox:AddDropdown('AirpartDropdown', {
-    Text = 'Air Part',
-    Values = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "RightHand", "LeftHand", "RightFoot", "LeftFoot"},
-    Default = "HumanoidRootPart",
-    Callback = function(Value)
-        getgenv().YeuTuyen.CheckIfJumpedAimPart = Value
-    end
-})
-
-CamLockBox:AddToggle('UseShakeToggle', {
-    Text = 'Use Shake',
-    Default = true,
-    Callback = function(Value)
-        getgenv().YeuTuyen.UseShake = Value
-    end
-})
-
-CamLockBox:AddInput('ShakeInput', {
-    Default = '1',
-    Numeric = true,
-    Finished = false,
-    Text = 'Shake',
-    Tooltip = 'Controls the shake power (default: 1)',
-    Placeholder = 'Enter shake value...',
-    Callback = function(Value)
-        getgenv().YeuTuyen.ShakePower = tonumber(Value) or 1
-    end
-})
-
-CamLockBox:AddToggle('PredictMovementToggle', {
-    Text = 'Use prediction',
-    Default = false,
-    Callback = function(Value)
-        getgenv().YeuTuyen.PredictMovement = Value
-    end
-})
-
-CamLockBox:AddInput('PredictionVelocityInput', {
-    Default = '0.17221418',
-    Numeric = true,
-    Finished = false,
-    Text = 'Prediction Velocity',
-    Tooltip = 'Controls the prediction velocity (default: 0.17221418)',
-    Placeholder = 'Enter prediction velocity...',
-    Callback = function(Value)
-        getgenv().YeuTuyen.PredictionVelocity = tonumber(Value) or 0.17221418
-    end
-})
-
-CamLockBox:AddToggle('AutoPredictionToggle', {
-    Text = 'Auto Prediction',
-    Default = true,
-    Callback = function(Value)
-        getgenv().YeuTuyen.AutoPingSets = Value
-    end
-})
-
-CamLockBox:AddToggle('UnderGroundToggle', {
-    Text = 'Under Ground',
-    Default = true,
-    Callback = function(Value)
-        getgenv().YeuTuyen.UnderGround = Value
-    end
-})
-
-CamLockBox:AddToggle('DetectDesyncToggle', {
-    Text = 'Detect Desync',
-    Default = true,
-    Callback = function(Value)
-        getgenv().YeuTuyen.DetectDesync = Value
-    end
-})
-
-CamLockBox:AddInput('DetectionInput', {
-    Default = '75',
-    Numeric = true,
-    Finished = false,
-    Text = 'Detection',
-    Tooltip = 'Controls the detection threshold (default: 75)',
-    Placeholder = 'Enter detection value...',
-    Callback = function(Value)
-        getgenv().YeuTuyen.Detection = tonumber(Value) or 75
-    end
-})
-
-CamLockBox:AddInput('SmoothnessInput', {
-    Default = '1',
-    Numeric = true,
-    Finished = false,
-    Text = 'Smoothness',
-    Tooltip = 'Controls how smoothly the camera follows the target (0 = instant)',
-    Placeholder = 'Enter smoothness value...',
-    Callback = function(Value)
-        smoothness = tonumber(Value) or 1
-    end
-})
-
-local function getBestTarget()
-    local bestTarget = nil
-    local closestDistance = math.huge
-    local mousePos = UserInputService:GetMouseLocation()
-
-    for _, target in ipairs(getgenv().camLockTargets) do
-        local character = target.Character
-        if character then
-            -- Kiểm tra K.O và grab nếu tồn tại
-            local bodyEffects = character:FindFirstChild("BodyEffects")
-            local isKO = false
-            if bodyEffects then
-                local koValue = bodyEffects:FindFirstChild("K.O")
-                if koValue then
-                    isKO = koValue.Value
-                end
-            end
-            local isGrabbed = character:FindFirstChild("GRABBING_CONSTRAINT") ~= nil
-
-            if isKO or isGrabbed then
-                continue
-            end
-
-            local HRP = character:FindFirstChild("Head")
-            if HRP then
-                local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(HRP.Position)
-                if onScreen then
-                    -- Kiểm tra vật cản bằng raycast
-                    local camera = workspace.CurrentCamera
-                    local origin = camera.CFrame.Position
-                    local direction = (HRP.Position - origin).Unit * (HRP.Position - origin).Magnitude
-                    local raycastParams = RaycastParams.new()
-                    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-                    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-                    local raycastResult = workspace:Raycast(origin, direction, raycastParams)
-                    local isVisible = raycastResult == nil or raycastResult.Instance == HRP
-
-                    if isVisible then
-                        local distance = (Vector2.new(mousePos.X, mousePos.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                        if distance < closestDistance then
-                            closestDistance = distance
-                            bestTarget = target
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    return bestTarget
-end
-
-RunService.RenderStepped:Connect(function()
-
-    for target, tracer in pairs(tracers) do
-        if target.Character and target.Character:FindFirstChild("UpperTorso") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("UpperTorso") then
-           local targetTorso = target.Character:FindFirstChild("UpperTorso")
-            local myTorso = LocalPlayer.Character:FindFirstChild("UpperTorso")
-            
-            local targetScreenPos, targetOnScreen = workspace.CurrentCamera:WorldToViewportPoint(targetTorso.Position)
-            local myScreenPos, myOnScreen = workspace.CurrentCamera:WorldToViewportPoint(myTorso.Position)
-            
-            if targetOnScreen and myOnScreen then
-                tracer.From = Vector2.new(myScreenPos.X, myScreenPos.Y)
-                tracer.To = Vector2.new(targetScreenPos.X, targetScreenPos.Y)
-                tracer.Visible = true
-            else
-                tracer.Visible = false
-            end
-        else
-            tracer.Visible = false
-        end
-    end
-
-    if camLockEnabled and #getgenv().camLockTargets > 0 then
-        local bestTarget = getBestTarget()
-
-        if bestTarget then
-            local target = bestTarget
-            local character = target.Character
-            local HRP = character:FindFirstChild("HumanoidRootPart")
-            local hum = character:FindFirstChild("Humanoid")
-            local part = character:FindFirstChild("Head") -- Default part, sẽ bị ghi đè
-
-            if target and part and hum and target.Character then
-                -- Chọn aimpart dựa trên CheckIfJumped
-                local aimPartName = getgenv().YeuTuyen.Hitpart
-                if getgenv().YeuTuyen.CheckIfJumped and hum:GetState() == Enum.HumanoidStateType.Freefall then
-                    aimPartName = getgenv().YeuTuyen.CheckIfJumpedAimPart
-                end
-                local aimPart = target.Character:FindFirstChild(aimPartName) or part
-
-                -- Áp dụng UseShake
-                if getgenv().YeuTuyen.UseShake and aimPart then
-                    pcall(function()
-                        local shakeVec = Vector3.new(
-                            math.random(-getgenv().YeuTuyen.ShakePower, getgenv().YeuTuyen.ShakePower),
-                            math.random(-getgenv().YeuTuyen.ShakePower, getgenv().YeuTuyen.ShakePower),
-                            math.random(-getgenv().YeuTuyen.ShakePower, getgenv().YeuTuyen.ShakePower)
-                        ) * 0.1
-                        aimPart.Velocity = aimPart.Velocity + shakeVec
-                        aimPart.AssemblyLinearVelocity = aimPart.AssemblyLinearVelocity + shakeVec
-                    end)
-                end
-
-                -- Áp dụng UnderGround
-                if getgenv().YeuTuyen.UnderGround and aimPart then
-                    pcall(function()
-                        aimPart.Velocity = Vector3.new(aimPart.Velocity.X, 0, aimPart.Velocity.Z)
-                        aimPart.AssemblyLinearVelocity = Vector3.new(aimPart.AssemblyLinearVelocity.X, 0, aimPart.AssemblyLinearVelocity.Z)
-                    end)
-                end
-
-                -- Áp dụng DetectDesync
-                if getgenv().YeuTuyen.DetectDesync and target.Character:FindFirstChild("HumanoidRootPart") and
-                    target.Character.HumanoidRootPart.Velocity.Magnitude > getgenv().YeuTuyen.Detection and aimPart then
-                    pcall(function()
-                        aimPart.Velocity = Vector3.new(0, 0, 0)
-                        aimPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                    end)
-                end
-
-                -- Áp dụng AutoPingSets
-                if getgenv().YeuTuyen.AutoPingSets then
-                    pcall(function()
-                        local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
-                        local split = string.split(pingvalue, "(")
-                        local ping = tonumber(split[1]) or 0
-                        if ping > 190 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.206547
-                        elseif ping > 180 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.19284
-                        elseif ping > 170 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.1923111
-                        elseif ping > 160 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.1823111
-                        elseif ping > 150 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.171
-                        elseif ping > 140 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.165773
-                        elseif ping > 130 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.1223333
-                        elseif ping > 120 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.143765
-                        elseif ping > 110 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.1455
-                        elseif ping > 100 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.130340
-                        elseif ping > 90 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.136
-                        elseif ping > 80 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.1347
-                        elseif ping > 70 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.119
-                        elseif ping > 60 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.12731
-                        elseif ping > 50 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.127668
-                        elseif ping > 40 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.125
-                        elseif ping > 30 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.11
-                        elseif ping > 20 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.12588
-                        elseif ping > 10 then
-                            getgenv().YeuTuyen.PredictionVelocity = 0.9
-                        end
-                    end)
-                end
-
-                -- Dự đoán chuyển động
-                local predictVec = aimPart.Position
-                if getgenv().YeuTuyen.PredictMovement and aimPart then
-                    predictVec = aimPart.Position + aimPart.Velocity * getgenv().YeuTuyen.PredictionVelocity
-                end
-
-                local camera = workspace.CurrentCamera
-                local targetPosition = predictVec
-
-                -- Lấy CFrame hiện tại của camera
-                local currentCFrame = camera.CFrame
-
-                -- Tính toán hướng nhìn mới
-                local lookVector = (targetPosition - currentCFrame.Position).Unit
-
-                -- Nội suy mượt mà hướng nhìn
-                local currentLookVector = currentCFrame.LookVector
-                local smoothedLookVector = currentLookVector:Lerp(lookVector, smoothness)
-
-                -- Cập nhật CFrame của camera để nhìn theo hướng mượt
-                camera.CFrame = CFrame.new(currentCFrame.Position, currentCFrame.Position + smoothedLookVector)
-            end
-        end
-    end
-end)
-
-local function gettargetaim()
-    local closestPlayer = nil
-    local closestDistance = math.huge
-    local mousePos = UserInputService:GetMouseLocation()
-
-    for _, Player in pairs(Players:GetPlayers()) do
-        if Player == LocalPlayer then continue end
-        local character = Player.Character
-        if character then
-            local HRP = character:FindFirstChild("Head")
-            if HRP then
-                local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(HRP.Position)
-                if onScreen then
-                    local distance = (Vector2.new(mousePos.X, mousePos.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestPlayer = Player
-                    end
-                end
-            end
-        end
-    end
-
-    if closestPlayer then
-        local playerName = closestPlayer.Name
-        local foundIndex = nil
-        for i, target in ipairs(getgenv().camLockTargets) do
-            if target.Name == playerName then
-                foundIndex = i
-                break
-            end
-        end
-        if foundIndex then
-            table.remove(getgenv().camLockTargets, foundIndex)  -- Bỏ chọn nếu đã có
-            removeTracer(closestPlayer)
-            Library:Notify(string.format("Untarget: %s (@%s), age: %d days", closestPlayer.DisplayName, closestPlayer.Name, getAccountAge(closestPlayer)), 5)
-        else
-            table.insert(getgenv().camLockTargets, closestPlayer)  -- Thêm vào danh sách
-            createTracer(closestPlayer)
-            Library:Notify(string.format("Target: %s (@%s), age: %d days", closestPlayer.DisplayName, closestPlayer.Name, getAccountAge(closestPlayer)), 5)
-        end
-    end
+    UITextSizeConstraint.Parent = TextLabel
+    UITextSizeConstraint.MaxTextSize = 25
 end
 
 local function gettargetsticky()
@@ -1448,7 +1047,7 @@ local function gettargetsticky()
         tracer.Visible = true
     else
         local camera = workspace.CurrentCamera
-        local mouseLocation = UserInputService:GetMouseLocation()
+        local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2) -- Tâm màn hình
         local closestTarget, closestDistance = nil, math.huge
 
         for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -1463,7 +1062,8 @@ local function gettargetsticky()
                     local targetPart = otherPlayer.Character[targetHitPart]
                     local screenPosition, onScreen = camera:WorldToViewportPoint(targetPart.Position)
                     if onScreen then
-                        local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - mouseLocation).Magnitude
+                        -- Đo khoảng cách từ nhân vật đến tâm màn hình
+                        local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude
                         if distance < closestDistance then
                             closestTarget = otherPlayer
                             closestDistance = distance
@@ -1503,8 +1103,6 @@ Ui2corner.Parent = ImageButton
 ImageButton.MouseButton1Click:Connect(function()
     if StickyAimEnabled then
         gettargetsticky()
-    elseif camLockEnabled then
-        gettargetaim()
     end
 end)
 
@@ -4012,13 +3610,20 @@ getgenv().fArmorThreshold = 75
 
 local player = game:GetService("Players").LocalPlayer
 local dataFolder = player:WaitForChild("DataFolder")
-local armorInfo = dataFolder:WaitForChild("Information"):FindFirstChild("ArmorSave") or nil
-local fireArmorInfo = dataFolder:WaitForChild("Information"):FindFirstChild("FireArmorSave") or nil
-local armorShop = workspace.Ignored.Shop["[High-Medium Armor] - $2513"]
-local fireArmorShop = workspace.Ignored.Shop["[Fire Armor] - $2623"]
-local armorClickDetector = armorShop.ClickDetector
-local fireArmorClickDetector = fireArmorShop.ClickDetector
 
+-- Thông tin giáp
+local armorInfo = dataFolder:WaitForChild("Information"):FindFirstChild("ArmorSave")
+local fireArmorInfo = dataFolder:WaitForChild("Information"):FindFirstChild("FireArmorSave")
+
+-- Shop armor (nếu tồn tại trong game)
+local armorShop = workspace.Ignored.Shop:FindFirstChild("[High-Medium Armor] - $2513")
+local fireArmorShop = workspace.Ignored.Shop:FindFirstChild("[Fire Armor] - $2623")
+
+-- ClickDetector (check nil để tránh lỗi)
+local armorClickDetector = armorShop and armorShop:FindFirstChild("ClickDetector")
+local fireArmorClickDetector = fireArmorShop and fireArmorShop:FindFirstChild("ClickDetector")
+
+-- Check có thể mua
 local function canBuyArmor()
     local character = player.Character
     if not character then return false end
@@ -4030,9 +3635,10 @@ local function canBuyArmor()
     return true
 end
 
+-- Teleport mua đồ
 local function teleportAndBuy(shop, clickDetector)
     local character = player.Character
-    if not character or not character.PrimaryPart then return end
+    if not character or not character.PrimaryPart or not shop or not clickDetector then return end
 
     local originalPosition = character.PrimaryPart.CFrame
     task.wait(0.1)
@@ -4047,52 +3653,61 @@ local function teleportAndBuy(shop, clickDetector)
     task.wait(0.1)
 end
 
+-- Auto mua Armor
 local function buyArmor()
     if armorInfo and getgenv().autoArmorEnabled and tonumber(armorInfo.Value) < getgenv().armorThreshold and canBuyArmor() then
-        local wasDesyncEnabled = desync.enabled
-        if wasDesyncEnabled then
-            toggleDesync(false)
-        end
+        if armorShop and armorClickDetector then
+            local wasDesyncEnabled = desync.enabled
+            if wasDesyncEnabled then
+                toggleDesync(false)
+            end
 
-        teleportAndBuy(armorShop, armorClickDetector)
+            teleportAndBuy(armorShop, armorClickDetector)
 
-        if wasDesyncEnabled then
-            toggleDesync(true)
+            if wasDesyncEnabled then
+                toggleDesync(true)
+            end
         end
     end
 end
 
+-- Auto mua Fire Armor
 local function buyFireArmor()
     if fireArmorInfo and getgenv().autoFArmorEnabled and tonumber(fireArmorInfo.Value) < getgenv().fArmorThreshold and canBuyArmor() then
-        local wasDesyncEnabled = desync.enabled
-        if wasDesyncEnabled then
-            toggleDesync(false)
-        end
+        if fireArmorShop and fireArmorClickDetector then
+            local wasDesyncEnabled = desync.enabled
+            if wasDesyncEnabled then
+                toggleDesync(false)
+            end
 
-        teleportAndBuy(fireArmorShop, fireArmorClickDetector)
+            teleportAndBuy(fireArmorShop, fireArmorClickDetector)
 
-        if wasDesyncEnabled then
-            toggleDesync(true)
+            if wasDesyncEnabled then
+                toggleDesync(true)
+            end
         end
     end
 end
 
+-- Loop check giáp
 local function checkArmor()
     while task.wait(0.1) do
-        if armorInfo then
+        if armorInfo and armorShop and armorClickDetector then
             buyArmor()
         end
-        if fireArmorInfo then
+        if fireArmorInfo and fireArmorShop and fireArmorClickDetector then
             buyFireArmor()
         end
     end
 end
 
+-- Khi spawn nhân vật thì chạy checkArmor
 player.CharacterAdded:Connect(function()
     task.wait(1.4)
     checkArmor()
 end)
 
+-- Chạy luôn từ đầu
 task.spawn(checkArmor)
 
 Modifications:AddToggle('AutoArmorToggle', {
