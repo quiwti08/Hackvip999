@@ -769,52 +769,52 @@ MakeButton("WalkSpeed", Color3.fromRGB(255, 255, 255), function(state)
     end)
 end, Enum.KeyCode.H)
 
+-- Sửa nút Stomp
 MakeButton("Stomp", Color3.fromRGB(255, 255, 255), function(state)
     stomptarget = state
     if stomptarget then
         Notify("Stomp: ON", 2)
-        task.spawn(function()
+        -- Bắt đầu vòng lặp kiểm tra các mục tiêu K.O
+        local connection
+        connection = Run.Heartbeat:Connect(function()
+            if not stomptarget then
+                connection:Disconnect()
+                return
+            end
+
             local char = LP.Character
             if not char then return end
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
-            local originalPos = hrp.Position
 
-            local koPlayers = {}
+            -- Duyệt qua các mục tiêu được chọn
             for ply, hl in pairs(selected) do
-                if ply and hl and hl.Enabled and ply.Character and isKO(ply) then
-                    table.insert(koPlayers, ply)
+                if ply and hl and hl.Enabled and ply.Character then
+                    local targetChar = ply.Character
+                    local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+                    local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
+                    -- Kiểm tra điều kiện bỏ qua: máu bằng 0 VÀ không còn K.O
+                    if targetHum and targetHum.Health <= 0 and not isKO(ply) then
+                        print(ply.Name, "is dead and not K.O, skipping")
+                        continue
+                    end
+                    -- Nếu mục tiêu bị K.O và trong khoảng cách 20 studs, gọi Stomp/STOMP
+                    if isKO(ply) and targetHrp then
+                        local distance = (hrp.Position - targetHrp.Position).Magnitude
+                        if distance <= 20 then
+                            print("Attempting Stomp on", ply.Name, "at distance", distance)
+                            pcall(function()
+                                MainRemote:FireServer("Stomp")
+                                print("Stomp fired")
+                            end)
+                            pcall(function()
+                                MainRemote:FireServer("STOMP")
+                                print("STOMP fired")
+                            end)
+                        end
+                    end
                 end
             end
-
-            if #koPlayers == 0 then
-                Notify("No KO targets found.", 2)
-                stomptarget = false
-                Notify("Stomp: OFF", 2)
-                TextButton.Image = "rbxassetid://10734923214"
-                return
-            end
-
-                        for _, ply in ipairs(koPlayers) do
-                local targetChar = ply.Character
-                local upperTorso = targetChar:FindFirstChild("UpperTorso")
-                if upperTorso then
-                    hrp.Position = upperTorso.Position + Vector3.new(0, 3, 0)
-                    task.wait(0.1) -- Đợi ngắn để TP ổn định
-                    pcall(function()
-                        MainRemote:FireServer("Stomp")
-                    end)
-                    pcall(function()
-                        MainRemote:FireServer("STOMP")
-                    end)
-                    task.wait(0.3)
-                end
-            end
-
-            hrp.Position = originalPos
-            stomptarget = false
-            Notify("Stomp completed.", 2)
-            TextButton.Image = "rbxassetid://10734923214"
         end)
     else
         Notify("Stomp: OFF", 2)
