@@ -24,7 +24,8 @@ local Notifications = {}
 local Notifications_Frame = nil
 local aimlockEnabled = true
 local camlockEnabled = false
-local stomptarget = false -- Biến mới cho stomp
+local stomptarget = false
+local imageon = "rbxassetid://96086736054343"
 
 local possibleRemotes = {
     "MAINEVENT",
@@ -279,12 +280,12 @@ local function toggleSelectPlayer(ply)
         removeHighlightFromPlayer(ply)
         removeTracer(ply) -- gỡ tracer khi bỏ chọn
         Notify(string.format("Deselected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 2)
-        ImageButton.Image = "rbxassetid://140623923630784"
+        imageon = "rbxassetid://140623923630784"
     else
         addHighlightToPlayer(ply)
         createTracer(ply) -- tạo tracer khi chọn
         Notify(string.format("Selected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 3)
-        ImageButton.Image = "rbxassetid://96086736054343"
+        imageon = "rbxassetid://96086736054343"
     end
 end
 
@@ -499,7 +500,7 @@ ImageButton.Draggable = true
 ImageButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 ImageButton.BackgroundTransparency = 0.5
 ImageButton.Size = UDim2.new(0, 90, 0, 90)
-ImageButton.Image = "rbxassetid://96086736054343"
+ImageButton.Image = imageon
 ImageButton.Position = UDim2.new(0.5, -25, 0.5, -25)
 
 local Ui2corner = Instance.new("UICorner")
@@ -727,6 +728,7 @@ Run.RenderStepped:Connect(function(dt)
     if ammo and ammo.Value <= 0 then
         -- Reload (Normal)
         MainRemote:FireServer("Reload", tool)
+        MainRemote:FireServer("RELOAD", tool)
         task.wait(3.7)
     end
 
