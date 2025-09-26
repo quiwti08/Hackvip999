@@ -12,7 +12,7 @@ local Cam     = workspace.CurrentCamera
 
 -- ====== CONFIG ======
 local selectKey    = Enum.KeyCode.Q
-local aimlockKey   = Enum.KeyCode.T
+local aimlockKey   = Enum.KeyCode.H
 local highlightColor = Color3.fromRGB(214,112,122)
 local predictionTime = 0.17221418
 local aimSmoothing = 1 -- 1 = instant; <1 = smoothing (lerp factor)
@@ -196,8 +196,7 @@ end
 
 local tracers = {} -- map player -> Beam
 
--- Thêm bảng để lưu trữ vòng tròn
-local circles = {} -- map player -> Part (vòng tròn GUI)
+local circles = {} 
 
 local function createTracer(ply)
     if not LP.Character or not ply.Character then return end
@@ -211,11 +210,11 @@ local function createTracer(ply)
         tracers[ply] = nil
     end
 
-    -- Nếu đã có vòng tròn cũ thì xóa
+    --[[ Nếu đã có vòng tròn cũ thì xóa
     if circles[ply] then
         circles[ply]:Destroy()
         circles[ply] = nil
-    end
+    end]]
 
     -- Tạo tracer
     local att1 = Instance.new("Attachment", hrp1)
@@ -231,7 +230,7 @@ local function createTracer(ply)
 
     tracers[ply] = beam
 
-    -- Tạo vòng tròn viền dưới chân bằng SurfaceGui
+    --[[ Tạo vòng tròn viền dưới chân bằng SurfaceGui
     local circlePart = Instance.new("Part")
     circlePart.Name = "TargetCircle"
     circlePart.Size = Vector3.new(6, 0.1, 6) -- đường kính ~ 6 studs
@@ -269,7 +268,7 @@ local function createTracer(ply)
     stroke.Color = Color3.fromRGB(214, 112, 122)
     stroke.Parent = frame
 
-    circles[ply] = circlePart
+    circles[ply] = circlePart]]
 
     -- Cập nhật khi target respawn
     ply.CharacterAdded:Connect(function(newChar)
@@ -282,7 +281,7 @@ local function createTracer(ply)
             tracers[ply].Attachment1 = newAtt
         end
 
-        -- cập nhật circle
+        --[[ cập nhật circle
         if circles[ply] then
             circles[ply]:Destroy()
 
@@ -322,7 +321,7 @@ local function createTracer(ply)
             newStroke.Parent = newFrame
 
             circles[ply] = newCirclePart
-        end
+        end]]
     end)
 end
 
@@ -332,10 +331,10 @@ local function removeTracer(ply)
         tracers[ply]:Destroy()
         tracers[ply] = nil
     end
-    if circles[ply] then
+    --[[if circles[ply] then
         circles[ply]:Destroy()
         circles[ply] = nil
-    end
+    end]]
 end
 
 -- Sửa hàm removeAllTracers để xóa tất cả vòng tròn
@@ -343,11 +342,11 @@ local function removeAllTracers()
     for ply, beam in pairs(tracers) do
         if beam then beam:Destroy() end
     end
-    for ply, circle in pairs(circles) do
+    --[[for ply, circle in pairs(circles) do
         if circle then circle:Destroy() end
-    end
+    end]]
     tracers = {}
-    circles = {}
+    --circles = {}
 end
 
 -- Xử lý khi LocalPlayer hồi sinh
@@ -741,22 +740,19 @@ local MakeButton = function(ButtonName, Color, callback, keycode)
     UITextSizeConstraint.MaxTextSize = 25
 end
 
--- Nút WalkSpeed
-MakeButton("WalkSpeed", Color3.fromRGB(255, 255, 255), function(state)
-    dog = state
-    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+-- Hàm áp dụng WalkSpeed & JumpPower
+local function applyStats(humanoid)
     if not humanoid then return end
 
     if dog then
-        humanoid.WalkSpeed = 150 -- Thay Psalms.Tech.MacroSpeed * 1000 bằng giá trị cố định
+        humanoid.WalkSpeed = 150
         humanoid.JumpPower = 80
-        Notify("WalkSpeed ON: 150, JumpPower: 80", 2)
     else
         humanoid.WalkSpeed = 18
         humanoid.JumpPower = 55
-        Notify("WalkSpeed OFF: 18, JumpPower: 55", 2)
     end
 
+    -- Bảo vệ nếu bị game set lại
     humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
         if dog then
             humanoid.WalkSpeed = 150
@@ -767,7 +763,27 @@ MakeButton("WalkSpeed", Color3.fromRGB(255, 255, 255), function(state)
             humanoid.JumpPower = 80
         end
     end)
-end, Enum.KeyCode.H)
+end
+
+-- Khi ấn nút bật/tắt
+MakeButton("WalkSpeed", Color3.fromRGB(255, 255, 255), function(state)
+    dog = state
+
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    applyStats(humanoid)
+
+    if dog then
+        Notify("WalkSpeed ON: 150, JumpPower: 80", 2)
+    else
+        Notify("WalkSpeed OFF: 18, JumpPower: 55", 2)
+    end
+end, Enum.KeyCode.T)
+
+-- Khi respawn, áp dụng lại
+LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Humanoid")
+    applyStats(char:FindFirstChildOfClass("Humanoid"))
+end)
 
 -- Sửa nút Stomp
 MakeButton("Stomp", Color3.fromRGB(255, 255, 255), function(state)
@@ -798,18 +814,14 @@ MakeButton("Stomp", Color3.fromRGB(255, 255, 255), function(state)
                         print(ply.Name, "is dead and not K.O, skipping")
                         continue
                     end
-                    -- Nếu mục tiêu bị K.O và trong khoảng cách 20 studs, gọi Stomp/STOMP
                     if isKO(ply) and targetHrp then
                         local distance = (hrp.Position - targetHrp.Position).Magnitude
                         if distance <= 20 then
-                            print("Attempting Stomp on", ply.Name, "at distance", distance)
                             pcall(function()
                                 MainRemote:FireServer("Stomp")
-                                print("Stomp fired")
                             end)
                             pcall(function()
                                 MainRemote:FireServer("STOMP")
-                                print("STOMP fired")
                             end)
                         end
                     end
@@ -820,7 +832,7 @@ MakeButton("Stomp", Color3.fromRGB(255, 255, 255), function(state)
         Notify("Stomp: OFF", 2)
         stomptarget = false
     end
-end, Enum.KeyCode.G)
+end, Enum.KeyCode.K)
 
 -- Biến autoshoot
 local tbEnabled = false
@@ -899,6 +911,55 @@ local function GetBestTargetPart()
         end
     end
     return bestPart
+end
+
+-- ===== CHAT COMMANDS =====
+local antiStompActive = false
+local flashbackActive = false
+local lastPosition = nil
+
+-- Logic AntiStomp + Flashback
+local function startAntiStomp()
+    local function checkAndKill(chr)
+        local hum = chr:WaitForChild("Humanoid", 5)
+        local bodyEffects = chr:WaitForChild("BodyEffects", 5)
+        if not hum or not bodyEffects then return end
+        local koValue = bodyEffects:WaitForChild("K.O", 5)
+        if not koValue then return end
+
+        local connection
+        connection = Run.Heartbeat:Connect(function()
+            if not antiStompActive then
+                connection:Disconnect()
+                return
+            end
+            if koValue.Value == true and hum.Health > 0 then
+                if flashbackActive then
+                    lastPosition = chr:GetPrimaryPartCFrame()
+                end
+                hum.Health = 0
+            end
+        end)
+    end
+
+    if LocalPlayer.Character then
+        checkAndKill(LocalPlayer.Character)
+    end
+    LocalPlayer.CharacterAdded:Connect(function(newChar)
+        if antiStompActive then
+            checkAndKill(newChar)
+            if flashbackActive and lastPosition then
+                local root = newChar:WaitForChild("HumanoidRootPart", 5)
+                if root then
+                    while (root.Position - lastPosition.Position).Magnitude > 5 do
+                        root.CFrame = lastPosition
+                        task.wait()
+                    end
+                end
+                lastPosition = nil
+            end
+        end
+    end)
 end
 
 -- Thêm nút MakeButton cho autoshoot
@@ -1037,5 +1098,116 @@ Run.Heartbeat:Connect(function()
         end
     end
 end)
+
+local TextChatService = game:GetService("TextChatService")
+
+local function handleCommandText(raw)
+    if not raw then return end
+    local msg = tostring(raw)
+    msg = msg:match("^%s*(.-)%s*$") -- trim
+    if msg == "" then return end
+    if string.sub(msg,1,1) ~= "." then return end -- chỉ xử lý lệnh bắt đầu bằng '.'
+
+    local body = string.sub(msg, 2)
+    if body == "" then return end -- nếu chỉ gõ '.' thì im lặng
+
+    local args = {}
+    for w in body:gmatch("%S+") do table.insert(args, w) end
+    local cmd = string.lower(args[1] or "")
+    local val = tonumber(args[2])
+
+    -- === Các lệnh bạn muốn xử lý ===
+    if cmd == "walkspeed" then
+        if val then
+            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.WalkSpeed = val
+                Notify("WalkSpeed set to "..val, 2)
+            end
+        else
+            dog = not dog
+            Notify("WalkSpeed toggle: "..tostring(dog), 2)
+            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if hum then applyStats(hum) end
+        end
+
+    elseif cmd == "jumppower" or cmd == "jump" then
+        if val then
+            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.JumpPower = val
+                Notify("JumpPower set to "..val, 2)
+            end
+        end
+
+    elseif cmd == "aimlock" then
+        aimlockEnabled = not aimlockEnabled
+        Notify("Aimlock: "..tostring(aimlockEnabled), 2)
+
+    elseif cmd == "triggerbot" or cmd == "autoshoot" then
+        tbEnabled = not tbEnabled
+        Notify("TriggerBot: "..tostring(tbEnabled), 2)
+
+    elseif cmd == "autostomp" then
+        stomptarget = not stomptarget
+        Notify("AutoStomp: "..tostring(stomptarget), 2)
+
+    elseif cmd == "autoreload" then
+        autoReload = not autoReload
+        Notify("AutoReload: "..tostring(autoReload), 2)
+
+    elseif cmd == "antistomp" then
+        antiStompActive = not antiStompActive
+        Notify("AntiStomp: "..tostring(antiStompActive), 2)
+        if antiStompActive then startAntiStomp() end
+
+    elseif cmd == "flashback" then
+        flashbackActive = not flashbackActive
+        Notify("Flashback: "..tostring(flashbackActive), 2)
+    elseif cmd == "prediction" then
+        if val then
+            predictionValue = val
+            Notify("Prediction set to "..val, 2)
+        else
+            Notify("Usage: .prediction <number>", 2)
+        end
+    -- 🔥 Lệnh mới: FOV chỉnh Field of View
+    elseif cmd == "fov" then
+        if val then
+            workspace.CurrentCamera.FieldOfView = val
+            Notify("FOV set to "..val, 2)
+        else
+            Notify("Usage: .fov <number>", 2)
+        end
+
+    -- 🔥 Lệnh mới: Reset nhân vật
+    elseif cmd == "reset" then
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.Health = 0
+            Notify("Character reset!", 2)
+        end
+    elseif cmd ~= "" then
+        -- nếu bắt đầu bằng '.' nhưng không thuộc lệnh nào -> báo lỗi
+        Notify("Unknown command: "..cmd, 2)
+    end
+end
+
+if TextChatService and TextChatService.SendingMessage then
+    -- event client-side: fires khi client gửi message (thường là cái bạn gõ)
+    TextChatService.SendingMessage:Connect(function(message)
+        -- message là TextChatMessage; lấy text bằng message.Text
+        pcall(function()
+            handleCommandText(message.Text)
+        end)
+    end)
+else
+    -- fallback (cũ) — có trường hợp sẽ không fire nếu game dùng TextChatService
+    LocalPlayer.Chatted:Connect(function(msg)
+        pcall(function()
+            handleCommandText(msg)
+        end)
+    end)
+end
 
 Notify("Aimlock | anhchanhm52", 2)
