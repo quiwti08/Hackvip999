@@ -195,7 +195,9 @@ local function createOrGetHighlightForPlayer(ply)
 end
 
 local tracers = {} -- map player -> Beam
-local circles = {}
+
+-- Thêm bảng để lưu trữ vòng tròn
+local circles = {} -- map player -> Part (vòng tròn GUI)
 
 local function createTracer(ply)
     if not LP.Character or not ply.Character then return end
@@ -229,54 +231,97 @@ local function createTracer(ply)
 
     tracers[ply] = beam
 
-    -- Tạo vòng tròn dưới chân kẻ địch
-    local circle = Instance.new("Part")
-    circle.Name = "TargetCircle"
-    circle.Shape = Enum.PartType.Cylinder
-    circle.Size = Vector3.new(0.2, 6, 6) -- Chiều cao mỏng, đường kính 6 studs
-    circle.Position = hrp2.Position - Vector3.new(0, hrp2.Size.Y / 2 + 0.1, 0) -- Đặt sát mặt đất
-    circle.Color = Color3.fromRGB(214, 112, 122) -- Cùng màu với tracer
-    circle.Transparency = 0.7 -- Độ trong suốt giống highlight
-    circle.Anchored = false -- Không anchored để di chuyển theo nhân vật
-    circle.CanCollide = false -- Không va chạm
-    circle.Parent = workspace
+    -- Tạo vòng tròn viền dưới chân bằng SurfaceGui
+    local circlePart = Instance.new("Part")
+    circlePart.Name = "TargetCircle"
+    circlePart.Size = Vector3.new(6, 0.1, 6) -- đường kính ~ 6 studs
+    circlePart.Anchored = false
+    circlePart.CanCollide = false
+    circlePart.Transparency = 1 -- part ẩn đi
+    circlePart.CFrame = hrp2.CFrame * CFrame.new(0, -hrp2.Size.Y/2 - 0.05, 0)
+    circlePart.Parent = workspace
 
-    -- Gắn vòng tròn vào HumanoidRootPart bằng WeldConstraint
+    -- Weld để gắn vào HRP
     local weld = Instance.new("WeldConstraint")
     weld.Part0 = hrp2
-    weld.Part1 = circle
-    weld.Parent = circle
+    weld.Part1 = circlePart
+    weld.Parent = circlePart
 
-    circles[ply] = circle
+    -- SurfaceGui + UIStroke để vẽ vòng tròn viền
+    local gui = Instance.new("SurfaceGui")
+    gui.Face = Enum.NormalId.Top
+    gui.AlwaysOnTop = true
+    gui.Parent = circlePart
+
+    local frame = Instance.new("Frame")
+    frame.AnchorPoint = Vector2.new(0.5, 0.5)
+    frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 1
+    frame.Parent = gui
+
+    local circleCorner = Instance.new("UICorner")
+    circleCorner.CornerRadius = UDim.new(1, 0)
+    circleCorner.Parent = frame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 4
+    stroke.Color = Color3.fromRGB(214, 112, 122)
+    stroke.Parent = frame
+
+    circles[ply] = circlePart
 
     -- Cập nhật khi target respawn
     ply.CharacterAdded:Connect(function(newChar)
         task.wait(0.2)
+        local newHrp = newChar:WaitForChild("HumanoidRootPart")
+
+        -- cập nhật beam
         if tracers[ply] then
-            local newHrp = newChar:WaitForChild("HumanoidRootPart")
             local newAtt = Instance.new("Attachment", newHrp)
             tracers[ply].Attachment1 = newAtt
         end
+
+        -- cập nhật circle
         if circles[ply] then
-            local newHrp = newChar:WaitForChild("HumanoidRootPart")
-            circles[ply]:Destroy() -- Xóa vòng tròn cũ
-            local newCircle = Instance.new("Part")
-            newCircle.Name = "TargetCircle"
-            newCircle.Shape = Enum.PartType.Cylinder
-            newCircle.Size = Vector3.new(0.2, 6, 6)
-            newCircle.Position = newHrp.Position - Vector3.new(0, newHrp.Size.Y / 2 + 0.1, 0)
-            newCircle.Color = Color3.fromRGB(214, 112, 122)
-            newCircle.Transparency = 0.7
-            newCircle.Anchored = false
-            newCircle.CanCollide = false
-            newCircle.Parent = workspace
+            circles[ply]:Destroy()
+
+            local newCirclePart = Instance.new("Part")
+            newCirclePart.Name = "TargetCircle"
+            newCirclePart.Size = Vector3.new(6, 0.1, 6)
+            newCirclePart.Anchored = false
+            newCirclePart.CanCollide = false
+            newCirclePart.Transparency = 1
+            newCirclePart.CFrame = newHrp.CFrame * CFrame.new(0, -newHrp.Size.Y/2 - 0.05, 0)
+            newCirclePart.Parent = workspace
 
             local newWeld = Instance.new("WeldConstraint")
             newWeld.Part0 = newHrp
-            newWeld.Part1 = newCircle
-            newWeld.Parent = newCircle
+            newWeld.Part1 = newCirclePart
+            newWeld.Parent = newCirclePart
 
-            circles[ply] = newCircle
+            local newGui = Instance.new("SurfaceGui")
+            newGui.Face = Enum.NormalId.Top
+            newGui.AlwaysOnTop = true
+            newGui.Parent = newCirclePart
+
+            local newFrame = Instance.new("Frame")
+            newFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+            newFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+            newFrame.Size = UDim2.new(1, 0, 1, 0)
+            newFrame.BackgroundTransparency = 1
+            newFrame.Parent = newGui
+
+            local newCorner = Instance.new("UICorner")
+            newCorner.CornerRadius = UDim.new(1, 0)
+            newCorner.Parent = newFrame
+
+            local newStroke = Instance.new("UIStroke")
+            newStroke.Thickness = 2
+            newStroke.Color = Color3.fromRGB(214, 112, 122)
+            newStroke.Parent = newFrame
+
+            circles[ply] = newCirclePart
         end
     end)
 end
@@ -304,6 +349,20 @@ local function removeAllTracers()
     tracers = {}
     circles = {}
 end
+
+-- Xử lý khi LocalPlayer hồi sinh
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    task.wait(0.2) -- Đợi nhân vật tải hoàn tất
+    -- Xóa tất cả tracer và vòng tròn cũ
+    removeAllTracers()
+    
+    -- Tái tạo tracer và vòng tròn cho tất cả mục tiêu đang được chọn
+    for ply, hl in pairs(selected) do
+        if ply and hl and hl.Enabled and ply.Character then
+            createTracer(ply) -- Gắn lại tracer và vòng tròn
+        end
+    end
+end)
 
 local function addHighlightToPlayer(ply)
     if not ply then return end
@@ -792,7 +851,6 @@ Run.RenderStepped:Connect(function(dt)
     if ammo and ammo.Value <= 0 then
         -- Reload (Normal)
         MainRemote:FireServer("Reload", tool)
-        MainRemote:FireServer("RELOAD", tool
         task.wait(3.7)
     end
 
