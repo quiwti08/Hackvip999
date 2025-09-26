@@ -1099,80 +1099,133 @@ Run.Heartbeat:Connect(function()
     end
 end)
 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TeleportService = game:GetService("TeleportService")
 local TextChatService = game:GetService("TextChatService")
 
+-- danh sách lệnh hợp lệ
+local commands = {
+    "walkspeed","jumppower","aimlock","triggerbot","autostomp",
+    "autoreload","antistomp","flashback","prediction","fov",
+    "reset","rejoin"
+}
+
+-- ⚡ Hàm tính Levenshtein distance (so sánh độ giống)
+local function levenshtein(s, t)
+    local m, n = #s, #t
+    if m == 0 then return n end
+    if n == 0 then return m end
+    local d = {}
+    for i = 0, m do d[i] = {[0] = i} end
+    for j = 0, n do d[0][j] = j end
+    for i = 1, m do
+        for j = 1, n do
+            local cost = (s:sub(i,i) == t:sub(j,j)) and 0 or 1
+            d[i][j] = math.min(
+                d[i-1][j] + 1,
+                d[i][j-1] + 1,
+                d[i-1][j-1] + cost
+            )
+        end
+    end
+    return d[m][n]
+end
+
+-- ⚡ tìm lệnh gần đúng
+local function findClosestCommand(input)
+    input = string.lower(input)
+    local best, bestDist
+    for _, cmd in ipairs(commands) do
+        if cmd:find(input, 1, true) == 1 then
+            return cmd -- nếu trùng prefix thì ưu tiên
+        end
+        local dist = levenshtein(input, cmd)
+        if not bestDist or dist < bestDist then
+            best, bestDist = cmd, dist
+        end
+    end
+    return best
+end
+
+-- ⚡ Notify (bạn có thể đổi bằng UI của bạn)
+local function Notify(txt, t)
+    print("[Notify] "..txt)
+end
+
+-- ⚡ Handler chính
 local function handleCommandText(raw)
     if not raw then return end
-    local msg = tostring(raw)
-    msg = msg:match("^%s*(.-)%s*$") -- trim
-    if msg == "" then return end
-    if string.sub(msg,1,1) ~= "." then return end -- chỉ xử lý lệnh bắt đầu bằng '.'
+    local msg = tostring(raw):match("^%s*(.-)%s*$")
+    if msg == "" or msg:sub(1,1) ~= "." then return end
 
-    local body = string.sub(msg, 2)
-    if body == "" then return end -- nếu chỉ gõ '.' thì im lặng
+    local body = msg:sub(2)
+    if body == "" then return end
 
     local args = {}
     for w in body:gmatch("%S+") do table.insert(args, w) end
-    local cmd = string.lower(args[1] or "")
+    local cmd = args[1] or ""
     local val = tonumber(args[2])
 
-    -- === Các lệnh bạn muốn xử lý ===
-    if cmd == "walkspeed" then
-        if val then
-            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum.WalkSpeed = val
-                Notify("WalkSpeed set to "..val, 2)
-            end
+    local mainCmd = findClosestCommand(cmd)
+    if not mainCmd then
+        Notify("Unknown command: "..cmd, 2)
+        return
+    end
+
+    -- === Các lệnh xử lý ===
+    if mainCmd == "walkspeed" then
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if val and hum then
+            hum.WalkSpeed = val
+            Notify("WalkSpeed set to "..val, 2)
         else
             dog = not dog
             Notify("WalkSpeed toggle: "..tostring(dog), 2)
-            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
             if hum then applyStats(hum) end
         end
 
-    elseif cmd == "jumppower" or cmd == "jump" then
-        if val then
-            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum.JumpPower = val
-                Notify("JumpPower set to "..val, 2)
-            end
+    elseif mainCmd == "jumppower" then
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if val and hum then
+            hum.JumpPower = val
+            Notify("JumpPower set to "..val, 2)
         end
 
-    elseif cmd == "aimlock" then
+    elseif mainCmd == "aimlock" then
         aimlockEnabled = not aimlockEnabled
         Notify("Aimlock: "..tostring(aimlockEnabled), 2)
 
-    elseif cmd == "triggerbot" or cmd == "autoshoot" then
+    elseif mainCmd == "triggerbot" then
         tbEnabled = not tbEnabled
         Notify("TriggerBot: "..tostring(tbEnabled), 2)
 
-    elseif cmd == "autostomp" then
+    elseif mainCmd == "autostomp" then
         stomptarget = not stomptarget
         Notify("AutoStomp: "..tostring(stomptarget), 2)
 
-    elseif cmd == "autoreload" then
+    elseif mainCmd == "autoreload" then
         autoReload = not autoReload
         Notify("AutoReload: "..tostring(autoReload), 2)
 
-    elseif cmd == "antistomp" then
+    elseif mainCmd == "antistomp" then
         antiStompActive = not antiStompActive
         Notify("AntiStomp: "..tostring(antiStompActive), 2)
         if antiStompActive then startAntiStomp() end
 
-    elseif cmd == "flashback" then
+    elseif mainCmd == "flashback" then
         flashbackActive = not flashbackActive
         Notify("Flashback: "..tostring(flashbackActive), 2)
-    elseif cmd == "prediction" then
+
+    elseif mainCmd == "prediction" then
         if val then
             predictionValue = val
             Notify("Prediction set to "..val, 2)
         else
             Notify("Usage: .prediction <number>", 2)
         end
-    -- 🔥 Lệnh mới: FOV chỉnh Field of View
-    elseif cmd == "fov" then
+
+    elseif mainCmd == "fov" then
         if val then
             workspace.CurrentCamera.FieldOfView = val
             Notify("FOV set to "..val, 2)
@@ -1180,29 +1233,27 @@ local function handleCommandText(raw)
             Notify("Usage: .fov <number>", 2)
         end
 
-    -- 🔥 Lệnh mới: Reset nhân vật
-    elseif cmd == "reset" then
+    elseif mainCmd == "reset" then
         local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if hum then
             hum.Health = 0
             Notify("Character reset!", 2)
         end
-    elseif cmd ~= "" then
-        -- nếu bắt đầu bằng '.' nhưng không thuộc lệnh nào -> báo lỗi
-        Notify("Unknown command: "..cmd, 2)
+
+    elseif mainCmd == "rejoin" then
+        Notify("Rejoining...", 2)
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
     end
 end
 
+-- ⚡ Gắn vào chat
 if TextChatService and TextChatService.SendingMessage then
-    -- event client-side: fires khi client gửi message (thường là cái bạn gõ)
     TextChatService.SendingMessage:Connect(function(message)
-        -- message là TextChatMessage; lấy text bằng message.Text
         pcall(function()
             handleCommandText(message.Text)
         end)
     end)
 else
-    -- fallback (cũ) — có trường hợp sẽ không fire nếu game dùng TextChatService
     LocalPlayer.Chatted:Connect(function(msg)
         pcall(function()
             handleCommandText(msg)
