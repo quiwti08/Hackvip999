@@ -1396,6 +1396,118 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+local function gettargetaim()
+    local closestPlayer = nil
+    local closestDistance = math.huge
+    local mousePos = UserInputService:GetMouseLocation()
+
+    for _, Player in pairs(Players:GetPlayers()) do
+        if Player == LocalPlayer then continue end
+        local character = Player.Character
+        if character then
+            local HRP = character:FindFirstChild("Head")
+            if HRP then
+                local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(HRP.Position)
+                if onScreen then
+                    local distance = (Vector2.new(mousePos.X, mousePos.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestPlayer = Player
+                    end
+                end
+            end
+        end
+    end
+
+    if closestPlayer then
+        local playerName = closestPlayer.Name
+        local foundIndex = nil
+        for i, target in ipairs(getgenv().camLockTargets) do
+            if target.Name == playerName then
+                foundIndex = i
+                break
+            end
+        end
+        if foundIndex then
+            table.remove(getgenv().camLockTargets, foundIndex)  -- Bỏ chọn nếu đã có
+            removeTracer(closestPlayer)
+            Library:Notify(string.format("Untarget: %s (@%s), age: %d days", closestPlayer.DisplayName, closestPlayer.Name, getAccountAge(closestPlayer)), 5)
+        else
+            table.insert(getgenv().camLockTargets, closestPlayer)  -- Thêm vào danh sách
+            createTracer(closestPlayer)
+            Library:Notify(string.format("Target: %s (@%s), age: %d days", closestPlayer.DisplayName, closestPlayer.Name, getAccountAge(closestPlayer)), 5)
+        end
+    end
+end
+
+local function gettargetsticky()
+    if lockedTarget then
+        lockedTarget = nil
+        workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
+        targetHighlight.Enabled = true
+        tracer.Visible = true
+    else
+        local camera = workspace.CurrentCamera
+        local mouseLocation = UserInputService:GetMouseLocation()
+        local closestTarget, closestDistance = nil, math.huge
+
+        for _, otherPlayer in ipairs(Players:GetPlayers()) do
+            if otherPlayer ~= LocalPlayer and otherPlayer.Character and otherPlayer.Character:FindFirstChild(targetHitPart) then
+                local bodyEffects = otherPlayer.Character:FindFirstChild("BodyEffects")
+                local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
+                local isGrabbed = otherPlayer.Character:FindFirstChild("GRABBING_CONSTRAINT")
+
+                if (not grabCheckEnabled or not isGrabbed) and
+                   (not friendCheckEnabled or not LocalPlayer:IsFriendsWith(otherPlayer.UserId)) then
+
+                    local targetPart = otherPlayer.Character[targetHitPart]
+                    local screenPosition, onScreen = camera:WorldToViewportPoint(targetPart.Position)
+                    if onScreen then
+                        local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - mouseLocation).Magnitude
+                        if distance < closestDistance then
+                            closestTarget = otherPlayer
+                            closestDistance = distance
+                        end
+                    end
+                end
+            end
+        end
+
+        if closestTarget then
+            lockedTarget = closestTarget
+        end
+    end
+end
+
+local Sigmaballs = Instance.new("ScreenGui")
+Sigmaballs.Name = "Sigmaballs"
+Sigmaballs.Parent = game.CoreGui
+Sigmaballs.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Sigmaballs.ResetOnSpawn = false
+
+local ImageButton = Instance.new("ImageButton")
+ImageButton.Name = "ImageButton"
+ImageButton.Parent = Sigmaballs
+ImageButton.Active = true
+ImageButton.Draggable = true
+ImageButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ImageButton.BackgroundTransparency = 0.5
+ImageButton.Size = UDim2.new(0, 90, 0, 90)
+ImageButton.Image = "rbxassetid://96086736054343"
+ImageButton.Position = UDim2.new(0.5, -25, 0.5, -25)
+
+local Ui2corner = Instance.new("UICorner")
+Ui2corner.CornerRadius = UDim.new(0.2, 0)
+Ui2corner.Parent = ImageButton
+
+ImageButton.MouseButton1Click:Connect(function()
+    if StickyAimEnabled then
+        gettargetsticky()
+    elseif camLockEnabled then
+        gettargetaim()
+    end
+end)
+
 getgenv().range = 250
 
 getgenv().whitelist = {}
