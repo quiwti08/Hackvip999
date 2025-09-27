@@ -20,7 +20,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TextChatService = game:GetService("TextChatService")
 local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
-
+local VIM = game:GetService("VirtualInputManager")
 
 local lockedTarget = nil
 local StickyAimEnabled = false
@@ -980,7 +980,6 @@ RunService.Heartbeat:Connect(function()
 end)
 
 local LegitBox = Tabs.Main:AddRightGroupbox('Legit')
-
 
 
 getgenv().range = 250
@@ -5467,7 +5466,7 @@ getgenv().autoShootToggle = AllPlayerActions:AddToggle('AutoShootToggle', {
 
 
 MenuGroup:AddButton('Unload', function() Library:Unload() end)
-MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightCtrl', NoUI = true, Text = 'Menu keybind' })
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightControl', NoUI = true, Text = 'Menu keybind' })
 Library.ToggleKeybind = Options.MenuKeybind
 
 MenuGroup:AddToggle('KeybindListToggle', {
