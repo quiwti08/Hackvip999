@@ -1148,11 +1148,6 @@ local function findClosestCommand(input)
     return best
 end
 
--- ⚡ Notify (bạn có thể đổi bằng UI của bạn)
-local function Notify(txt, t)
-    print("[Notify] "..txt)
-end
-
 -- ⚡ Handler chính
 local function handleCommandText(raw)
     if not raw then return end
@@ -1219,7 +1214,7 @@ local function handleCommandText(raw)
 
     elseif mainCmd == "prediction" then
         if val then
-            predictionValue = val
+            predictionTime = val
             Notify("Prediction set to "..val, 2)
         else
             Notify("Usage: .prediction <number>", 2)
