@@ -1189,6 +1189,17 @@ local function handleCommandText(raw)
 
     elseif mainCmd == "aimlock" then
         aimlockEnabled = not aimlockEnabled
+        selected = {}
+        for ply, hl in pairs(selected) do
+            fullyRemoveHighlight(ply) -- xóa highlight
+            removeTracer(ply)         -- xóa tracer
+        end
+        pcall(function()
+            if LP.Character then
+                local hum = LP.Character:FindFirstChildOfClass("Humanoid")
+                if hum then Cam.CameraSubject = hum end
+            end
+        end)
         Notify("Aimlock: "..tostring(aimlockEnabled), 2)
 
     elseif mainCmd == "triggerbot" then
