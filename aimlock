@@ -11,6 +11,7 @@ local Cam     = workspace.CurrentCamera
 local rs = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
 local lp = game.Players.LocalPlayer
+local nn_nojumpcooldown = true
 
 game:GetService("RunService").Stepped:Connect(
     function()
@@ -21,6 +22,16 @@ game:GetService("RunService").Stepped:Connect(
         game.Players.LocalPlayer.Character.Animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
     end
 )
+
+spawn(function()
+    Run.Heartbeat:Connect(function()
+        if nn_nojumpcooldown then
+            lp.Character.Humanoid.UseJumpPower = false
+        else
+            lp.Character.Humanoid.UseJumpPower = true
+        end
+    end)
+end)
 
 -- Danh sách animation (URL đầy đủ)
 local animations = {
