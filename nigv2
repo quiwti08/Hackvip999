@@ -1987,6 +1987,26 @@ getgenv().DefaultFogEnd = Lighting.FogEnd
 getgenv().DefaultFogColor = Lighting.FogColor
 getgenv().DefaultAmbient = Lighting.Ambient
 getgenv().DefaultTechnology = Lighting.Technology.Name
+getgenv().originalColorCorrectionEnabled = Lighting.ColorCorrection.Enabled
+getgenv().originalSaturation = Lighting.ColorCorrection.Saturation
+
+local ColorCorrection = false
+
+envt:AddToggle('ColorCorrection', {
+    Text = 'ColorCorrection',
+    Default = false,
+    Tooltip = 'ColorCorrection',
+    Callback = function(Value)
+        ColorCorrection = Value
+        if Value then
+            Lighting.ColorCorrection.Enabled = true
+            Lighting.ColorCorrection.Saturation = 0.8
+        else
+            Lighting.ColorCorrection.Enabled = getgenv().originalColorCorrectionEnabled
+            Lighting.ColorCorrection.Saturation = getgenv().originalSaturation
+        end
+    end
+})
 
 envt:AddToggle('FogToggle', {
     Text = 'Fog Changer',
@@ -2068,6 +2088,185 @@ envt:AddDropdown('LightingTech', {
     end
 })
 
+local Lighting = game:GetService("Lighting")
+
+-- Lưu skybox ban đầu khi script khởi động
+local defaultSkybox = {}
+local function saveDefaultSkybox()
+    local sky = Lighting:FindFirstChildOfClass("Sky")
+    if sky then
+        defaultSkybox = {
+            SkyboxBk = sky.SkyboxBk,
+            SkyboxDn = sky.SkyboxDn,
+            SkyboxFt = sky.SkyboxFt,
+            SkyboxLf = sky.SkyboxLf,
+            SkyboxRt = sky.SkyboxRt,
+            SkyboxUp = sky.SkyboxUp
+        }
+    else
+        defaultSkybox = {
+            ClockTime = 14,
+            SkyboxBk = "",
+            SkyboxDn = "",
+            SkyboxFt = "",
+            SkyboxLf = "",
+            SkyboxRt = "",
+            SkyboxUp = ""
+        }
+    end
+end
+
+saveDefaultSkybox()
+
+-- Biến skybox
+local skyboxEnabled = false
+local skyboxType = 1
+
+-- Hàm thay đổi skybox
+local function changeSkybox()
+    local sky = Lighting:FindFirstChildOfClass("Sky") or Instance.new("Sky", Lighting)
+    pcall(function()
+        if skyboxEnabled then
+            if skyboxType == 1 then
+                sky.SkyboxBk = "rbxassetid://13581437029"
+                sky.SkyboxDn = "rbxassetid://13581439832"
+                sky.SkyboxFt = "rbxassetid://13581447312"
+                sky.SkyboxLf = "rbxassetid://13581443463"
+                sky.SkyboxRt = "rbxassetid://13581452875"
+                sky.SkyboxUp = "rbxassetid://13581450222"
+            elseif skyboxType == 2 then
+                sky.SkyboxBk = "rbxassetid://2571711090"
+                sky.SkyboxDn = "rbxassetid://2571711090"
+                sky.SkyboxFt = "rbxassetid://2571711090"
+                sky.SkyboxLf = "rbxassetid://2571711090"
+                sky.SkyboxRt = "rbxassetid://2571711090"
+                sky.SkyboxUp = "rbxassetid://2571711090"
+            elseif skyboxType == 3 then
+                sky.SkyboxBk = "rbxassetid://6277563515"
+                sky.SkyboxDn = "rbxassetid://6277565742"
+                sky.SkyboxFt = "rbxassetid://6277567481"
+                sky.SkyboxLf = "rbxassetid://6277569562"
+                sky.SkyboxRt = "rbxassetid://6277583250"
+                sky.SkyboxUp = "rbxassetid://6277586065"
+            elseif skyboxType == 4 then
+                sky.SkyboxBk = "rbxassetid://6285719338"
+                sky.SkyboxDn = "rbxassetid://6285721078"
+                sky.SkyboxFt = "rbxassetid://6285722964"
+                sky.SkyboxLf = "rbxassetid://6285724682"
+                sky.SkyboxRt = "rbxassetid://6285726335"
+                sky.SkyboxUp = "rbxassetid://6285730635"
+            elseif skyboxType == 5 then
+                sky.SkyboxBk = "rbxassetid://877168885"
+                sky.SkyboxDn = "rbxassetid://877169070"
+                sky.SkyboxFt = "rbxassetid://877169154"
+                sky.SkyboxLf = "rbxassetid://877169233"
+                sky.SkyboxRt = "rbxassetid://877169317"
+                sky.SkyboxUp = "rbxassetid://877169431"
+            elseif skyboxType == 6 then
+                sky.SkyboxBk = "rbxassetid://9971120429"
+                sky.SkyboxDn = "rbxassetid://9971120429"
+                sky.SkyboxFt = "rbxassetid://9971120429"
+                sky.SkyboxLf = "rbxassetid://9971120429"
+                sky.SkyboxRt = "rbxassetid://9971120429"
+                sky.SkyboxUp = "rbxassetid://9971120429"
+            elseif skyboxType == 7 then
+                sky.SkyboxBk = "rbxassetid://8754359769"
+                sky.SkyboxDn = "rbxassetid://8754359769"
+                sky.SkyboxFt = "rbxassetid://8754359769"
+                sky.SkyboxLf = "rbxassetid://8754359769"
+                sky.SkyboxRt = "rbxassetid://8754359769"
+                sky.SkyboxUp = "rbxassetid://8754359769"
+            elseif skyboxType == 8 then -- Summer
+                sky.SkyboxBk = "rbxassetid://16648590964"
+                sky.SkyboxDn = "rbxassetid://16648617436"
+                sky.SkyboxFt = "rbxassetid://16648595424"
+                sky.SkyboxLf = "rbxassetid://16648566370"
+                sky.SkyboxRt = "rbxassetid://16648577071"
+                sky.SkyboxUp = "rbxassetid://16648598180"
+            elseif skyboxType == 9 then -- Galaxy
+                sky.SkyboxBk = "rbxassetid://15983968922"
+                sky.SkyboxDn = "rbxassetid://15983966825"
+                sky.SkyboxFt = "rbxassetid://15983965025"
+                sky.SkyboxLf = "rbxassetid://15983967420"
+                sky.SkyboxRt = "rbxassetid://15983966246"
+                sky.SkyboxUp = "rbxassetid://15983964246"
+            elseif skyboxType == 10 then -- Stylized
+                sky.SkyboxBk = "rbxassetid://18351376859"
+                sky.SkyboxDn = "rbxassetid://18351374919"
+                sky.SkyboxFt = "rbxassetid://18351376800"
+                sky.SkyboxLf = "rbxassetid://18351376469"
+                sky.SkyboxRt = "rbxassetid://18351376457"
+                sky.SkyboxUp = "rbxassetid://18351377189"
+            elseif skyboxType == 11 then -- Minecraft
+                sky.SkyboxBk = "rbxassetid://8735166756"
+                sky.SkyboxDn = "http://www.roblox.com/asset/?id=8735166707"
+                sky.SkyboxFt = "http://www.roblox.com/asset/?id=8735231668"
+                sky.SkyboxLf = "http://www.roblox.com/asset/?id=8735166755"
+                sky.SkyboxRt = "http://www.roblox.com/asset/?id=8735166751"
+                sky.SkyboxUp = "http://www.roblox.com/asset/?id=8735166729"
+            elseif skyboxType == 12 then -- Sunset
+                sky.SkyboxBk = "http://www.roblox.com/asset/?id=151165214"
+                sky.SkyboxDn = "http://www.roblox.com/asset/?id=151165197"
+                sky.SkyboxFt = "http://www.roblox.com/asset/?id=151165224"
+                sky.SkyboxLf = "http://www.roblox.com/asset/?id=151165191"
+                sky.SkyboxRt = "http://www.roblox.com/asset/?id=151165206"
+                sky.SkyboxUp = "http://www.roblox.com/asset/?id=151165227"
+            elseif skyboxType == 13 then -- Cloudy rain
+                sky.SkyboxBk = "http://www.roblox.com/asset/?id=4498828382"
+                sky.SkyboxDn = "http://www.roblox.com/asset/?id=4498828812"
+                sky.SkyboxFt = "http://www.roblox.com/asset/?id=4498829917"
+                sky.SkyboxLf = "http://www.roblox.com/asset/?id=4498830911"
+                sky.SkyboxRt = "http://www.roblox.com/asset/?id=4498830417"
+                sky.SkyboxUp = "http://www.roblox.com/asset/?id=4498831746"
+            elseif skyboxType == 14 then -- Black Cloudy Rain
+                sky.SkyboxBk = "http://www.roblox.com/asset/?id=149679669"
+                sky.SkyboxDn = "http://www.roblox.com/asset/?id=149681979"
+                sky.SkyboxFt = "http://www.roblox.com/asset/?id=149679690"
+                sky.SkyboxLf = "http://www.roblox.com/asset/?id=149679709"
+                sky.SkyboxRt = "http://www.roblox.com/asset/?id=149679722"
+                sky.SkyboxUp = "http://www.roblox.com/asset/?id=149680199"
+            end
+            Library:Notify("Skybox " .. skyboxType .. " applied", 5)
+        else
+            sky.SkyboxBk = defaultSkybox.SkyboxBk
+            sky.SkyboxDn = defaultSkybox.SkyboxDn
+            sky.SkyboxFt = defaultSkybox.SkyboxFt
+            sky.SkyboxLf = defaultSkybox.SkyboxLf
+            sky.SkyboxRt = defaultSkybox.SkyboxRt
+            sky.SkyboxUp = defaultSkybox.SkyboxUp
+            Library:Notify("Skybox restored to default", 5)
+        end
+    end)
+end
+
+envt:AddToggle('SkyboxToggle', {
+    Text = 'Enable Skybox',
+    Default = false,
+    Tooltip = 'Enable or disable custom skybox',
+    Callback = function(Value)
+        skyboxEnabled = Value
+        changeSkybox() -- Áp dụng hoặc khôi phục skybox
+    end
+})
+
+envt:AddDropdown('SkyboxType', {
+    Text = 'Skybox Type',
+    Values = {'Sky 1', 'Sky 2', 'Sky 3', 'Sky 4', 'Sky 5', 'Sky 6', 'Sky 7', 'Summer', 'Galaxy', 'Stylized', 'Minecraft', 'Sunset' , 'Cloudy rain', 'Black Cloudy Rain'},
+    Default = 'Sky 1',
+    Tooltip = 'Select skybox style',
+    Callback = function(Value)
+        local typeMap = {
+            ['Sky 1'] = 1, ['Sky 2'] = 2, ['Sky 3'] = 3, ['Sky 4'] = 4,
+            ['Sky 5'] = 5, ['Sky 6'] = 6, ['Sky 7'] = 7,
+            ['Summer'] = 8, ['Galaxy'] = 9, ['Stylized'] = 10, ['Minecraft'] = 11, ['Sunset'] = 12, ['Cloudy rain'] = 13, ['Black Cloudy Rain'] = 14
+        }
+        skyboxType = typeMap[Value]
+    end
+})
+
+envt:AddButton('Apply Sky', function()
+    changeSkybox()
+end)
 
 getgenv().walkSpeedEnabled, getgenv().jumpPowerEnabled, getgenv().cframeSpeedEnabled = false, false, false
 getgenv().walkSpeedKeybindActive, getgenv().cframeSpeedKeybindActive = false, false
@@ -2557,34 +2756,6 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
-
-local antifling = nil
-
-stutz:AddToggle("AntiflingToggle", {
-    Text = "Antifling",
-    Default = false,
-    Callback = function(state)
-        if state then
-            antifling = game:GetService("RunService").Stepped:Connect(function()
-                for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-                    if player ~= game.Players.LocalPlayer and player.Character then
-                        for _, v in pairs(player.Character:GetDescendants()) do
-                            if v:IsA("BasePart") then
-                                v.CanCollide = false
-                            end
-                        end
-                    end
-                end
-            end)
-        else
-            if antifling then
-                antifling:Disconnect()
-                antifling = nil
-            end
-        end
-    end
-})
-
 
 getgenv().RemoveShootAnimationsEnabled = false
 getgenv().ShootAnimationIds = {
