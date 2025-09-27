@@ -8,6 +8,74 @@ local LocalPlayer = Players.LocalPlayer
 local LP      = Players.LocalPlayer
 local Mouse   = LP:GetMouse()
 local Cam     = workspace.CurrentCamera
+local rs = game:GetService("RunService")
+local uis = game:GetService("UserInputService")
+local lp = game.Players.LocalPlayer
+
+-- Danh sách animation (URL đầy đủ)
+local animations = {
+	C = "http://www.roblox.com/asset/?id=15609995579",
+}
+
+local currentTrack = nil
+local currentKey = nil
+local renderConnection = nil
+local inputConnection = nil
+
+local function setup(char)
+	local hum = char:WaitForChild("Humanoid", 5)
+	if not hum then return end
+
+	local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+
+	-- Ngắt kết nối cũ
+	if renderConnection then renderConnection:Disconnect() end
+	if inputConnection then inputConnection:Disconnect() end
+
+	-- Dừng animation nếu di chuyển
+	renderConnection = rs.RenderStepped:Connect(function()
+		if currentTrack and hum.MoveDirection.Magnitude > 0 then
+			currentTrack:Stop()
+			currentTrack = nil
+			currentKey = nil
+		end
+	end)
+
+	-- Nhấn phím để phát lại animation
+	inputConnection = uis.InputBegan:Connect(function(input, gp)
+		if gp then return end
+		local key = input.KeyCode.Name
+		local animId = animations[key]
+		if animId and hum.MoveDirection.Magnitude == 0 then
+			-- Dừng animation cũ nếu đang chạy
+			if currentTrack then
+				currentTrack:Stop()
+				currentTrack = nil
+				currentKey = nil
+			end
+			-- Phát animation mới
+			local anim = Instance.new("Animation")
+			anim.AnimationId = animId
+			local track = animator:LoadAnimation(anim)
+			track:Play()
+			currentTrack = track
+			currentKey = key
+		end
+	end)
+end
+
+-- Nếu đã có character
+if lp.Character then
+	setup(lp.Character)
+end
+
+-- Khi respawn
+lp.CharacterAdded:Connect(function(char)
+	currentTrack = nil
+	currentKey = nil
+	task.wait(0.2)
+	setup(char)
+end)
 
 -- ====== CONFIG ======
 local selectKey    = Enum.KeyCode.Q
