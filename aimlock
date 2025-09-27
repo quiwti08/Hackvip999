@@ -12,6 +12,16 @@ local rs = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
 local lp = game.Players.LocalPlayer
 
+game:GetService("RunService").Stepped:Connect(
+    function()
+        game.Players.LocalPlayer.Character.Animate.idle.Animation1.AnimationId = "http://www.roblox.com/asset/?id=133806214992291"
+        game.Players.LocalPlayer.Character.Animate.idle.Animation2.AnimationId = "http://www.roblox.com/asset/?id=94970088341563"
+        game.Players.LocalPlayer.Character.Animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+        game.Players.LocalPlayer.Character.Animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=656117878"
+        game.Players.LocalPlayer.Character.Animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+    end
+)
+
 -- Danh sách animation (URL đầy đủ)
 local animations = {
 	C = "http://www.roblox.com/asset/?id=15609995579",
