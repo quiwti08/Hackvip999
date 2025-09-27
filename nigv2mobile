@@ -2638,34 +2638,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-local antifling = nil
-
-stutz:AddToggle("AntiflingToggle", {
-    Text = "Antifling",
-    Default = false,
-    Callback = function(state)
-        if state then
-            antifling = game:GetService("RunService").Stepped:Connect(function()
-                for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-                    if player ~= game.Players.LocalPlayer and player.Character then
-                        for _, v in pairs(player.Character:GetDescendants()) do
-                            if v:IsA("BasePart") then
-                                v.CanCollide = false
-                            end
-                        end
-                    end
-                end
-            end)
-        else
-            if antifling then
-                antifling:Disconnect()
-                antifling = nil
-            end
-        end
-    end
-})
-
-
 getgenv().RemoveShootAnimationsEnabled = false
 getgenv().ShootAnimationIds = {
     ["rbxassetid://2807049953"] = true, 
@@ -3366,24 +3338,6 @@ AutoBuy:AddToggle('AutoBuyOnRespawn', {
         AutoBuyOnRespawn = state
         AmmoBuyCount = 0
     end
-})
-
-local buy = AutoBuy:AddButton({
-    Text = 'Buy Item',
-    Func = function()
-        BuyItem(SelectedItem)
-    end,
-    DoubleClick = false,
-    Tooltip = 'Buys the selected item'
-})
-
-buy:AddButton({
-    Text = 'Buy Ammo',
-    Func = function()
-        BuyAmmo()
-    end,
-    DoubleClick = false,
-    Tooltip = 'Buys ammo for the selected weapon'
 })
 
 LocalPlayer.CharacterAdded:Connect(function()
