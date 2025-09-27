@@ -1,4 +1,3 @@
-
 local Players = game:GetService("Players")
 local UIS     = game:GetService("UserInputService")
 local Run     = game:GetService("RunService")
@@ -1108,7 +1107,7 @@ local TextChatService = game:GetService("TextChatService")
 local commands = {
     "walkspeed","jumppower","aimlock","triggerbot","autostomp",
     "autoreload","antistomp","flashback","prediction","fov",
-    "reset","rejoin"
+    "reset","rejoin", "desync", "demode"
 }
 
 -- ⚡ Hàm tính Levenshtein distance (so sánh độ giống)
@@ -1249,6 +1248,18 @@ local function handleCommandText(raw)
     elseif mainCmd == "rejoin" then
         Notify("Rejoining...", 2)
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+
+    elseif mainCmd == "desync" then
+        toggleDesync(not desync.enabled)
+        Notify("Desync: " .. (desync.enabled and "ON" or "OFF"), 2)
+
+    elseif mainCmd == "demode" then
+        if args[2] then
+            setDesyncMode(args[2])
+            Notify("Desync mode set to " .. args[2], 2)
+        else
+            Notify("Usage: .demode <mode>", 2)
+        end
     end
 end
 
@@ -1266,5 +1277,121 @@ else
         end)
     end)
 end
+
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = game:GetService("Players").LocalPlayer
+
+desync_setback = Instance.new("Part")
+desync_setback.Name = "Desync Setback"
+desync_setback.Parent = workspace
+desync_setback.Size = Vector3.new(2, 2, 1)
+desync_setback.CanCollide = false
+desync_setback.Anchored = true
+desync_setback.Transparency = 1
+
+desync = {
+    enabled = false,
+    mode = "Destroy Cheaters",
+    teleportCFrame = CFrame.new(0, 0, 0),
+    old_position = nil,
+    voidSpamActive = false,
+    toggleEnabled = false
+}
+
+function resetCamera()
+    if LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            workspace.CurrentCamera.CameraSubject = humanoid
+        end
+    end
+end
+
+function toggleDesync(state)
+    desync.enabled = state
+    if desync.enabled then
+        workspace.CurrentCamera.CameraSubject = desync_setback
+    else
+        resetCamera()
+    end
+end
+
+function setDesyncMode(mode)
+    desync.mode = mode
+end
+
+RunService.Heartbeat:Connect(function()
+    if desync.enabled and LocalPlayer.Character then
+        local rootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if rootPart then
+            desync.old_position = rootPart.CFrame
+
+            local teleportPosition = Vector3.new(0, 0, 0)
+            local teleportRotation = CFrame.new()
+
+            if desync.mode == "Destroy Cheaters" then
+                teleportPosition = Vector3.new(11223344556677889900, 1, 1)
+
+            elseif desync.mode == "Underground" then
+                teleportPosition = rootPart.Position - Vector3.new(0, 12, 0)
+
+            elseif desync.mode == "Void Spam" then
+                teleportPosition = math.random(1, 2) == 1 and desync.old_position.Position or Vector3.new(
+                    math.random(10000, 50000),
+                    math.random(10000, 50000),
+                    math.random(10000, 50000)
+                )
+
+            elseif desync.mode == "Void" then
+                teleportPosition = Vector3.new(
+                    rootPart.Position.X + math.random(-444444, 444444),
+                    rootPart.Position.Y + math.random(-444444, 444444),
+                    rootPart.Position.Z + math.random(-44444, 44444)
+                )
+
+            elseif desync.mode == "Player" then
+                local target = getNearestSelectedAliveVisible()
+                if not target then
+                    desync.enabled = false
+                    Notify("No valid target for Player mode, desync disabled.", 2)
+                    return
+                end
+                local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+                if targetRoot then
+                    local offset = Vector3.new(math.random(-20, 20), math.random(-10, 10), math.random(-20, 20))
+                    teleportPosition = targetRoot.Position + offset
+                    teleportRotation = CFrame.Angles(
+                        math.rad(math.random(0, 360)),
+                        math.rad(math.random(0, 360)),
+                        math.rad(math.random(0, 360))
+                    )
+                else
+                    desync.enabled = false
+                    Notify("Target has no HumanoidRootPart, desync disabled.", 2)
+                    return
+                end
+            end
+
+            desync.teleportCFrame = CFrame.new(teleportPosition) * teleportRotation
+
+            if desync.mode ~= "Rotation" then
+                rootPart.CFrame = desync.teleportCFrame
+                workspace.CurrentCamera.CameraSubject = desync_setback
+
+                RunService.RenderStepped:Wait()
+
+                desync_setback.CFrame = desync.old_position * CFrame.new(0, rootPart.Size.Y / 2 + 0.5, 0)
+                rootPart.CFrame = desync.old_position
+            end
+        end
+    end
+end)
+
+-- Thêm nút Desync
+MakeButton("Desync", Color3.fromRGB(255, 255, 255), function(state)
+    toggleDesync(state)
+    Notify("Desync: " .. (state and "ON" or "OFF"), 2)
+end, Enum.KeyCode.V)
 
 Notify("Aimlock | anhchanhm52", 2)
