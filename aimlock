@@ -84,6 +84,7 @@ local highlightColor = Color3.fromRGB(214,112,122)
 local predictionTime = 0.17221418
 local aimSmoothing = 1 -- 1 = instant; <1 = smoothing (lerp factor)
 local maxSelectPx = 99999 -- no hard limit; change if you want a max selection radius
+local AutoPingSets = true
 
 -- ====== STATE ======
 local selected = {}   -- map player -> Highlight instance
@@ -142,7 +143,6 @@ local function getMainRemote()
     -- fallback: không tìm thấy
     return nil
 end
-
 
 local MainRemote = getMainRemote()
 
@@ -1101,6 +1101,92 @@ UIS.InputBegan:Connect(function(input, gpe)
     end
 end)
 
+Run.Heartbeat:Connect(function()
+    if AutoPingSets then
+        -- Lấy giá trị ping
+        local pingvalue, ping
+        local success = pcall(function()
+            pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
+            local split = string.split(pingvalue, "(")
+            ping = tonumber(split[1])
+        end)
+        if not success or not ping then
+            ping = 60 -- Giá trị mặc định nếu lỗi
+        end
+
+        -- Gán predictionTime dựa trên ping (sử dụng giá trị từ closePredictions)
+        if ping > 450 then
+            predictionTime = 0.1850
+        elseif ping > 400 then
+            predictionTime = 0.1800
+        elseif ping > 350 then
+            predictionTime = 0.1750
+        elseif ping > 300 then
+            predictionTime = 0.1700
+        elseif ping > 280 then
+            predictionTime = 0.165771
+        elseif ping > 270 then
+            predictionTime = 0.16780
+        elseif ping > 260 then
+            predictionTime = 0.195566
+        elseif ping > 250 then
+            predictionTime = 0.175566
+        elseif ping > 240 then
+            predictionTime = 0.1651
+        elseif ping > 230 then
+            predictionTime = 0.16780
+        elseif ping > 220 then
+            predictionTime = 0.15692
+        elseif ping > 210 then
+            predictionTime = 0.165566
+        elseif ping > 200 then
+            predictionTime = 0.165566
+        elseif ping > 190 then
+            predictionTime = 0.16942
+        elseif ping > 180 then
+            predictionTime = 0.166547
+        elseif ping > 170 then
+            predictionTime = 0.19284
+        elseif ping > 160 then
+            predictionTime = 0.1923111
+        elseif ping > 150 then
+            predictionTime = 0.16
+        elseif ping > 140 then
+            predictionTime = 0.15
+        elseif ping > 130 then
+            predictionTime = 0.153
+        elseif ping > 120 then
+            predictionTime = 0.151
+        elseif ping > 110 then
+            predictionTime = 0.149
+        elseif ping > 100 then
+            predictionTime = 0.146
+        elseif ping > 90 then
+            predictionTime = 0.130340
+        elseif ping > 80 then
+            predictionTime = 0.136
+        elseif ping > 70 then
+            predictionTime = 0.134
+        elseif ping > 60 then
+            predictionTime = 0.131
+        elseif ping > 50 then
+            predictionTime = 0.12685
+        elseif ping > 40 then
+            predictionTime = 0.1225
+        elseif ping > 30 then
+            predictionTime = 0.1256
+        elseif ping > 25 then
+            predictionTime = 0.11
+        elseif ping > 23 then
+            predictionTime = 0.11888
+        elseif ping > 20 then
+            predictionTime = 0.121116
+        else
+            predictionTime = 0.12588
+        end
+    end
+end)
+
 -- ====== AIMLOCK LOOP ======
 Run.RenderStepped:Connect(function(dt)
 
@@ -1175,7 +1261,7 @@ local TextChatService = game:GetService("TextChatService")
 local commands = {
     "walkspeed","jumppower","aimlock","triggerbot","autostomp",
     "autoreload","antistomp","flashback","prediction","fov",
-    "reset","rejoin", "desync", "demode"
+    "reset","rejoin", "desync", "demode", "autopingsets"
 }
 
 -- ⚡ Hàm tính Levenshtein distance (so sánh độ giống)
@@ -1280,6 +1366,10 @@ local function handleCommandText(raw)
     elseif mainCmd == "autoreload" then
         autoReload = not autoReload
         Notify("AutoReload: "..tostring(autoReload), 2)
+
+    elseif mainCmd == "autopingsets" then
+        AutoPingSets = not AutoPingSets
+        Notify("AutoPingSets: "..tostring(AutoPingSets), 2)
 
     elseif mainCmd == "antistomp" then
         antiStompActive = not antiStompActive
