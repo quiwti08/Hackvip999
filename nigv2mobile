@@ -52,6 +52,7 @@ local possibleRemotes = {
     "Remote",
     "Packages",
     "MainRemotes"
+    "Bullets"
 }  
 
 local tracer = Drawing.new("Line")
@@ -69,6 +70,10 @@ local function getMainRemote()
 
     if ReplicatedStorage:FindFirstChild("Remote") then
         return ReplicatedStorage.Remote
+    end
+
+    if ReplicatedStorage:FindFirstChild("Bullets") then
+        return ReplicatedStorage.Bullets
     end
 
     -- 3. MainRemotes.MainRemoteEvent
