@@ -1385,7 +1385,7 @@ local TextChatService = game:GetService("TextChatService")
 local commands = {
     "walkspeed","jumppower","aimlock","triggerbot","autostomp",
     "autoreload","antistomp","flashback","prediction","fov",
-    "reset","rejoin", "desync", "demode", "autopingsets", "hitpart", "tp", "target", "untargetall", "spychat", "help"
+    "reset","rejoin", "desync", "demode", "autopingsets", "hitpart", "tp", "target", "untargetall", "spychat", "help", "instantstomp"
 }
 
 -- ⚡ Hàm tính Levenshtein distance (so sánh độ giống)
