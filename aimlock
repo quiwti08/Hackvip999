@@ -17,9 +17,10 @@ local inStomp = false
 local instantstomp = false
 local RapidFireEnabled = false
 local RapidFireDelay = 0.01
+local isFiring = false
 local utility = {}
 utility.get_gun = function()
-    local char = LocalPlayer.Character
+    local char = lp.Character
     if not char then return nil end
     for _, tool in next, char:GetChildren() do
         if tool:IsA("Tool") and (tool:FindFirstChild("Ammo") or tool:FindFirstChild("AmmoCount") or tool:FindFirstChild("GunScript")) then
@@ -32,10 +33,9 @@ utility.rapid = function(tool)
     tool:Activate()
 end
 
-local isFiring = false
-
 -- Input bắt đầu (chuột hoặc cảm ứng)
-UserInputService.InputBegan:Connect(function(i, gp)
+local rapidFireConnection
+rapidFireConnection = UIS.InputBegan:Connect(function(i, gp)
     if gp then return end
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
         local gun = utility.get_gun()
@@ -47,17 +47,19 @@ UserInputService.InputBegan:Connect(function(i, gp)
                     task.wait(RapidFireDelay)
                 end
             end)
+            Notify("RapidFire activated", 2)
         end
     end
 end)
 
 -- Input kết thúc (chuột hoặc cảm ứng)
-UserInputService.InputEnded:Connect(function(i)
+local rapidFireEndConnection
+rapidFireEndConnection = UIS.InputEnded:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
         isFiring = false
+        Notify("RapidFire stopped", 2)
     end
 end)
-
 if LP.Name == "anhchangm52" then
     customAnim = true
     instantstomp = true
