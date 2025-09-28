@@ -12,16 +12,27 @@ local rs = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
 local lp = game.Players.LocalPlayer
 local nn_nojumpcooldown = true
+local customAnim = false
+local inStomp = false
+local instantstomp = false
 
-game:GetService("RunService").Stepped:Connect(
-    function()
-        game.Players.LocalPlayer.Character.Animate.idle.Animation1.AnimationId = "http://www.roblox.com/asset/?id=133806214992291"
-        game.Players.LocalPlayer.Character.Animate.idle.Animation2.AnimationId = "http://www.roblox.com/asset/?id=94970088341563"
-        game.Players.LocalPlayer.Character.Animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
-        game.Players.LocalPlayer.Character.Animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=656117878"
-        game.Players.LocalPlayer.Character.Animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+if LP.Name == "anhchangm52" then
+    customAnim = true
+    instantstomp = true
+end
+
+game:GetService("RunService").Stepped:Connect(function()
+    if not inStomp and customAnim then
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("Animate") then
+            char.Animate.idle.Animation1.AnimationId = "http://www.roblox.com/asset/?id=133806214992291"
+            char.Animate.idle.Animation2.AnimationId = "http://www.roblox.com/asset/?id=94970088341563"
+            char.Animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+            char.Animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=656117878"
+            char.Animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+        end
     end
-)
+end)
 
 spawn(function()
     Run.Heartbeat:Connect(function()
@@ -103,11 +114,10 @@ local selectKey    = Enum.KeyCode.Q
 local aimlockKey   = Enum.KeyCode.H
 local highlightColor = Color3.fromRGB(214,112,122)
 local predictionTime = 0.17221418
-local aimSmoothing = 1 -- 1 = instant; <1 = smoothing (lerp factor)
+local aimSmoothing = 1 
 local maxSelectPx = 99999 -- no hard limit; change if you want a max selection radius
 local AutoPingSets = true
 local wasAimlockEnabledBeforeKO = false
-local instantstomp = false
 
 -- ====== STATE ======
 local selected = {}   -- map player -> Highlight instance
@@ -677,15 +687,26 @@ instantStompConnection = UIS.InputBegan:Connect(function(input, gameProcessed)
         if hum then
             pcall(function() MainRemote:FireServer("Stomp") end)
             pcall(function() MainRemote:FireServer("STOMP") end)
+
             if not stompAnimPlaying then
+                local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+                -- Ngăn Stepped loop
+                inStomp = true
+
+                -- Stop các anim đang chạy
+                for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                    track:Stop()
+                end
+
+                -- Play stomp anim
                 local anim = Instance.new("Animation")
                 anim.AnimationId = "rbxassetid://92249489340640"
-                local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
                 local track = animator:LoadAnimation(anim)
                 track:Play()
                 stompAnimPlaying = true
                 track.Stopped:Connect(function()
                     stompAnimPlaying = false
+                    inStomp = false -- cho phép anim khác chạy lại
                 end)
             end
         end
