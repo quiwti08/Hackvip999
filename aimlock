@@ -106,6 +106,7 @@ local predictionTime = 0.17221418
 local aimSmoothing = 1 -- 1 = instant; <1 = smoothing (lerp factor)
 local maxSelectPx = 99999 -- no hard limit; change if you want a max selection radius
 local AutoPingSets = true
+local wasAimlockEnabledBeforeKO = false
 
 -- ====== STATE ======
 local selected = {}   -- map player -> Highlight instance
@@ -198,6 +199,53 @@ end
 local function isKO(plr)
     return not isAlive(plr)
 end
+
+-- Theo dõi trạng thái K.O và grab để tự động tắt/bật aimlock
+local function monitorKOandGrab()
+    local function checkStatus(char)
+        local bodyEffects = char:WaitForChild("BodyEffects", 5)
+        if not bodyEffects then return end
+        local koValue = bodyEffects:FindFirstChild("K.O")
+        local grabbedValue = bodyEffects:FindFirstChild("GRABBING_CONSTRAINT")
+        if not koValue then return end
+
+        local connection
+        connection = Run.Heartbeat:Connect(function()
+            if not char or not char.Parent then
+                connection:Disconnect()
+                return
+            end
+
+            local isKO = koValue and koValue.Value
+            local isGrabbed = grabbedValue and grabbedValue.Value
+
+            if (isKO or isGrabbed) and aimlockEnabled then
+                wasAimlockEnabledBeforeKO = aimlockEnabled
+                aimlockEnabled = false
+                pcall(function()
+                    if LP.Character then
+                        local hum = LP.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then Cam.CameraSubject = hum end
+                    end
+                end)
+            elseif not isKO and not isGrabbed and wasAimlockEnabledBeforeKO and not aimlockEnabled then
+                aimlockEnabled = true
+                wasAimlockEnabledBeforeKO = false
+            end
+        end)
+    end
+
+    if LocalPlayer.Character then
+        checkStatus(LocalPlayer.Character)
+    end
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        task.wait(0.2)
+        checkStatus(char)
+    end)
+end
+
+-- Gọi hàm monitorKOandGrab khi script khởi động
+monitorKOandGrab()
 
 -- Notifications (non-blocking)
 local function ensureNotificationsGui()
@@ -1720,5 +1768,12 @@ MakeButton("Desync", Color3.fromRGB(255, 255, 255), function(state)
     toggleDesync(state)
     Notify("Desync: " .. (state and "ON" or "OFF"), 2)
 end, Enum.KeyCode.V)
+
+monitorKOandGrab()
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.2)
+    checkStatus(char)
+end)
 
 Notify("Betuyen.cc | anhchangm52", 10)
