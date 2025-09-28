@@ -1720,4 +1720,4 @@ MakeButton("Desync", Color3.fromRGB(255, 255, 255), function(state)
     Notify("Desync: " .. (state and "ON" or "OFF"), 2)
 end, Enum.KeyCode.V)
 
-Notify("Aimlock | anhchanhm52", 10)
+Notify("Betuyen.cc | anhchangm52", 10)
