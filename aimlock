@@ -107,6 +107,7 @@ local aimSmoothing = 1 -- 1 = instant; <1 = smoothing (lerp factor)
 local maxSelectPx = 99999 -- no hard limit; change if you want a max selection radius
 local AutoPingSets = true
 local wasAimlockEnabledBeforeKO = false
+local instantstomp = false
 
 -- ====== STATE ======
 local selected = {}   -- map player -> Highlight instance
@@ -688,6 +689,28 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
         end
     end
 end)
+
+if input.KeyCode == Enum.KeyCode.E and instantstomp then
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        pcall(function() MainRemote:FireServer("Stomp") end)
+        pcall(function() MainRemote:FireServer("STOMP") end)
+        if not stompAnimPlaying then
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://92249489340640"
+            local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+            local track = animator:LoadAnimation(anim)
+            track:Play()
+            stompAnimPlaying = true
+            track.Stopped:Connect(function()
+                stompAnimPlaying = false
+            end)
+        end
+        Notify("Instant Stomp executed", 2)
+    end
+    return
+end
 
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
@@ -1521,9 +1544,11 @@ local function handleCommandText(raw)
     V: Desync
     Y: Kill self
     C: Jump Blud Happier animation
+    E: to instant if instantstomp on
 
     Chat commands:
     .autostomp
+    .instantstomp
     .autoreload
     .antistomp
     .flashback
@@ -1606,6 +1631,9 @@ local function handleCommandText(raw)
             end
         end
         Notify("All targets cleared!", 3)
+    elseif mainCmd == "instantstomp" then
+        instantstomp = not instantstomp
+        Notify("InstantStomp: " .. (instantstomp and "ON" or "OFF"), 2)
     elseif mainCmd == "rejoin" then
         Notify("Rejoining...", 2)
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
