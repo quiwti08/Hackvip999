@@ -1648,7 +1648,7 @@ local function handleCommandText(raw)
 
         Notify(helpText, 10)
     elseif mainCmd == "autostomp" then
-        stomptarget = not stomptarget
+        toggleStomp()
         Notify("AutoStomp: "..tostring(stomptarget), 2)
 
     elseif mainCmd == "autoreload" then
