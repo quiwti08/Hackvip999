@@ -665,49 +665,31 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
             end
             return
         end
+    end
+end)
 
-        if input.KeyCode == aimlockKey then
-            aimlockEnabled = not aimlockEnabled
-            if aimlockEnabled then
-                Notify("Aimlock: ON", 2)
-            else
-                pcall(function()
-                    if LP.Character then
-                        local hum = LP.Character:FindFirstChildOfClass("Humanoid")
-                        if hum then Cam.CameraSubject = hum end
-                    end
+local instantStompConnection
+instantStompConnection = UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.R and instantstomp then
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            pcall(function() MainRemote:FireServer("Stomp") end)
+            pcall(function() MainRemote:FireServer("STOMP") end)
+            if not stompAnimPlaying then
+                local anim = Instance.new("Animation")
+                anim.AnimationId = "rbxassetid://92249489340640"
+                local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+                local track = animator:LoadAnimation(anim)
+                track:Play()
+                stompAnimPlaying = true
+                track.Stopped:Connect(function()
+                    stompAnimPlaying = false
                 end)
-
-                for ply, hl in pairs(selected) do
-                    fullyRemoveHighlight(ply) -- xóa highlight
-                    removeTracer(ply)         -- xóa tracer
-                end
-                selected = {}
-                Notify("Aimlock: OFF", 2)
             end
-            return
         end
-        if input.KeyCode == aimlockKey then
-            aimlockEnabled = not aimlockEnabled
-            if aimlockEnabled then
-                Notify("Aimlock: ON", 2)
-            else
-                pcall(function()
-                    if LP.Character then
-                        local hum = LP.Character:FindFirstChildOfClass("Humanoid")
-                        if hum then Cam.CameraSubject = hum end
-                    end
-                end)
-
-                for ply, hl in pairs(selected) do
-                    fullyRemoveHighlight(ply) -- xóa highlight
-                    removeTracer(ply)         -- xóa tracer
-                end
-                selected = {}
-                Notify("Aimlock: OFF", 2)
-            end
-            return
-        end
+        return
     end
 end)
 
@@ -1536,8 +1518,8 @@ local function handleCommandText(raw)
     ⭐ Betuyen.cc Help ⭐
     Q: Select Target Key
     H: Toggle Aimlock
-    B: CamLock
-    K: Stomp
+    B: View
+    K: AutoStomp
     T: WalkSpeed
     Z: AutoShoot
     V: Desync
