@@ -1472,6 +1472,7 @@ local function handleCommandText(raw)
     Z: AutoShoot
     V: Desync
     Y: Kill self
+    C: Jump Blud Happier animation
 
     Chat commands:
     .autostomp
