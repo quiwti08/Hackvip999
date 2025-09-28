@@ -870,11 +870,30 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- Sửa nút Stomp
+local stompAnimId = "rbxassetid://92249489340640"
+local stompAnimTrack = nil
+local stompAnimPlaying = false
+
+local function playStompAnim(hum)
+    if stompAnimPlaying then return end -- nếu anim đang chạy thì bỏ qua
+
+    local anim = Instance.new("Animation")
+    anim.AnimationId = stompAnimId
+    stompAnimTrack = hum:LoadAnimation(anim)
+    stompAnimTrack:Play()
+    stompAnimPlaying = true
+
+    -- khi anim dừng thì cho phép chạy lại
+    stompAnimTrack.Stopped:Connect(function()
+        stompAnimPlaying = false
+    end)
+end
+
 MakeButton("Stomp", Color3.fromRGB(255, 255, 255), function(state)
     stomptarget = state
     if stomptarget then
         Notify("Stomp: ON", 2)
-        -- Bắt đầu vòng lặp kiểm tra các mục tiêu K.O
+
         local connection
         connection = Run.Heartbeat:Connect(function()
             if not stomptarget then
@@ -883,38 +902,39 @@ MakeButton("Stomp", Color3.fromRGB(255, 255, 255), function(state)
             end
 
             local char = LP.Character
-            if not char then return end
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if not hum or not hrp then return end
 
-            -- Duyệt qua các mục tiêu được chọn
             for ply, hl in pairs(selected) do
                 if ply and hl and hl.Enabled and ply.Character then
                     local targetChar = ply.Character
                     local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
                     local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
-                    -- Kiểm tra điều kiện bỏ qua: máu bằng 0 VÀ không còn K.O
+
                     if targetHum and targetHum.Health <= 0 and not isKO(ply) then
-                        print(ply.Name, "is dead and not K.O, skipping")
                         continue
                     end
                     if isKO(ply) and targetHrp then
-                        local distance = (hrp.Position - targetHrp.Position).Magnitude
-                        if distance <= 20 then
-                            pcall(function()
-                                MainRemote:FireServer("Stomp")
-                            end)
-                            pcall(function()
-                                MainRemote:FireServer("STOMP")
-                            end)
+                        local dist = (hrp.Position - targetHrp.Position).Magnitude
+                        if dist <= 20 then
+                            pcall(function() MainRemote:FireServer("Stomp") end)
+                            pcall(function() MainRemote:FireServer("STOMP") end)
+                            playStompAnim(hum) -- chạy anim
                         end
                     end
                 end
             end
         end)
+
     else
         Notify("Stomp: OFF", 2)
         stomptarget = false
+        if stompAnimTrack then
+            stompAnimTrack:Stop()
+            stompAnimTrack = nil
+            stompAnimPlaying = false
+        end
     end
 end, Enum.KeyCode.K)
 
@@ -1295,7 +1315,7 @@ local TextChatService = game:GetService("TextChatService")
 local commands = {
     "walkspeed","jumppower","aimlock","triggerbot","autostomp",
     "autoreload","antistomp","flashback","prediction","fov",
-    "reset","rejoin", "desync", "demode", "autopingsets", "hitpart"
+    "reset","rejoin", "desync", "demode", "autopingsets", "hitpart", "tp", "target", "untargetall", "spychat", "help"
 }
 
 -- ⚡ Hàm tính Levenshtein distance (so sánh độ giống)
@@ -1351,6 +1371,49 @@ local function findClosestHitPart(input)
     return best
 end
 
+local function findClosestPlayer(query)
+    query = string.lower(query)
+    local bestMatch, bestScore = nil, math.huge
+    for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+        local uname = string.lower(plr.Name)
+        local dname = string.lower(plr.DisplayName)
+
+        -- Ưu tiên khớp 1 phần chuỗi
+        if string.find(uname, query) or string.find(dname, query) then
+            return plr
+        end
+
+        -- Nếu không khớp trực tiếp thì so sánh khoảng cách chuỗi (Levenshtein)
+        local function levenshtein1(a, b)
+            local m, n = #a, #b
+            if m == 0 then return n end
+            if n == 0 then return m end
+            local matrix = {}
+            for i = 0, m do matrix[i] = {[0] = i} end
+            for j = 0, n do matrix[0][j] = j end
+            for i = 1, m do
+                for j = 1, n do
+                    local cost = (a:sub(i,i) == b:sub(j,j)) and 0 or 1
+                    matrix[i][j] = math.min(
+                        matrix[i-1][j] + 1,
+                        matrix[i][j-1] + 1,
+                        matrix[i-1][j-1] + cost
+                    )
+                end
+            end
+            return matrix[m][n]
+        end
+
+        local score = math.min(levenshtein1(uname, query), levenshtein1(dname, query))
+        if score < bestScore then
+            bestScore = score
+            bestMatch = plr
+        end
+    end
+    return bestMatch
+end
+
+
 -- ⚡ Handler chính
 local function handleCommandText(raw)
     if not raw then return end
@@ -1371,44 +1434,65 @@ local function handleCommandText(raw)
         return
     end
 
-    -- === Các lệnh xử lý ===
-    if mainCmd == "walkspeed" then
-        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if val and hum then
-            hum.WalkSpeed = val
-            Notify("WalkSpeed set to "..val, 2)
-        else
-            dog = not dog
-            Notify("WalkSpeed toggle: "..tostring(dog), 2)
-            if hum then applyStats(hum) end
-        end
-
-    elseif mainCmd == "jumppower" then
-        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if val and hum then
-            hum.JumpPower = val
-            Notify("JumpPower set to "..val, 2)
-        end
-
-    elseif mainCmd == "aimlock" then
-        aimlockEnabled = not aimlockEnabled
-        selected = {}
-        for ply, hl in pairs(selected) do
-            fullyRemoveHighlight(ply) -- xóa highlight
-            removeTracer(ply)         -- xóa tracer
-        end
-        pcall(function()
-            if LP.Character then
-                local hum = LP.Character:FindFirstChildOfClass("Humanoid")
-                if hum then Cam.CameraSubject = hum end
+    if cmd == "target" then
+        if args[2] then
+            local target = findClosestPlayer(args[2])
+            if target then
+                toggleSelectPlayer(target)
+            else
+                Notify("Player not found!", 2)
             end
-        end)
-        Notify("Aimlock: "..tostring(aimlockEnabled), 2)
+        else
+            Notify("Usage: .target <name>", 2)
+        end
+    elseif cmd == "tp" then
+        if args[2] then
+            local target = findClosestPlayer(args[2])
+            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local myChar = LocalPlayer.Character
+                local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                if myHRP then
+                    myHRP.CFrame = target.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+                    Notify("Teleported to " .. target.DisplayName .. "(@" .. target.Name .. ")", 3)
+                end
+            else
+                Notify("Player not found!", 2)
+            end
+        else
+            Notify("Usage: .tp <name>", 2)
+        end
+    elseif mainCmd == "help" then
+        local helpText = [[
+    ⭐ Betuyen.cc Help ⭐
+    Q: Select Target Key
+    H: Toggle Aimlock
+    B: CamLock
+    K: Stomp
+    T: WalkSpeed
+    Z: AutoShoot
+    V: Desync
+    Y: Kill self
 
-    elseif mainCmd == "triggerbot" then
-        tbEnabled = not tbEnabled
-        Notify("TriggerBot: "..tostring(tbEnabled), 2)
+    Chat commands:
+    .autostomp
+    .autoreload
+    .antistomp
+    .flashback
+    .prediction <num>
+    .fov <num>
+    .reset
+    .rejoin
+    .tp <name>
+    .target <name>
+    .untargetall
+    .spychat
+    .desync
+    .demode <mode>
+    .hitpart <part>
+    .autopingsets
+    ]]
 
+        Notify(helpText, 10)
     elseif mainCmd == "autostomp" then
         stomptarget = not stomptarget
         Notify("AutoStomp: "..tostring(stomptarget), 2)
@@ -1425,7 +1509,16 @@ local function handleCommandText(raw)
         antiStompActive = not antiStompActive
         Notify("AntiStomp: "..tostring(antiStompActive), 2)
         if antiStompActive then startAntiStomp() end
+    elseif cmd == "spychat" then
+        local TextChatService = game:GetService("TextChatService")
+        local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
 
+        if chatWindow then
+            chatWindow.Enabled = not chatWindow.Enabled
+            Notify("SpyChat: " .. (chatWindow.Enabled and "ON" or "OFF"), 3)
+        else
+            Notify("ChatWindowConfiguration not found!", 2)
+        end
     elseif mainCmd == "flashback" then
         flashbackActive = not flashbackActive
         Notify("Flashback: "..tostring(flashbackActive), 2)
@@ -1452,7 +1545,18 @@ local function handleCommandText(raw)
             hum.Health = 0
             Notify("Character reset!", 2)
         end
-
+    elseif cmd == "untargetall" then
+        for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+            if plr ~= LocalPlayer then
+                -- Nếu player đang được chọn (có highlight active) thì bỏ chọn
+                local hl = highlights and highlights[plr]  -- giả sử bạn đang lưu highlight trong 1 bảng "highlights"
+                if hl and hl.Enabled then
+                    removeHighlightFromPlayer(plr)
+                    removeTracer(plr)
+                end
+            end
+        end
+        Notify("All targets cleared!", 3)
     elseif mainCmd == "rejoin" then
         Notify("Rejoining...", 2)
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
@@ -1514,7 +1618,7 @@ desync_setback.Transparency = 1
 
 desync = {
     enabled = false,
-    mode = "Destroy Cheaters",
+    mode = "DestroyCheaters",
     teleportCFrame = CFrame.new(0, 0, 0),
     old_position = nil,
     voidSpamActive = false,
@@ -1552,13 +1656,13 @@ RunService.Heartbeat:Connect(function()
             local teleportPosition = Vector3.new(0, 0, 0)
             local teleportRotation = CFrame.new()
 
-            if desync.mode == "Destroy Cheaters" then
+            if desync.mode == "DestroyCheaters" then
                 teleportPosition = Vector3.new(11223344556677889900, 1, 1)
 
             elseif desync.mode == "Underground" then
                 teleportPosition = rootPart.Position - Vector3.new(0, 12, 0)
 
-            elseif desync.mode == "Void Spam" then
+            elseif desync.mode == "VoidSpam" then
                 teleportPosition = math.random(1, 2) == 1 and desync.old_position.Position or Vector3.new(
                     math.random(10000, 50000),
                     math.random(10000, 50000),
@@ -1616,4 +1720,4 @@ MakeButton("Desync", Color3.fromRGB(255, 255, 255), function(state)
     Notify("Desync: " .. (state and "ON" or "OFF"), 2)
 end, Enum.KeyCode.V)
 
-Notify("Aimlock | anhchanhm52", 2)
+Notify("Aimlock | anhchanhm52", 10)
