@@ -837,121 +837,103 @@ end
 local dog = false -- Biến cho WalkSpeed
 local howmany = 0 -- Đếm số nút
 
-local MakeButton
-if UIS.TouchEnabled then
-    -- Trên mobile: Load đầy đủ MakeButton với UI
-    MakeButton = function(ButtonName, Color, callback, keycode)
-        howmany = howmany + 1
+local MakeButton = function(ButtonName, Color, callback, keycode)
+    howmany = howmany + 1
 
-        local Frame = Instance.new("Frame")
-        local TextButton = Instance.new("ImageLabel")
-        local TextLabel = Instance.new("TextButton")
-        local UITextSizeConstraint = Instance.new("UITextSizeConstraint")
+    local Frame = Instance.new("Frame")
+    local TextButton = Instance.new("ImageLabel")
+    local TextLabel = Instance.new("TextButton")
+    local UITextSizeConstraint = Instance.new("UITextSizeConstraint")
 
-        Frame.Parent = Sigmaballs -- Sử dụng Sigmaballs đã tạo
-        Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        Frame.BackgroundTransparency = 0.3
-        Frame.Position = UDim2.new(0.85, -120, 0.1, (howmany - 1) * 50)
-        Frame.Size = UDim2.new(0, 120, 0, 40)
+    Frame.Parent = Sigmaballs -- Sử dụng Sigmaballs thay vì tạo ScreenGui mới
+    Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    Frame.BackgroundTransparency = 0.3
+    Frame.Position = UDim2.new(0.85, -120, 0.1, (howmany - 1) * 50) -- Điều chỉnh vị trí cho mobile
+    Frame.Size = UDim2.new(0, 120, 0, 40)
 
-        local uiStroke = Instance.new("UIStroke")
-        uiStroke.Parent = Frame
-        uiStroke.Color = Color
-        uiStroke.Thickness = 1.2
-        uiStroke.Transparency = 0
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Parent = Frame
+    uiStroke.Color = Color
+    uiStroke.Thickness = 1.2
+    uiStroke.Transparency = 0
 
-        TextButton.Parent = Frame
-        TextButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        TextButton.BackgroundTransparency = 1
-        TextButton.Size = UDim2.new(0, 28, 0, 28)
-        TextButton.AnchorPoint = Vector2.new(0, 0.5)
-        TextButton.Position = UDim2.new(0.05, 0, 0.5, 0)
-        TextButton.Image = "rbxassetid://10734923214"
-        TextButton.ImageColor3 = Color
+    TextButton.Parent = Frame
+    TextButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    TextButton.BackgroundTransparency = 1
+    TextButton.Size = UDim2.new(0, 28, 0, 28)
+    TextButton.AnchorPoint = Vector2.new(0, 0.5)
+    TextButton.Position = UDim2.new(0.05, 0, 0.5, 0)
+    TextButton.Image = "rbxassetid://10734923214"
+    TextButton.ImageColor3 = Color
 
-        TextLabel.Parent = Frame
-        TextLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        TextLabel.BackgroundTransparency = 1
-        TextLabel.Size = UDim2.new(0, 80, 0, 28)
-        TextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-        TextLabel.Position = UDim2.new(0.65, 0, 0.5, 0)
-        TextLabel.Font = Enum.Font.Arimo
-        TextLabel.Text = ButtonName
-        TextLabel.TextColor3 = Color
-        TextLabel.TextScaled = true
-        TextLabel.TextSize = 25
-        TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        TextLabel.TextStrokeTransparency = 1
+    TextLabel.Parent = Frame
+    TextLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    TextLabel.BackgroundTransparency = 1
+    TextLabel.Size = UDim2.new(0, 80, 0, 28)
+    TextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+    TextLabel.Position = UDim2.new(0.65, 0, 0.5, 0)
+    TextLabel.Font = Enum.Font.Arimo
+    TextLabel.Text = ButtonName
+    TextLabel.TextColor3 = Color
+    TextLabel.TextScaled = true
+    TextLabel.TextSize = 25
+    TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    TextLabel.TextStrokeTransparency = 1
 
-        local uiCorner = Instance.new("UICorner", Frame)
-        uiCorner.CornerRadius = UDim.new(0, 8)
+    local uiCorner = Instance.new("UICorner", Frame)
+    uiCorner.CornerRadius = UDim.new(0, 8)
 
-        local buttonState = false
+    local buttonState = false
 
-        TextLabel.Activated:Connect(function()
-            buttonState = not buttonState
-            callback(buttonState)
-            if buttonState then
-                TextButton.Image = "rbxassetid://10735024209"
-            else
-                TextButton.Image = "rbxassetid://10734923214"
+    TextLabel.Activated:Connect(function() -- Sử dụng Activated thay vì MouseButton1Down để hỗ trợ mobile
+        buttonState = not buttonState
+        callback(buttonState)
+        if buttonState then
+            TextButton.Image = "rbxassetid://10735024209"
+        else
+            TextButton.Image = "rbxassetid://10734923214"
+        end
+    end)
+
+    if keycode then
+        UIS.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == keycode then
+                buttonState = not buttonState
+                callback(buttonState)
+                if buttonState then
+                    TextButton.Image = "rbxassetid://10735024209"
+                else
+                    TextButton.Image = "rbxassetid://10734923214"
+                end
             end
         end)
+    end
 
-        if keycode then
-            UIS.InputBegan:Connect(function(input, gameProcessed)
-                if gameProcessed then return end
-                if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == keycode then
-                    buttonState = not buttonState
-                    callback(buttonState)
-                    if buttonState then
-                        TextButton.Image = "rbxassetid://10735024209"
-                    else
-                        TextButton.Image = "rbxassetid://10734923214"
-                    end
+    local dragStart, startPos
+    TextLabel.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragStart = input.Position
+            startPos = Frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragStart = nil
                 end
             end)
         end
+    end)
 
-        local dragStart, startPos
-        TextLabel.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragStart = input.Position
-                startPos = Frame.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragStart = nil
-                    end
-                end)
+    TextLabel.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            if dragStart then
+                local delta = input.Position - dragStart
+                Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
-        end)
-
-        TextLabel.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                if dragStart then
-                    local delta = input.Position - dragStart
-                    Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-                end
-            end
-        end)
-
-        UITextSizeConstraint.Parent = TextLabel
-        UITextSizeConstraint.MaxTextSize = 25
-    end
-else
-    -- Trên PC: Chỉ load logic phím của MakeButton
-    MakeButton = function(ButtonName, Color, callback, keycode)
-        local buttonState = false
-        if keycode then
-            UIS.InputBegan:Connect(function(input, gameProcessed)
-                if gameProcessed then return end
-                if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == keycode then
-                    buttonState = not buttonState
-                    callback(buttonState)
-                end
-            end)
         end
-    end
+    end)
+
+    UITextSizeConstraint.Parent = TextLabel
+    UITextSizeConstraint.MaxTextSize = 25
 end
 
 -- Hàm áp dụng WalkSpeed & JumpPower
