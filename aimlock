@@ -15,6 +15,48 @@ local nn_nojumpcooldown = true
 local customAnim = false
 local inStomp = false
 local instantstomp = false
+local RapidFireEnabled = false
+local RapidFireDelay = 0.01
+local utility = {}
+utility.get_gun = function()
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    for _, tool in next, char:GetChildren() do
+        if tool:IsA("Tool") and (tool:FindFirstChild("Ammo") or tool:FindFirstChild("AmmoCount") or tool:FindFirstChild("GunScript")) then
+            return tool
+        end
+    end
+end
+
+utility.rapid = function(tool)
+    tool:Activate()
+end
+
+local isFiring = false
+
+-- Input bắt đầu (chuột hoặc cảm ứng)
+UserInputService.InputBegan:Connect(function(i, gp)
+    if gp then return end
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        local gun = utility.get_gun()
+        if RapidFireEnabled and gun and not isFiring then
+            isFiring = true
+            task.spawn(function()
+                while isFiring and RapidFireEnabled do
+                    utility.rapid(gun)
+                    task.wait(RapidFireDelay)
+                end
+            end)
+        end
+    end
+end)
+
+-- Input kết thúc (chuột hoặc cảm ứng)
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        isFiring = false
+    end
+end)
 
 if LP.Name == "anhchangm52" then
     customAnim = true
@@ -233,12 +275,6 @@ local function monitorKOandGrab()
             if (isKO or isGrabbed) and aimlockEnabled then
                 wasAimlockEnabledBeforeKO = aimlockEnabled
                 aimlockEnabled = false
-                pcall(function()
-                    if LP.Character then
-                        local hum = LP.Character:FindFirstChildOfClass("Humanoid")
-                        if hum then Cam.CameraSubject = hum end
-                    end
-                end)
             elseif not isKO and not isGrabbed and wasAimlockEnabledBeforeKO and not aimlockEnabled then
                 aimlockEnabled = true
                 wasAimlockEnabledBeforeKO = false
@@ -902,7 +938,7 @@ local function applyStats(humanoid)
     if not humanoid then return end
 
     if dog then
-        humanoid.WalkSpeed = 150
+        humanoid.WalkSpeed = 200
         humanoid.JumpPower = 80
     else
         humanoid.WalkSpeed = 18
@@ -912,7 +948,7 @@ local function applyStats(humanoid)
     -- Bảo vệ nếu bị game set lại
     humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
         if dog then
-            humanoid.WalkSpeed = 150
+            humanoid.WalkSpeed = 200
         end
     end)
     humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
@@ -930,9 +966,9 @@ MakeButton("WalkSpeed", Color3.fromRGB(255, 255, 255), function(state)
     applyStats(humanoid)
 
     if dog then
-        Notify("WalkSpeed ON: 150, JumpPower: 80", 2)
+        Notify("WalkSpeed ON", 2)
     else
-        Notify("WalkSpeed OFF: 18, JumpPower: 55", 2)
+        Notify("WalkSpeed OFF", 2)
     end
 end, Enum.KeyCode.T)
 
@@ -1388,7 +1424,7 @@ local TextChatService = game:GetService("TextChatService")
 local commands = {
     "walkspeed","jumppower","aimlock","triggerbot","autostomp",
     "autoreload","antistomp","flashback","prediction","fov",
-    "reset","rejoin", "desync", "demode", "autopingsets", "hitpart", "tp", "target", "untargetall", "spychat", "help", "instantstomp"
+    "reset","rejoin", "desync", "demode", "autopingsets", "hitpart", "tp", "target", "untargetall", "spychat", "help", "instantstomp", "customanimation", "rapidfire"
 }
 
 -- ⚡ Hàm tính Levenshtein distance (so sánh độ giống)
@@ -1549,6 +1585,8 @@ local function handleCommandText(raw)
     E: to instant if instantstomp on
 
     Chat commands:
+    .rapidfire
+    .customanimation
     .autostomp
     .instantstomp
     .autoreload
@@ -1598,6 +1636,12 @@ local function handleCommandText(raw)
     elseif mainCmd == "flashback" then
         flashbackActive = not flashbackActive
         Notify("Flashback: "..tostring(flashbackActive), 2)
+    elseif mainCmd == "customanimation" then
+        Customanim = not Customanim
+        Notify("CustomAnimation: "..tostring(flashbackActive), 2)
+    elseif mainCmd == "rapidfire" then
+        RapidFireEnabled = not RapidFireEnabled
+        Notify("RapidFireEnabled: "..tostring(flashbackActive), 2)
 
     elseif mainCmd == "prediction" then
         if val then
