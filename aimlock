@@ -671,7 +671,7 @@ end)
 local instantStompConnection
 instantStompConnection = UIS.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.R and instantstomp then
+    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.E and instantstomp then
         local char = LP.Character
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if hum then
