@@ -395,12 +395,6 @@ local function createTracer(ply)
         tracers[ply] = nil
     end
 
-    --[[ Nếu đã có vòng tròn cũ thì xóa
-    if circles[ply] then
-        circles[ply]:Destroy()
-        circles[ply] = nil
-    end]]
-
     -- Tạo tracer
     local att1 = Instance.new("Attachment", hrp1)
     local att2 = Instance.new("Attachment", hrp2)
@@ -415,46 +409,6 @@ local function createTracer(ply)
 
     tracers[ply] = beam
 
-    --[[ Tạo vòng tròn viền dưới chân bằng SurfaceGui
-    local circlePart = Instance.new("Part")
-    circlePart.Name = "TargetCircle"
-    circlePart.Size = Vector3.new(6, 0.1, 6) -- đường kính ~ 6 studs
-    circlePart.Anchored = false
-    circlePart.CanCollide = false
-    circlePart.Transparency = 1 -- part ẩn đi
-    circlePart.CFrame = hrp2.CFrame * CFrame.new(0, -hrp2.Size.Y/2 - 0.05, 0)
-    circlePart.Parent = workspace
-
-    -- Weld để gắn vào HRP
-    local weld = Instance.new("WeldConstraint")
-    weld.Part0 = hrp2
-    weld.Part1 = circlePart
-    weld.Parent = circlePart
-
-    -- SurfaceGui + UIStroke để vẽ vòng tròn viền
-    local gui = Instance.new("SurfaceGui")
-    gui.Face = Enum.NormalId.Top
-    gui.AlwaysOnTop = true
-    gui.Parent = circlePart
-
-    local frame = Instance.new("Frame")
-    frame.AnchorPoint = Vector2.new(0.5, 0.5)
-    frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.BackgroundTransparency = 1
-    frame.Parent = gui
-
-    local circleCorner = Instance.new("UICorner")
-    circleCorner.CornerRadius = UDim.new(1, 0)
-    circleCorner.Parent = frame
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 4
-    stroke.Color = Color3.fromRGB(214, 112, 122)
-    stroke.Parent = frame
-
-    circles[ply] = circlePart]]
-
     -- Cập nhật khi target respawn
     ply.CharacterAdded:Connect(function(newChar)
         task.wait(0.2)
@@ -465,48 +419,6 @@ local function createTracer(ply)
             local newAtt = Instance.new("Attachment", newHrp)
             tracers[ply].Attachment1 = newAtt
         end
-
-        --[[ cập nhật circle
-        if circles[ply] then
-            circles[ply]:Destroy()
-
-            local newCirclePart = Instance.new("Part")
-            newCirclePart.Name = "TargetCircle"
-            newCirclePart.Size = Vector3.new(6, 0.1, 6)
-            newCirclePart.Anchored = false
-            newCirclePart.CanCollide = false
-            newCirclePart.Transparency = 1
-            newCirclePart.CFrame = newHrp.CFrame * CFrame.new(0, -newHrp.Size.Y/2 - 0.05, 0)
-            newCirclePart.Parent = workspace
-
-            local newWeld = Instance.new("WeldConstraint")
-            newWeld.Part0 = newHrp
-            newWeld.Part1 = newCirclePart
-            newWeld.Parent = newCirclePart
-
-            local newGui = Instance.new("SurfaceGui")
-            newGui.Face = Enum.NormalId.Top
-            newGui.AlwaysOnTop = true
-            newGui.Parent = newCirclePart
-
-            local newFrame = Instance.new("Frame")
-            newFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-            newFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-            newFrame.Size = UDim2.new(1, 0, 1, 0)
-            newFrame.BackgroundTransparency = 1
-            newFrame.Parent = newGui
-
-            local newCorner = Instance.new("UICorner")
-            newCorner.CornerRadius = UDim.new(1, 0)
-            newCorner.Parent = newFrame
-
-            local newStroke = Instance.new("UIStroke")
-            newStroke.Thickness = 2
-            newStroke.Color = Color3.fromRGB(214, 112, 122)
-            newStroke.Parent = newFrame
-
-            circles[ply] = newCirclePart
-        end]]
     end)
 end
 
@@ -516,10 +428,6 @@ local function removeTracer(ply)
         tracers[ply]:Destroy()
         tracers[ply] = nil
     end
-    --[[if circles[ply] then
-        circles[ply]:Destroy()
-        circles[ply] = nil
-    end]]
 end
 
 -- Sửa hàm removeAllTracers để xóa tất cả vòng tròn
@@ -527,11 +435,7 @@ local function removeAllTracers()
     for ply, beam in pairs(tracers) do
         if beam then beam:Destroy() end
     end
-    --[[for ply, circle in pairs(circles) do
-        if circle then circle:Destroy() end
-    end]]
     tracers = {}
-    --circles = {}
 end
 
 -- Xử lý khi LocalPlayer hồi sinh
@@ -1218,6 +1122,9 @@ local function startAntiStomp()
     end)
 end
 
+-- Biến autoshoot
+local autoReload = true -- Mặc định on cho autoreload
+
 -- Thêm nút MakeButton cho autoshoot
 MakeButton("AutoShoot", Color3.fromRGB(255, 255, 255), function(state)
     tbEnabled = state
@@ -1386,7 +1293,7 @@ Run.RenderStepped:Connect(function(dt)
     if not tool then return end
 
     local ammo = tool:FindFirstChild("Ammo")
-    if ammo and ammo.Value <= 0 then
+    if ammo and ammo.Value <= 0 and autoReload then
         -- Reload (Normal)
         MainRemote:FireServer("Reload", tool)
         task.wait(3.7)
@@ -1459,313 +1366,6 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local TeleportService = game:GetService("TeleportService")
 local TextChatService = game:GetService("TextChatService")
-
--- danh sách lệnh hợp lệ
-local commands = {
-    "walkspeed","jumppower","aimlock","triggerbot","autostomp",
-    "autoreload","antistomp","flashback","prediction","fov",
-    "reset","rejoin", "desync", "demode", "autopingsets", "hitpart", "tp", "target", "untargetall", "spychat", "help", "instantstomp", "customanimation", "rapidfire"
-}
-
--- ⚡ Hàm tính Levenshtein distance (so sánh độ giống)
-local function levenshtein(s, t)
-    local m, n = #s, #t
-    if m == 0 then return n end
-    if n == 0 then return m end
-    local d = {}
-    for i = 0, m do d[i] = {[0] = i} end
-    for j = 0, n do d[0][j] = j end
-    for i = 1, m do
-        for j = 1, n do
-            local cost = (s:sub(i,i) == t:sub(j,j)) and 0 or 1
-            d[i][j] = math.min(
-                d[i-1][j] + 1,
-                d[i][j-1] + 1,
-                d[i-1][j-1] + cost
-            )
-        end
-    end
-    return d[m][n]
-end
-
--- ⚡ tìm lệnh gần đúng
-local function findClosestCommand(input)
-    input = string.lower(input)
-    local best, bestDist
-    for _, cmd in ipairs(commands) do
-        if cmd:find(input, 1, true) == 1 then
-            return cmd -- nếu trùng prefix thì ưu tiên
-        end
-        local dist = levenshtein(input, cmd)
-        if not bestDist or dist < bestDist then
-            best, bestDist = cmd, dist
-        end
-    end
-    return best
-end
-
--- ⚡ tìm hitpart gần đúng
-local function findClosestHitPart(input)
-    input = string.lower(input)
-    local best, bestDist
-    for _, part in ipairs(hitParts) do
-        if part:lower():find(input, 1, true) == 1 then
-            return part -- nếu trùng prefix thì ưu tiên
-        end
-        local dist = levenshtein(input, part:lower())
-        if not bestDist or dist < bestDist then
-            best, bestDist = part, dist
-        end
-    end
-    return best
-end
-
-local function findClosestPlayer(query)
-    query = string.lower(query)
-    local bestMatch, bestScore = nil, math.huge
-    for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-        local uname = string.lower(plr.Name)
-        local dname = string.lower(plr.DisplayName)
-
-        -- Ưu tiên khớp 1 phần chuỗi
-        if string.find(uname, query) or string.find(dname, query) then
-            return plr
-        end
-
-        -- Nếu không khớp trực tiếp thì so sánh khoảng cách chuỗi (Levenshtein)
-        local function levenshtein1(a, b)
-            local m, n = #a, #b
-            if m == 0 then return n end
-            if n == 0 then return m end
-            local matrix = {}
-            for i = 0, m do matrix[i] = {[0] = i} end
-            for j = 0, n do matrix[0][j] = j end
-            for i = 1, m do
-                for j = 1, n do
-                    local cost = (a:sub(i,i) == b:sub(j,j)) and 0 or 1
-                    matrix[i][j] = math.min(
-                        matrix[i-1][j] + 1,
-                        matrix[i][j-1] + 1,
-                        matrix[i-1][j-1] + cost
-                    )
-                end
-            end
-            return matrix[m][n]
-        end
-
-        local score = math.min(levenshtein1(uname, query), levenshtein1(dname, query))
-        if score < bestScore then
-            bestScore = score
-            bestMatch = plr
-        end
-    end
-    return bestMatch
-end
-
-
--- ⚡ Handler chính
-local function handleCommandText(raw)
-    if not raw then return end
-    local msg = tostring(raw):match("^%s*(.-)%s*$")
-    if msg == "" or msg:sub(1,1) ~= "." then return end
-
-    local body = msg:sub(2)
-    if body == "" then return end
-
-    local args = {}
-    for w in body:gmatch("%S+") do table.insert(args, w) end
-    local cmd = args[1] or ""
-    local val = tonumber(args[2])
-
-    local mainCmd = findClosestCommand(cmd)
-    if not mainCmd then
-        Notify("Unknown command: "..cmd, 2)
-        return
-    end
-
-    if cmd == "target" then
-        if args[2] then
-            local target = findClosestPlayer(args[2])
-            if target then
-                toggleSelectPlayer(target)
-            else
-                Notify("Player not found!", 2)
-            end
-        else
-            Notify("Usage: .target <name>", 2)
-        end
-    elseif cmd == "tp" then
-        if args[2] then
-            local target = findClosestPlayer(args[2])
-            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                local myChar = LocalPlayer.Character
-                local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-                if myHRP then
-                    myHRP.CFrame = target.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
-                    Notify("Teleported to " .. target.DisplayName .. "(@" .. target.Name .. ")", 3)
-                end
-            else
-                Notify("Player not found!", 2)
-            end
-        else
-            Notify("Usage: .tp <name>", 2)
-        end
-    elseif mainCmd == "help" then
-        local helpText = [[
-    ⭐ Betuyen.cc Help ⭐
-    Q: Select Target Key
-    H: Toggle Aimlock
-    B: View
-    K: AutoStomp
-    T: WalkSpeed
-    Z: AutoShoot
-    V: Desync
-    Y: Kill self
-    C: Jump Blud Happier animation
-    E: to instant if instantstomp on
-
-    Chat commands:
-    .rapidfire
-    .customanimation
-    .autostomp
-    .instantstomp
-    .autoreload
-    .antistomp
-    .flashback
-    .prediction <num>
-    .fov <num>
-    .reset
-    .rejoin
-    .tp <name>
-    .target <name>
-    .untargetall
-    .spychat
-    .desync
-    .demode <mode>
-    .hitpart <part>
-    .autopingsets
-    ]]
-
-        Notify(helpText, 10)
-    elseif mainCmd == "autostomp" then
-        toggleStomp()
-        Notify("AutoStomp: "..tostring(stomptarget), 2)
-
-    elseif mainCmd == "autoreload" then
-        autoReload = not autoReload
-        Notify("AutoReload: "..tostring(autoReload), 2)
-
-    elseif mainCmd == "autopingsets" then
-        AutoPingSets = not AutoPingSets
-        Notify("AutoPingSets: "..tostring(AutoPingSets), 2)
-
-    elseif mainCmd == "antistomp" then
-        antiStompActive = not antiStompActive
-        Notify("AntiStomp: "..tostring(antiStompActive), 2)
-        if antiStompActive then startAntiStomp() end
-    elseif cmd == "spychat" then
-        local TextChatService = game:GetService("TextChatService")
-        local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
-
-        if chatWindow then
-            chatWindow.Enabled = not chatWindow.Enabled
-            Notify("SpyChat: " .. (chatWindow.Enabled and "ON" or "OFF"), 3)
-        else
-            Notify("ChatWindowConfiguration not found!", 2)
-        end
-    elseif mainCmd == "flashback" then
-        flashbackActive = not flashbackActive
-        Notify("Flashback: "..tostring(flashbackActive), 2)
-    elseif mainCmd == "customanimation" then
-        Customanim = not Customanim
-        Notify("CustomAnimation: "..tostring(flashbackActive), 2)
-    elseif mainCmd == "rapidfire" then
-        RapidFireEnabled = not RapidFireEnabled
-        Notify("RapidFireEnabled: "..tostring(flashbackActive), 2)
-
-    elseif mainCmd == "prediction" then
-        if val then
-            predictionTime = val
-            Notify("Prediction set to "..val, 2)
-        else
-            Notify("Usage: .prediction <number>", 2)
-        end
-
-    elseif mainCmd == "fov" then
-        if val then
-            workspace.CurrentCamera.FieldOfView = val
-            Notify("FOV set to "..val, 2)
-        else
-            Notify("Usage: .fov <number>", 2)
-        end
-
-    elseif mainCmd == "reset" then
-        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum.Health = 0
-            Notify("Character reset!", 2)
-        end
-    elseif cmd == "untargetall" then
-        for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-            if plr ~= LocalPlayer then
-                -- Nếu player đang được chọn (có highlight active) thì bỏ chọn
-                local hl = highlights and highlights[plr]  -- giả sử bạn đang lưu highlight trong 1 bảng "highlights"
-                if hl and hl.Enabled then
-                    removeHighlightFromPlayer(plr)
-                    removeTracer(plr)
-                end
-            end
-        end
-        Notify("All targets cleared!", 3)
-    elseif mainCmd == "instantstomp" then
-        instantstomp = not instantstomp
-        Notify("InstantStomp: " .. (instantstomp and "ON" or "OFF"), 2)
-    elseif mainCmd == "rejoin" then
-        Notify("Rejoining...", 2)
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-
-    elseif mainCmd == "desync" then
-        toggleDesync(not desync.enabled)
-        Notify("Desync: " .. (desync.enabled and "ON" or "OFF"), 2)
-
-    elseif mainCmd == "demode" then
-        if args[2] then
-            setDesyncMode(args[2])
-            Notify("Desync mode set to " .. args[2], 2)
-        else
-            Notify("Usage: .demode <mode>", 2)
-        end
-
-    elseif mainCmd == "hitpart" then
-        if args[2] then
-            local inputPart = args[2]
-            local bestPart = findClosestHitPart(inputPart)
-            if bestPart then
-                currentHitPart = bestPart
-                Notify("Hitpart set to " .. bestPart, 2)
-            else
-                Notify("No matching hitpart found.", 2)
-            end
-        else
-            Notify("Usage: .hitpart <part>", 2)
-        end
-    end
-end
-
--- ⚡ Gắn vào chat
-if TextChatService and TextChatService.SendingMessage then
-    TextChatService.SendingMessage:Connect(function(message)
-        pcall(function()
-            handleCommandText(message.Text)
-        end)
-    end)
-else
-    LocalPlayer.Chatted:Connect(function(msg)
-        pcall(function()
-            handleCommandText(msg)
-        end)
-    end)
-end
 
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -1890,4 +1490,296 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     checkStatus(char)
 end)
 
-Notify("Betuyen.cc | anhchangm52", 10)
+-- Load LinoriaLib và các addon
+local repo = 'https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+local Options = Library.Options
+local Toggles = Library.Toggles
+
+-- Cài đặt Library cho mobile
+Library.ShowToggleFrameInKeybinds = true -- Hỗ trợ nút toggle trong UI keybinds, phù hợp cho mobile
+Library.ShowCustomCursor = true -- Bật con trỏ tùy chỉnh
+Library.NotifySide = "Left" -- Thông báo hiển thị bên trái
+
+-- Tạo Window
+local Window = Library:CreateWindow({
+    Title = 'Betuyen.cc | anhchangm52',
+    Center = true,
+    AutoShow = true,
+    Resizable = true,
+    ShowCustomCursor = true,
+    UnlockMouseWhileOpen = true,
+    NotifySide = "Left",
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+-- Tạo các Tab
+local Tabs = {
+    Main = Window:AddTab('Main'),
+    ['UI Settings'] = Window:AddTab('UI Settings'),
+}
+
+-- === Tab Main ===
+-- Groupbox Aimlock (Bên trái)
+local AimSection = Tabs.Main:AddLeftGroupbox('Aimlock')
+
+AimSection:AddToggle('AimlockToggle', {
+    Text = 'Aimlock',
+    Default = aimlockEnabled,
+    Tooltip = 'Toggle aimlock functionality',
+    Callback = function(state)
+        aimlockEnabled = state
+        Library:Notify('Aimlock: ' .. (state and 'ON' or 'OFF'), 2)
+    end
+})
+
+AimSection:AddToggle('AutoPingSetToggle', {
+    Text = 'Auto Ping Set',
+    Default = AutoPingSets,
+    Tooltip = 'Automatically adjust prediction based on ping',
+    Callback = function(state)
+        AutoPingSets = state
+        Library:Notify('Auto Ping Set: ' .. (state and 'ON' or 'OFF'), 2)
+    end
+})
+
+AimSection:AddInput('PredictionInput', {
+    Text = 'Prediction',
+    Default = tostring(predictionTime),
+    Numeric = true,
+    Tooltip = 'Set prediction time for aimlock',
+    Placeholder = 'Enter prediction time',
+    Callback = function(value)
+        local num = tonumber(value)
+        if num then
+            predictionTime = num
+            Library:Notify('Prediction set to ' .. num, 2)
+        else
+            Library:Notify('Invalid prediction value', 2)
+        end
+    end
+})
+
+AimSection:AddDropdown('HitpartDropdown', {
+    Text = 'Hitpart',
+    Values = hitParts,
+    Default = currentHitPart,
+    Tooltip = 'Select target hitpart for aimlock',
+    Callback = function(value)
+        currentHitPart = value
+        Library:Notify('Hitpart set to ' .. value, 2)
+    end
+})
+
+-- Groupbox Misc (Bên phải)
+local MiscSection = Tabs.Main:AddRightGroupbox('Misc')
+
+MiscSection:AddSlider('FOVSlider', {
+    Text = 'FOV',
+    Default = workspace.CurrentCamera.FieldOfView,
+    Min = 40,
+    Max = 120,
+    Rounding = 0,
+    Tooltip = 'Adjust camera field of view',
+    Callback = function(value)
+        workspace.CurrentCamera.FieldOfView = value
+        Library:Notify('FOV set to ' .. value, 2)
+    end
+})
+
+MiscSection:AddToggle('AutoreloadToggle', {
+    Text = 'Autoreload',
+    Default = autoReload,
+    Tooltip = 'Toggle automatic reload',
+    Callback = function(state)
+        autoReload = state
+        Library:Notify('Autoreload: ' .. (state and 'ON' or 'OFF'), 2)
+    end
+})
+
+MiscSection:AddToggle('AutostompToggle', {
+    Text = 'Autostomp',
+    Default = stomptarget,
+    Tooltip = 'Toggle automatic stomp on selected targets',
+    Callback = function(state)
+        stomptarget = state
+        toggleStomp()
+    end
+})
+
+MiscSection:AddToggle('AntistompToggle', {
+    Text = 'Antistomp',
+    Default = antiStompActive,
+    Tooltip = 'Prevent being stomped',
+    Callback = function(state)
+        antiStompActive = state
+        Library:Notify('Antistomp: ' .. (state and 'ON' or 'OFF'), 2)
+        if antiStompActive then startAntiStomp() end
+    end
+})
+
+MiscSection:AddToggle('FlashbackToggle', {
+    Text = 'Flashback',
+    Default = flashbackActive,
+    Tooltip = 'Enable flashback on death',
+    Callback = function(state)
+        flashbackActive = state
+        Library:Notify('Flashback: ' .. (state and 'ON' or 'OFF'), 2)
+    end
+})
+
+MiscSection:AddToggle('NoSlowdownToggle', {
+    Text = 'No Slowdown',
+    Default = true,
+    Tooltip = 'Prevent movement slowdown',
+    Callback = function(state)
+        Library:Notify('No Slowdown: ' .. (state and 'ON' or 'OFF'), 2)
+    end
+})
+
+MiscSection:AddToggle('NoJumpCooldownToggle', {
+    Text = 'No Jump Cooldown',
+    Default = nn_nojumpcooldown,
+    Tooltip = 'Remove jump cooldown',
+    Callback = function(state)
+        nn_nojumpcooldown = state
+        Library:Notify('No Jump Cooldown: ' .. (state and 'ON' or 'OFF'), 2)
+    end
+})
+
+MiscSection:AddToggle('RapidFireToggle', {
+    Text = 'Rapid Fire',
+    Default = RapidFireEnabled,
+    Tooltip = 'Enable rapid fire for weapons',
+    Callback = function(state)
+        RapidFireEnabled = state
+        Library:Notify('Rapid Fire: ' .. (state and 'ON' or 'OFF'), 2)
+    end
+})
+
+MiscSection:AddToggle('InstantstompToggle', {
+    Text = 'Instantstomp (PC)',
+    Default = instantstomp,
+    Tooltip = 'Enable instant stomp (PC only)',
+    Callback = function(state)
+        instantstomp = state
+        Library:Notify('Instantstomp: ' .. (state and 'ON' or 'OFF'), 2)
+    end
+})
+
+MiscSection:AddToggle('CustomAnimToggle', {
+    Text = 'Custom Animation',
+    Default = customAnim,
+    Tooltip = 'Enable custom animations',
+    Callback = function(state)
+        customAnim = state
+        Library:Notify('Custom Animation: ' .. (state and 'ON' or 'OFF'), 2)
+    end
+})
+
+-- Thêm Dropdown cho Desync Method
+MiscSection:AddDropdown('DesyncMethodDropdown', {
+    Text = 'Desync Method',
+    Values = { 'DestroyCheaters', 'Underground', 'VoidSpam', 'Void', 'Player' },
+    Default = desync.mode,
+    Tooltip = 'Select desync method',
+    Callback = function(value)
+        setDesyncMode(value)
+        Library:Notify('Desync Method set to: ' .. value, 2)
+    end
+})
+
+-- === Tab UI Settings ===
+local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
+
+MenuGroup:AddToggle('KeybindMenuToggle', {
+    Text = 'Open Keybind Menu',
+    Default = Library.KeybindFrame.Visible,
+    Tooltip = 'Toggle keybind menu visibility',
+    Callback = function(value)
+        Library.KeybindFrame.Visible = value
+    end
+})
+
+MenuGroup:AddToggle('CustomCursorToggle', {
+    Text = 'Custom Cursor',
+    Default = Library.ShowCustomCursor,
+    Tooltip = 'Toggle custom cursor',
+    Callback = function(value)
+        Library.ShowCustomCursor = value
+    end
+})
+
+MenuGroup:AddDivider()
+
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
+    Default = 'RightShift',
+    NoUI = true,
+    Text = 'Menu keybind',
+    Callback = function(value)
+        Library:Notify('Menu keybind changed to: ' .. tostring(value), 2)
+    end
+})
+
+MenuGroup:AddButton({
+    Text = 'Unload',
+    Func = function()
+        Library:Unload()
+        Library:Notify('Unloaded script', 2)
+    end,
+    Tooltip = 'Unload the script'
+})
+
+MenuGroup:AddButton({
+    Text = 'Rejoin',
+    Func = function()
+        Library:Notify('Rejoining...', 2)
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+    end,
+    Tooltip = 'Rejoin the current server'
+})
+
+-- Cài đặt ThemeManager và SaveManager
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+ThemeManager:SetFolder('BetuyenHub')
+SaveManager:SetFolder('BetuyenHub/DaHood')
+SaveManager:BuildConfigSection(Tabs['UI Settings'])
+ThemeManager:ApplyToTab(Tabs['UI Settings'])
+SaveManager:LoadAutoloadConfig()
+
+-- Thiết lập phím toggle menu
+Library.ToggleKeybind = Options.MenuKeybind
+
+-- Watermark động
+local FrameTimer = tick()
+local FrameCounter = 0
+local FPS = 60
+
+local WatermarkConnection = game:GetService('RunService').RenderStepped:Connect(function()
+    FrameCounter = FrameCounter + 1
+    if (tick() - FrameTimer) >= 1 then
+        FPS = FrameCounter
+        FrameTimer = tick()
+        FrameCounter = 0
+    end
+    Library:SetWatermark(('Betuyen.cc | %s fps | %s ms'):format(
+        math.floor(FPS),
+        math.floor(game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue())
+    ))
+end)
+
+-- Xử lý unload
+Library:OnUnload(function()
+    WatermarkConnection:Disconnect()
+    Library:Notify('Unloaded!', 2)
+    Library.Unloaded = true
+end)
+
+-- Thông báo khởi động
+Library:Notify('Betuyen.cc | anhchangm52 Loaded!', 10)
