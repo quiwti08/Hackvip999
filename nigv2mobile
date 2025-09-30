@@ -1,9 +1,28 @@
 
-local repo = 'https://raw.githubusercontent.com/LionTheGreatRealFrFr/MobileLinoriaLib/main/'
+local repo = 'https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/'
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
-local Window = Library:CreateWindow({ Title = '                     $ Nigga.lol | Anhchangm52 $Mobile                     ', AutoShow = true, TabPadding = 15, MenuFadeTime = 0.2 }) 
+local Options = Library.Options
+local Toggles = Library.Toggles
+
+-- Cài đặt Library cho mobile
+Library.ShowToggleFrameInKeybinds = true -- Hỗ trợ nút toggle trong UI keybinds, phù hợp cho mobile
+Library.ShowCustomCursor = true -- Bật con trỏ tùy chỉnh
+Library.NotifySide = "Left" -- Thông báo hiển thị bên trái
+
+-- Tạo Window
+local Window = Library:CreateWindow({
+    Title = '                      Nigga.lol | Anhchangm52 | Mobile                     ',
+    Center = true,
+    AutoShow = true,
+    Resizable = true,
+    ShowCustomCursor = true,
+    UnlockMouseWhileOpen = true,
+    NotifySide = "Left",
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+}) 
 local Tabs = { Main = Window:AddTab('Main'), Character = Window:AddTab('Character'), Visuals = Window:AddTab('Visuals'), Misc = Window:AddTab('Misc'), Players = Window:AddTab('Players'), ['UI Settings'] = Window:AddTab('UI Settings') }
 local GunMods = Tabs.Main:AddRightGroupbox('Gun Mods')
 local KillAura = Tabs.Main:AddRightGroupbox('Combat')
