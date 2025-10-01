@@ -1,0 +1,814 @@
+getgenv().Elysian = {
+    ['Camlock'] = {
+        ['Manual Prediction'] = 0.1475,
+        ['Auto Prediction'] = {
+            ['Enabled'] = true,
+            ['Ping'] = {
+                ['20'] = 0.10036,
+                ['21'] = 0.115,
+                ['22'] = 0.15529888,
+                ['23'] = 0.125918,
+                ['24'] = 0.109333,
+                ['25'] = 0.1025,
+                ['26'] = 0.102566,
+                ['27'] = 0.1088344,
+                ['28'] = 0.1664398,
+                ['29'] = 0.164,
+                ['30'] = 0.1130,
+                ['31'] = 0.187,
+                ['32'] = 0.1145,
+                ['33'] = 0.1499,
+                ['34'] = 0.115,
+                ['35'] = 0.15529888,
+                ['36'] = 0.125918,
+                ['37'] = 0.109333,
+                ['38'] = 0.1025,
+                ['39'] = 0.102566,
+                ['40'] = 0.13544,
+                ['41'] = 0.11456,
+                ['42'] = 0.11250,
+                ['43'] = 0.11614,
+                ['44'] = 0.11271,
+                ['45'] = 0.11679,
+                ['46'] = 0.11752,
+                ['47'] = 0.11892,
+                ['48'] = 0.11144,
+                ['49'] = 0.11496,
+                ['50'] = 0.1357,
+                ['51'] = 0.12089,
+                ['52'] = 0.12184,
+                ['53'] = 0.11628,
+                ['54'] = 0.11827,
+                ['55'] = 0.11769,
+                ['56'] = 0.11646,
+                ['57'] = 0.12053,
+                ['58'] = 0.12076,
+                ['59'] = 0.12666,
+                ['60'] = 0.13598,
+                ['61'] = 0.12509,
+                ['62'] = 0.12586,
+                ['63'] = 0.12726,
+                ['64'] = 0.12736,
+                ['65'] = 0.12767,
+                ['66'] = 0.12634,
+                ['67'] = 0.12762,
+                ['68'] = 0.12566,
+                ['69'] = 0.12790,
+                ['70'] = 0.13892,
+                ['71'] = 0.12774,
+                ['72'] = 0.12671,
+                ['73'] = 0.12793,
+                ['74'] = 0.12592,
+                ['75'] = 0.12677,
+                ['76'] = 0.12876,
+                ['77'] = 0.12586,
+                ['78'] = 0.12591,
+                ['79'] = 0.12575,
+                ['80'] = 0.1403,
+                ['81'] = 0.12757,
+                ['82'] = 0.12751,
+                ['83'] = 0.12880,
+                ['84'] = 0.12849,
+                ['85'] = 0.12773,
+                ['86'] = 0.12768,
+                ['87'] = 0.12723,
+                ['88'] = 0.12803,
+                ['89'] = 0.12827,
+                ['90'] = 0.1446,
+                ['91'] = 0.12962,
+                ['92'] = 0.12912,
+                ['93'] = 0.12854,
+                ['94'] = 0.12953,
+                ['95'] = 0.13070,
+                ['96'] = 0.12858,
+                ['97'] = 0.12962,
+                ['98'] = 0.12842,
+                ['99'] = 0.13005,
+                ['100'] = 0.1475,
+                ['110'] = 0.1345,
+                ['111'] = 0.1409,
+                ['112'] = 0.141199,
+                ['113'] = 0.143765,
+                ['114'] = 0.1345,
+                ['115'] = 0.1409,
+                ['116'] = 0.141199,
+                ['117'] = 0.143765,
+                ['118'] = 0.1345,
+                ['119'] = 0.1409,
+                ['120'] = 0.141199,
+                ['121'] = 0.143765,
+                ['122'] = 0.1345,
+                ['123'] = 0.1409,
+                ['124'] = 0.141199,
+                ['125'] = 0.143765,
+                ['126'] = 0.1345,
+                ['127'] = 0.1409,
+                ['128'] = 0.141199,
+                ['129'] = 0.143765,
+                ['130'] = 0.1345,
+                ['131'] = 0.1409,
+                ['132'] = 0.141199,
+                ['133'] = 0.143765,
+                ['134'] = 0.1345,
+                ['135'] = 0.1409,
+                ['136'] = 0.141199,
+                ['137'] = 0.143765,
+                ['138'] = 0.1345,
+                ['139'] = 0.1409,
+                ['140'] = 0.141199,
+                ['141'] = 0.129934,
+                ['142'] = 0.1652131,
+                ['143'] = 0.125333,
+                ['144'] = 0.1223333,
+                ['145'] = 0.15,
+                ['146'] = 0.16,
+                ['147'] = 0.165455312399999,
+                ['148'] = 0.129934,
+                ['149'] = 0.1652131,
+                ['150'] = 0.125333,
+                ['151'] = 0.1223333,
+                ['152'] = 0.15,
+                ['153'] = 0.16,
+                ['154'] = 0.165455312399999,
+                ['155'] = 0.129934,
+                ['156'] = 0.1652131,
+                ['157'] = 0.125333,
+                ['158'] = 0.1223333,
+                ['159'] = 0.15,
+                ['160'] = 0.16,
+                ['161'] = 0.165455312399999,
+                ['162'] = 0.129934,
+                ['163'] = 0.1652131,
+                ['164'] = 0.125333,
+                ['165'] = 0.1223333,
+                ['166'] = 0.15,
+                ['167'] = 0.16,
+                ['168'] = 0.165455312399999,
+                ['169'] = 0.129934,
+                ['170'] = 0.1652131,
+                ['171'] = 0.125333,
+                ['172'] = 0.1223333,
+                ['173'] = 0.15,
+                ['174'] = 0.16,
+                ['175'] = 0.165455312399999,
+                ['176'] = 0.129934,
+                ['177'] = 0.1652131,
+                ['178'] = 0.125333,
+                ['179'] = 0.1223333,
+                ['180'] = 0.15
+            }
+        },
+        ['Smoothing'] = {
+            ['Enabled'] = false,
+            ['Value'] = 0.013
+        },
+        ['Offset'] = {
+            ['Jump'] = -1,
+            ['Fall'] = -1,
+        },
+        ['Auto Shoot'] = true,
+        ['Airshot Function'] = {
+            ['Enabled'] = true,
+            ['Part'] = "LowerTorso"
+        },
+        ['Target Part'] = "Head",
+        ['Checks'] = {
+            ['KO'] = true,
+            ['Grab'] = true,
+            ['Wall'] = true
+        }
+    },
+    ['TargetStats'] = true,
+    ['HvH'] = {
+        ['Target Strafe'] = {
+            ['Enabled'] = true,
+            ['Speed'] = 100,
+            ['Distance'] = 10,
+            ['Height'] = 7,
+        },
+        ['Walkspeed'] = {
+            ['Enabled'] = true,
+            ['WalkSpeed'] = 200,
+            ['JumpPower'] = 80,
+            ['DefaultWalkSpeed'] = 18,
+            ['DefaultJumpPower'] = 55
+        }
+    },
+    ['Desync'] = {
+        ['Enabled'] = false,
+        ['Mode'] = "DestroyCheaters",
+        ['TeleportCFrame'] = CFrame.new(0, 0, 0),
+        ['OldPosition'] = nil,
+        ['VoidSpamActive'] = false,
+        ['ToggleEnabled'] = false
+    }
+}
+
+local userInputService = game:GetService("UserInputService")
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local players = game:GetService("Players")
+local runService = game:GetService("RunService")
+local client = players.LocalPlayer
+local camera = workspace.CurrentCamera
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+
+local Locking = false
+local Plr = nil
+local strafing = false
+local walkspeedEnabled = false
+local auto_shooting = false
+
+local playerData = {}
+local SMOOTHNESS_FACTOR = 2
+
+local desync_setback = Instance.new("Part")
+desync_setback.Name = "Desync Setback"
+desync_setback.Parent = workspace
+desync_setback.Size = Vector3.new(2, 2, 1)
+desync_setback.CanCollide = false
+desync_setback.Anchored = true
+desync_setback.Transparency = 1
+
+local Azure_TargetStats = Instance.new("ScreenGui")
+local Background = Instance.new("Frame")
+local Picture = Instance.new("ImageLabel")
+local Top = Instance.new("Frame")
+local UIGradient = Instance.new("UIGradient")
+local UIGradient_2 = Instance.new("UIGradient")
+local HealthBarBackground = Instance.new("Frame")
+local UIGradient_3 = Instance.new("UIGradient")
+local HealthBar = Instance.new("Frame")
+local UIGradient_4 = Instance.new("UIGradient")
+local NameOfTarget = Instance.new("TextLabel")
+
+Azure_TargetStats.Name = "Azure_TargetStats"
+Azure_TargetStats.Parent = game.CoreGui
+Azure_TargetStats.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+Background.Name = "Background"
+Background.Parent = Azure_TargetStats
+Background.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Background.BorderSizePixel = 0
+Background.Position = UDim2.new(0.388957828, 0, 0.700122297, 0)
+Background.Size = UDim2.new(0, 358, 0, 71)
+Background.Visible = false
+
+Picture.Name = "Picture"
+Picture.Parent = Background
+Picture.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Picture.BorderSizePixel = 0
+Picture.Position = UDim2.new(0.0279329624, 0, 0.0704225376, 0)
+Picture.Size = UDim2.new(0, 59, 0, 59)
+Picture.Transparency = 1
+Picture.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+
+Top.Name = "Top"
+Top.Parent = Background
+Top.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Top.BorderSizePixel = 0
+Top.Position = UDim2.new(0, 0, -0.101449274, 0)
+Top.Size = UDim2.new(0, 358, 0, 7)
+
+UIGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(184, 159, 227)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(102, 88, 156))}
+UIGradient.Rotation = 90
+UIGradient.Parent = Top
+
+UIGradient_2.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(52, 52, 52)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(0, 0, 0))}
+UIGradient_2.Rotation = 90
+UIGradient_2.Parent = Background
+
+HealthBarBackground.Name = "HealthBarBackground"
+HealthBarBackground.Parent = Background
+HealthBarBackground.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+HealthBarBackground.BorderSizePixel = 0
+HealthBarBackground.Position = UDim2.new(0.215083793, 0, 0.348234326, 0)
+HealthBarBackground.Size = UDim2.new(0, 270, 0, 19)
+HealthBarBackground.Transparency = 1
+
+UIGradient_3.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(58, 58, 58)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(30, 30, 30))}
+UIGradient_3.Rotation = 90
+UIGradient_3.Parent = HealthBarBackground
+
+HealthBar.Name = "HealthBar"
+HealthBar.Parent = HealthBarBackground
+HealthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+HealthBar.BorderSizePixel = 0
+HealthBar.Position = UDim2.new(-0.00336122862, 0, 0.164894029, 0)
+HealthBar.Size = UDim2.new(0, 130, 0, 19)
+
+UIGradient_4.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.00, Color3.fromRGB(184, 159, 227)), ColorSequenceKeypoint.new(1.00, Color3.fromRGB(102, 88, 156))}
+UIGradient_4.Rotation = 90
+UIGradient_4.Parent = HealthBar
+
+NameOfTarget.Name = "NameOfTarget"
+NameOfTarget.Parent = Background
+NameOfTarget.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+NameOfTarget.BackgroundTransparency = 1.000
+NameOfTarget.Position = UDim2.new(0.220670387, 0, 0.0704225376, 0)
+NameOfTarget.Size = UDim2.new(0, 268, 0, 19)
+NameOfTarget.Font = Enum.Font.Code
+NameOfTarget.TextColor3 = Color3.fromRGB(255, 255, 255)
+NameOfTarget.TextScaled = true
+NameOfTarget.TextSize = 14.000
+NameOfTarget.TextStrokeTransparency = 0.000
+NameOfTarget.TextWrapped = true
+
+local function GetEvent()
+    for _, v in pairs(game.ReplicatedStorage:GetChildren()) do
+        if v.Name == "MainEvent" or v.Name == "Bullets" or v.Name == ".gg/untitledhood" or v.Name == "Remote" or v.Name == "MAINEVENT" or v.Name == ".gg/flamehood" then
+            return v
+        end
+    end
+end
+
+local function GetArgs()
+    local PlaceId = game.PlaceId
+    if PlaceId == 2788229376 or PlaceId == 4106313503 or PlaceId == 11143225577 or PlaceId == 17319408836 or PlaceId == 18110728826 then
+        return "UpdateMousePosI"
+    elseif PlaceId == 5602055394 or PlaceId == 7951883376 then
+        return "MousePos"
+    elseif PlaceId == 10100958808 or PlaceId == 12645617354 or PlaceId == 14171242539 or PlaceId == 14412436145 or PlaceId == 14412355918 or PlaceId == 14413720089 or PlaceId == 17403265390 or PlaceId == 17403166075 or PlaceId == 17403262882 or PlaceId == 15186202290 or PlaceId == 15763494605 then
+        return "MOUSE"
+    elseif PlaceId == 9825515356 then
+        return "MousePosUpdate"
+    elseif PlaceId == 15166543806 then
+        return "MoonUpdateMousePos"
+    elseif PlaceId == 16033173781 or PlaceId == 7213786345 then
+        return "UpdateMousePosI"
+    else
+        return "UpdateMousePos"
+    end
+end
+
+local mainEvent = GetEvent()
+
+function GetClosestToCenter()
+    local closestDist = math.huge
+    local closestPlr = nil
+    local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+    
+    for _, v in ipairs(players:GetPlayers()) do
+        if v ~= client and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            local screenPos, onScreen = camera:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                if distToCenter < closestDist then
+                    closestPlr = v
+                    closestDist = distToCenter
+                end
+            end
+        end
+    end
+    return closestPlr
+end
+
+local function isValidTarget(plr)
+    if not plr or not plr.Character then
+        return false
+    end
+    
+    local config = getgenv().Elysian['Camlock']
+    local checks = config['Checks']
+    
+    -- Da Hood-specific KO and Grab checks
+    if checks['KO'] or checks['Grab'] then
+        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then
+            return false
+        end
+
+        local be = plr.Character:FindFirstChild("BodyEffects")
+        if be then
+            if checks['KO'] then
+                local ko = be:FindFirstChild("K.O")
+                if ko and ko.Value then
+                    return false
+                end
+            end
+            if checks['Grab'] then
+                local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
+                if grabbed and grabbed.Value then
+                    return false
+                end
+            end
+        end
+    end
+    
+    -- Wall Check: Raycast to ensure line of sight
+    if checks['Wall'] then
+        local part = plr.Character:FindFirstChild(config['Target Part']) or plr.Character:FindFirstChild("HumanoidRootPart")
+        if part then
+            local origin = camera.CFrame.Position
+            local direction = (part.Position - origin)
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+            raycastParams.FilterDescendantsInstances = {client.Character}
+            local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+            if not raycastResult or not raycastResult.Instance:IsDescendantOf(plr.Character) then
+                return false
+            end
+        end
+    end
+    
+    return true
+end
+
+local function getPart()
+    if not Plr or not Plr.Character or not isValidTarget(Plr) then
+        return nil
+    end
+
+    local humanoid = Plr.Character:FindFirstChild("Humanoid")
+    if not humanoid then
+        return nil
+    end
+
+    if humanoid:GetState() == Enum.HumanoidStateType.Freefall and getgenv().Elysian['Camlock']['Airshot Function']['Enabled'] then
+        local airshotPart = Plr.Character:FindFirstChild(getgenv().Elysian['Camlock']['Airshot Function']['Part'])
+        if airshotPart then
+            return airshotPart
+        end
+    end
+
+    local targetPart = Plr.Character:FindFirstChild(getgenv().Elysian['Camlock']['Target Part'])
+    if targetPart then
+        return targetPart
+    end
+
+    return Plr.Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function getPredictionValue()
+    if getgenv().Elysian['Camlock']['Auto Prediction']['Enabled'] then
+        local ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
+        local pingTable = getgenv().Elysian['Camlock']['Auto Prediction']['Ping']
+        
+        for i = ping, 0, -1 do
+            if pingTable[tostring(i)] then
+                return pingTable[tostring(i)]
+            end
+        end
+        
+        return pingTable['100'] or 0.1475
+    else
+        return getgenv().Elysian['Camlock']['Manual Prediction']
+    end
+end
+
+local function calculatePosition(victim, velocity)
+    local prediction = getPredictionValue()
+    local jumpOffset = getgenv().Elysian['Camlock']['Offset']['Jump']
+    local fallOffset = getgenv().Elysian['Camlock']['Offset']['Fall']
+    
+    local playerDataEntry = playerData[victim.Parent.Parent]
+    if not playerDataEntry then
+        playerDataEntry = {
+            SmoothedVelocity = velocity
+        }
+        playerData[victim.Parent.Parent] = playerDataEntry
+    end
+    
+    playerDataEntry.SmoothedVelocity = playerDataEntry.SmoothedVelocity:Lerp(velocity, 0.5)
+    
+    local pos = victim.Position + playerDataEntry.SmoothedVelocity * prediction
+
+    if victim.Parent and victim.Parent:FindFirstChild("Humanoid") then
+        local humanoid = victim.Parent.Humanoid
+        if humanoid:GetState() == Enum.HumanoidStateType.Jumping then
+            pos = pos + Vector3.new(0, jumpOffset, 0)
+        elseif humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+            pos = pos + Vector3.new(0, fallOffset, 0)
+        end
+    end
+
+    return pos
+end
+
+local function CharAdded()
+    if Locking and Plr and Plr.Character and playerData[Plr] and isValidTarget(Plr) then
+        local Part = getPart()
+        if Part then
+            local Position = calculatePosition(Part, playerData[Plr].Velocity)
+            mainEvent:FireServer(GetArgs(), Position)
+        end
+    end
+end
+
+client.Character.ChildAdded:Connect(function(child)
+    if child:IsA("Tool") then
+        child.Activated:Connect(CharAdded)
+    end
+end)
+
+client.CharacterAdded:Connect(function(character)
+    character.ChildAdded:Connect(function(child)
+        if child:IsA("Tool") then
+            child.Activated:Connect(CharAdded)
+        end
+    end)
+end)
+
+local function Process(player, dT)
+    if not player or not player.Character then
+        return
+    end
+
+    local PrimaryPart = player.Character:FindFirstChild("HumanoidRootPart")
+    if not PrimaryPart then
+        return
+    end
+
+    if not playerData[player] then
+        playerData[player] = {
+            PreviousPosition = PrimaryPart.Position,
+            Velocity = Vector3.new(0, 0, 0),
+            OnScreen = false,
+            ScreenPosition = Vector2.new(0, 0)
+        }
+    end
+
+    local CurrentPosition = PrimaryPart.Position
+    local PreviousPosition = playerData[player].PreviousPosition
+    local Displacement = CurrentPosition - PreviousPosition
+
+    local targetVelocity = Displacement / dT
+    playerData[player].Velocity = playerData[player].Velocity:Lerp(targetVelocity, 0.5)
+    playerData[player].PreviousPosition = CurrentPosition
+    
+    local ScreenPosition, OnScreen = workspace.CurrentCamera:WorldToViewportPoint(CurrentPosition)
+
+    playerData[player].OnScreen = OnScreen
+    playerData[player].ScreenPosition = Vector2.new(ScreenPosition.X, ScreenPosition.Y)
+end
+
+local strafeAngle = 0
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local function SavePositions(positions)
+    local json = HttpService:JSONEncode(positions)
+    writefile("button_positions.json", json)
+end
+
+local function LoadPositions()
+    if isfile("button_positions.json") then
+        local json = readfile("button_positions.json")
+        return HttpService:JSONDecode(json)
+    end
+    return {}
+end
+
+local savedPositions = LoadPositions()
+
+local function CreateButton(name, defaultPosition, callback)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0, 100, 0, 50)
+    Button.Position = savedPositions[name] and UDim2.new(0, savedPositions[name].X, 0, savedPositions[name].Y) or defaultPosition
+    Button.Text = name
+    Button.Parent = ScreenGui
+    Button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Button.BorderSizePixel = 0
+    Button.Font = Enum.Font.Code
+    Button.TextColor3 = Color3.new(0, 0, 0)
+    Button.TextSize = 16
+    Button.AutoButtonColor = false
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = Button
+
+    local Shadow = Instance.new("Frame")
+    Shadow.Size = UDim2.new(1, 6, 1, 6)
+    Shadow.Position = UDim2.new(0, -3, 0, -3)
+    Shadow.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    Shadow.BackgroundTransparency = 0.7
+    Shadow.ZIndex = -1
+    Shadow.Parent = Button
+
+    local ShadowCorner = Instance.new("UICorner")
+    ShadowCorner.CornerRadius = UDim.new(0, 8)
+    ShadowCorner.Parent = Shadow
+
+    local isActive = false
+
+    local function updateButtonState()
+        local targetColor = isActive and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = game:GetService("TweenService"):Create(Shadow, tweenInfo, {BackgroundColor3 = targetColor})
+        tween:Play()
+    end
+
+    Button.MouseButton1Click:Connect(function()
+        isActive = not isActive
+        updateButtonState()
+        callback(isActive)
+    end)
+
+    local dragStart, startPos
+
+    Button.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragStart = input.Position
+            startPos = Button.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragStart = nil
+                    savedPositions[name] = {X = Button.Position.X.Offset, Y = Button.Position.Y.Offset}
+                    SavePositions(savedPositions)
+                end
+            end)
+        end
+    end)
+
+    Button.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+            if dragStart then
+                local delta = input.Position - dragStart
+                Button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end
+    end)
+    
+    return Button, function() return isActive end
+end
+
+local function applyStats(humanoid)
+    if not humanoid then return end
+
+    if walkspeedEnabled then
+        humanoid.WalkSpeed = getgenv().Elysian['HvH']['Walkspeed']['WalkSpeed']
+        humanoid.JumpPower = getgenv().Elysian['HvH']['Walkspeed']['JumpPower']
+    else
+        humanoid.WalkSpeed = getgenv().Elysian['HvH']['Walkspeed']['DefaultWalkSpeed']
+        humanoid.JumpPower = getgenv().Elysian['HvH']['Walkspeed']['DefaultJumpPower']
+    end
+
+    -- Protect against game resets
+    humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+        if walkspeedEnabled then
+            humanoid.WalkSpeed = getgenv().Elysian['HvH']['Walkspeed']['WalkSpeed']
+        end
+    end)
+    humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
+        if walkspeedEnabled then
+            humanoid.JumpPower = getgenv().Elysian['HvH']['Walkspeed']['JumpPower']
+        end
+    end)
+end
+
+-- Apply stats when character is added
+client.CharacterAdded:Connect(function(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    applyStats(humanoid)
+end)
+
+-- Apply stats to current character if it exists
+if client.Character then
+    local humanoid = client.Character:FindFirstChild("Humanoid")
+    if humanoid then
+        applyStats(humanoid)
+    end
+end
+
+local CamlockButton, getCamlockState = CreateButton("Camlock", UDim2.new(0, 10, 0, 10), function(state)
+    Locking = state
+    if Locking then
+        Plr = GetClosestToCenter()
+    else
+        Plr = nil
+        Background.Visible = false
+    end
+end)
+
+if getgenv().Elysian['HvH']['Target Strafe']['Enabled'] then
+    local StrafeButton, getStrafeState = CreateButton("Strafe", UDim2.new(0, 10, 0, 70), function(state)
+        strafing = state
+    end)
+end
+
+if getgenv().Elysian['HvH']['Walkspeed']['Enabled'] then
+    local WalkspeedButton, getWalkspeedState = CreateButton("Walkspeed", UDim2.new(0, 10, 0, 130), function(state)
+        walkspeedEnabled = state
+        if client.Character then
+            local humanoid = client.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                applyStats(humanoid)
+            end
+        end
+    end)
+end
+
+if getgenv().Elysian['Camlock']['Auto Shoot'] then
+    local AutoShootButton, getAutoShootState = CreateButton("AutoShoot", UDim2.new(0, 10, 0, 190), function(state)
+        auto_shooting = state
+    end)
+end
+
+local function AutoShoot()
+    if Locking and Plr and isValidTarget(Plr) then
+        local character = client.Character
+        if character then
+            local tool = character:FindFirstChildOfClass("Tool")
+            if tool and tool:IsA("Tool") then
+                tool:Activate()
+            end
+        end
+    end
+end
+
+runService.Heartbeat:Connect(function(dT)
+    for _, player in ipairs(players:GetPlayers()) do
+        if player ~= client then
+            Process(player, dT)
+        end
+    end
+
+    local rootPart = client.Character and client.Character:FindFirstChild("HumanoidRootPart")
+    local old_position = rootPart and rootPart.CFrame or nil
+
+    if getgenv().Elysian['HvH']['Target Strafe']['Enabled'] and strafing and Plr and Plr.Character and rootPart then
+        local targetHRP = Plr.Character:FindFirstChild("HumanoidRootPart")
+        local targetHead = Plr.Character:FindFirstChild("Head")
+        if targetHRP and targetHead then
+            strafeAngle = strafeAngle + math.rad(getgenv().Elysian['HvH']['Target Strafe']['Speed'])
+            
+            local distance = getgenv().Elysian['HvH']['Target Strafe']['Distance']
+            local height = getgenv().Elysian['HvH']['Target Strafe']['Height']
+            
+            local offsetX = math.sin(strafeAngle) * distance
+            local offsetZ = math.cos(strafeAngle) * distance
+            local offsetY = math.sin(strafeAngle * 2) * height
+            
+            local predictedPosition = calculatePosition(targetHRP, playerData[Plr].Velocity)
+            local strafePosition = predictedPosition + Vector3.new(offsetX, offsetY, offsetZ)
+            
+            -- Set fake position for HumanoidRootPart
+            rootPart.CFrame = CFrame.new(strafePosition, predictedPosition)
+            -- Set camera to target's Head
+            workspace.CurrentCamera.CameraSubject = targetHead
+
+            runService.RenderStepped:Wait()
+
+            -- Update desync_setback to original position
+            desync_setback.CFrame = old_position * CFrame.new(0, rootPart.Size.Y / 2 + 0.5, 0)
+            -- Reset HumanoidRootPart to original position
+            rootPart.CFrame = old_position
+        end
+    else
+        -- Reset camera to player's humanoid if neither strafe nor desync is active
+        if client.Character then
+            local humanoid = client.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                workspace.CurrentCamera.CameraSubject = humanoid
+            end
+        end
+    end
+
+    if auto_shooting and Plr and isValidTarget(Plr) then
+        AutoShoot()
+    end
+
+ -- Update target stats visibility, name, health, and picture
+    if getgenv().Elysian['Camlock']['TargetStats'] and Plr and Plr.Character and isValidTarget(Plr) then
+        Background.Visible = true
+        NameOfTarget.Text = Plr.Name
+        -- Update health bar
+        local humanoid = Plr.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local healthPercent = humanoid.Health / humanoid.MaxHealth
+            HealthBar.Size = UDim2.new(0, 270 * healthPercent, 0, 19)
+        end
+        -- Update player picture
+        local userId = Plr.UserId
+        local thumbType = Enum.ThumbnailType.HeadShot
+        local thumbSize = Enum.ThumbnailSize.Size420
+        local content, isReady = game.Players:GetUserThumbnailAsync(userId, thumbType, thumbSize)
+        if isReady then
+            Picture.Image = content
+        else
+            Picture.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+        end
+    else
+        Background.Visible = false
+    end
+end)
+
+runService.RenderStepped:Connect(function()
+    if Locking and Plr and Plr.Character and playerData[Plr] and isValidTarget(Plr) then
+        local Part = getPart()
+        if Part then
+            local Position = calculatePosition(Part, playerData[Plr].Velocity)
+            local Main = CFrame.new(camera.CFrame.p, Position)
+            
+            if getgenv().Elysian['Camlock']['Smoothing']['Enabled'] then
+                camera.CFrame = camera.CFrame:Lerp(Main, getgenv().Elysian['Camlock']['Smoothing']['Value'])
+            else
+                camera.CFrame = Main
+            end
+        end
+    end
+end)
