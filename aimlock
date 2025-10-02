@@ -1255,27 +1255,23 @@ Run.Heartbeat:Connect(function()
         elseif ping > 110 then
             predictionTime = 0.149
         elseif ping > 100 then
-            predictionTime = 0.146
+            predictionTime = 0.1475
         elseif ping > 90 then
-            predictionTime = 0.130340
+            predictionTime = 0.1446
         elseif ping > 80 then
-            predictionTime = 0.136
+            predictionTime = 0.1403
         elseif ping > 70 then
-            predictionTime = 0.134
+            predictionTime = 0.13892
         elseif ping > 60 then
-            predictionTime = 0.131
+            predictionTime = 0.13598
         elseif ping > 50 then
-            predictionTime = 0.12685
+            predictionTime = 0.1357
         elseif ping > 40 then
-            predictionTime = 0.1225
+            predictionTime = 0.13544
         elseif ping > 30 then
-            predictionTime = 0.1256
-        elseif ping > 25 then
-            predictionTime = 0.11
-        elseif ping > 23 then
-            predictionTime = 0.11888
+            predictionTime = 0.1130
         elseif ping > 20 then
-            predictionTime = 0.121116
+            predictionTime = 0.10036
         else
             predictionTime = 0.12588
         end
@@ -1677,6 +1673,17 @@ MiscSection:AddToggle('CustomAnimToggle', {
         customAnim = state
         Library:Notify('Custom Animation: ' .. (state and 'ON' or 'OFF'), 2)
     end
+})
+
+MiscSection:AddButton({
+    Text = 'Copy HelloKitty Crosshair ID',
+    Func = function()
+        pcall(function()
+            setclipboard("10639756312")
+            Library:Notify('Copied Hello Kitty Crosshair ID: 10639756312', 2)
+        end)
+    end,
+    Tooltip = 'Copies the Hello Kitty crosshair ID to clipboard'
 })
 
 -- Thêm Dropdown cho Desync Method
