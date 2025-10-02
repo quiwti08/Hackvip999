@@ -1,4 +1,14 @@
--- Made by linemaster3
+
+game:GetService("RunService").Stepped:Connect(function()
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("Animate") then
+            char.Animate.idle.Animation1.AnimationId = "http://www.roblox.com/asset/?id=133806214992291"
+            char.Animate.idle.Animation2.AnimationId = "http://www.roblox.com/asset/?id=94970088341563"
+            char.Animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+            char.Animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=656117878"
+            char.Animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+        end
+end)
 
 local Drawing = loadstring(game:HttpGet("https://raw.githubusercontent.com/linemaster2/storage/main/Drawing.lua"))();
 
@@ -2554,7 +2564,7 @@ do
 		--
 		function Library:Watermark(Properties)
 			local Watermark = {
-				Name = (Properties.Name or Properties.name or "Starhook.club | placeholder");
+				Name = (Properties.Name or Properties.name or "VanHuy.Ghoul | placeholder");
 				AnimateText = nil;
 			}
 			--
@@ -2620,14 +2630,14 @@ do
 
 			task.spawn(function()
 				while task.wait() do
-					for i = 1, #"Starhook.club" do
-						Watermark.AnimateText = string.sub("Starhook.club", 1, i) .. "";
+					for i = 1, #"Vhuy.Ghoul" do
+						Watermark.AnimateText = string.sub("Vhuy.Ghoul", 1, i) .. "";
 						Title.Text = Watermark.AnimateText .. " " .. Watermark.Name;
 						task.wait(0.4);
 					end;
 
-					for i = #"Starhook.club" - 1, 1, -1 do
-						Watermark.AnimateText = string.sub("Starhook.club", 1, i) .. "";
+					for i = #"Vhuy.Ghoul" - 1, 1, -1 do
+						Watermark.AnimateText = string.sub("Vhuy.Ghoul", 1, i) .. "";
 						Title.Text = Watermark.AnimateText .. " " .. Watermark.Name;
 						task.wait(0.4);
 					end;
@@ -4046,7 +4056,7 @@ do
 		instances["local_text"] = utility.instance_new("TextLabel", { 
 			Name = "https://starhook.club",
 			Parent = screen_gui_2,
-			Text = '<font color="rgb(207, 227, 0)">starhook</font><font color="rgb(255, 255, 255)">.club</font>',
+			Text = '<font color="rgb(207, 227, 0)">Vhuy</font><font color="rgb(255, 255, 255)">.Ghoul</font>',
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			TextStrokeTransparency = 0.5,
@@ -4223,6 +4233,17 @@ do
 		instances["c_sync_chams"] = cloned_char
 	end;
 end;
+
+local dadada = {}
+dadada.get_gun = function()
+    for _, tool in next, game.Players.LocalPlayer.Character:GetChildren() do
+        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then return tool end
+    end
+end
+
+dadada.rapid = function(tool)
+    tool:Activate()
+end
 
 --// connections
 do
@@ -4577,6 +4598,11 @@ do
 				local cframe_fly_enabled = flags["rage_cframe_fly_enabled"];
 				local cframe_fly_keybind = flags["rage_cframe_fly_keybind"];
 				local cframe_fly_speed = flags["rage_cframe_fly_amount"];
+                local walkspeed_enabled = flags["movement_walkspeed_enabled"];
+                local walkspeed_keybind = flags["movement_walkspeed_keybind"];
+                local rapidfire_enabled = flags["misc_rapidfire_enabled"];
+                local rapidfire_delay = flags["misc_rapidfire_delay"];
+                local no_slowdown_enabled = flags["misc_no_slowdown_enabled"];
 
                 if ((cframe_speed_enabled and cframe_speed_keybind) and utility.has_character(local_player)) then
                     local speed = flags["rage_cframe_speed_amount"];
@@ -4599,6 +4625,48 @@ do
 
                 if (no_jump_cooldown and utility.has_character(local_player)) then
                     local_player.Character.Humanoid.UseJumpPower = false;
+                end;
+
+                if (utility.has_character(local_player)) then
+                    local humanoid = local_player.Character:FindFirstChildOfClass("Humanoid");
+                    if (humanoid) then
+                        if (walkspeed_enabled and walkspeed_keybind) then
+                            humanoid.WalkSpeed = flags["movement_walkspeed_amount"];
+                            humanoid.JumpPower = flags["movement_jump_power_amount"];
+                        else
+                            humanoid.WalkSpeed = 16;
+                            humanoid.JumpPower = 55;
+                        end;
+                    end;
+                end;
+
+                if (rapidfire_enabled and utility.has_character(local_player) and user_input_service:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)) then
+                    local gun = dadada.get_gun();
+                    if (gun) then
+                        dadada.rapid(gun);
+                        task.wait(rapidfire_delay);
+                    end;
+                end;
+
+                if (no_slowdown_enabled and utility.has_character(local_player)) then
+                    local character = local_player.Character;
+                    local bodyEffects = character:FindFirstChild("BodyEffects");
+                    if (bodyEffects) then
+                        local movement = bodyEffects:FindFirstChild("Movement");
+                        if (movement) then
+                            local noJumping = movement:FindFirstChild("NoJumping");
+                            if (noJumping) then noJumping:Destroy(); print("No Slowdown: Removed NoJumping"); end
+                            local reduceWalk = movement:FindFirstChild("ReduceWalk");
+                            if (reduceWalk) then reduceWalk:Destroy(); print("No Slowdown: Removed ReduceWalk"); end
+                            local noWalkSpeed = movement:FindFirstChild("NoWalkSpeed");
+                            if (noWalkSpeed) then noWalkSpeed:Destroy(); print("No Slowdown: Removed NoWalkSpeed"); end
+                        end
+                        local reload = bodyEffects:FindFirstChild("Reload");
+                        if (reload and reload.Value) then
+                            reload.Value = false;
+                            print("No Slowdown: Set Reload to false");
+                        end
+                    end
                 end;
             end);
         end;
@@ -4661,7 +4729,7 @@ do
 					local actual_color = `#{color}`;
 					local text_color = actual_color ~= "#nil" and actual_color or "#cfe300";
 
-					local text = custom_text_enabled and '<font color="' .. text_color .. '">' .. features.get_text(custom_text) .. '</font>' or '<font color="' .. text_color .. '">starhook</font><font color="rgb(255, 255, 255)">.club</font>';
+					local text = custom_text_enabled and '<font color="' .. text_color .. '">' .. features.get_text(custom_text) .. '</font>' or '<font color="' .. text_color .. '">Vhuy</font><font color="rgb(255, 255, 255)">.Ghoul</font>';
 					text_label.Text = text;
 					text_label.Position = UDim2.new(0, mouse_position.X, 0, mouse_position.Y + cursor_offset_y);
 				else
@@ -5602,6 +5670,7 @@ do
 	do
 		local cframe_speed = ui.tabs["movement"]:Section({Name = "CFrame speed", Side = "Left", Size = 125});
 		local cframe_fly = ui.tabs["movement"]:Section({Name = "Fly", Side = "Left", Size = 125});
+        local cframe_walkspeed = ui.tabs["movement"]:Section({Name = "WalkSpeed", Side = "Left", Size = 125});
 		local misc = ui.tabs["movement"]:Section({Name = "Misc", Side = "Right", Size = 100});
 		
 		--// speed
@@ -5616,6 +5685,67 @@ do
 			local main_toggle = cframe_fly:Toggle({Name = "Enabled", Flag = "rage_cframe_fly_enabled"});
 			cframe_fly:Keybind({Flag = "rage_cframe_fly_keybind", Name = "Keybind", Default = Enum.KeyCode.C, Mode = "Toggle"});
 			cframe_fly:Slider({Name = "Speed", Flag = "rage_cframe_fly_amount", Default = 1, Minimum = 1, Maximum = 30, Decimals = 0.01, Ending = "%"});
+		end;
+
+    	do
+	        local main_toggle = cframe_walkspeed:Toggle({Name = "Enabled", Flag = "movement_walkspeed_enabled"});
+	        cframe_walkspeed:Keybind({Flag = "movement_walkspeed_keybind", Name = "Keybind", Default = Enum.KeyCode.T, Mode = "Toggle"});
+	        cframe_walkspeed:Slider({Name = "Speed", Flag = "movement_walkspeed_amount", Default = 100, Minimum = 16, Maximum = 500, Decimals = 0.01, Ending = "%"});
+            cframe_walkspeed:Slider({Name = "JumpPower", Flag = "movement_jump_power_amount", Default = 55, Minimum = 50, Maximum = 200, Decimals = 1, Ending = ""});
+  	    end;
+
+		do
+  		  local LocalPlayer = game.Players.LocalPlayer
+
+  		  local function applyStats(humanoid)
+    		    if not humanoid then return end
+
+      		  humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+       		     if flags["movement_walkspeed_enabled"] and flags["movement_walkspeed_keybind"] then
+       		         humanoid.WalkSpeed = flags["movement_walkspeed_amount"];
+      		      end
+    		    end)
+    		    humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
+     		       if flags["movement_walkspeed_enabled"] and flags["movement_walkspeed_keybind"] then
+     		           humanoid.JumpPower = flags["movement_jump_power_amount"];
+    		        end
+   		     end)
+  		  end
+
+          local function applyNoSlowdown(character)
+                if not character then return end
+                if not flags["misc_no_slowdown_enabled"] then return end
+                local bodyEffects = character:FindFirstChild("BodyEffects")
+                if (bodyEffects) then
+                    local movement = bodyEffects:FindFirstChild("Movement")
+                    if (movement) then
+                        local noJumping = movement:FindFirstChild("NoJumping")
+                        if (noJumping) then noJumping:Destroy(); print("No Slowdown (CharacterAdded): Removed NoJumping") end
+                        local reduceWalk = movement:FindFirstChild("ReduceWalk")
+                        if (reduceWalk) then reduceWalk:Destroy(); print("No Slowdown (CharacterAdded): Removed ReduceWalk") end
+                        local noWalkSpeed = movement:FindFirstChild("NoWalkSpeed")
+                        if (noWalkSpeed) then noWalkSpeed:Destroy(); print("No Slowdown (CharacterAdded): Removed NoWalkSpeed") end
+                    end
+                    local reload = bodyEffects:FindFirstChild("Reload")
+                    if (reload and reload.Value) then
+                        reload.Value = false
+                    end
+                end
+            end
+
+            if LocalPlayer.Character then
+                local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    applyStats(humanoid)
+                end
+                applyNoSlowdown(LocalPlayer.Character)
+            end
+
+            LocalPlayer.CharacterAdded:Connect(function(char)
+                local humanoid = char:WaitForChild("Humanoid")
+                applyStats(humanoid)
+                applyNoSlowdown(char)
+            end)
 		end;
 
 		--// misc
@@ -5637,6 +5767,9 @@ do
 					object.CanTouch = not state and true or false;
 				end;
 			end});
+            misc:Toggle({Name = "RapidFire", Flag = "misc_rapidfire_enabled"});
+            misc:Slider({Name = "Delay", Flag = "misc_rapidfire_delay", Default = 0.01, Minimum = 0.01, Maximum = 0.5, Decimals = 0.01, Ending = "s"});
+            misc:Toggle({Name = "No Slowdown", Flag = "misc_no_slowdown_enabled"});
 		end;
 	end;
 
@@ -6062,6 +6195,15 @@ do
 		window:Colorpicker({Name = "Menu Accent", Flag = "MenuAccent", Default = default_color, Callback = function(state)
 			library:ChangeAccent(state);
 		end});
+
+        window:Button({Name = "Rejoin", Callback = function()
+            local success, error = pcall(function()
+                game:GetService("TeleportService"):Teleport(game.PlaceId);
+            end);
+            if not success then
+                print("Rejoin failed:", error);
+            end;
+        end});
 		
 		--// tools
 		MakeTool = function(ToolKeybind, ToolInstanceName)
