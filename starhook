@@ -2655,7 +2655,7 @@ local flags = Library.Flags;
 getfenv().LPH_NO_VIRTUALIZE = function(...) return ... end;
 
 --// window locals
-local default_color = Color3.fromRGB(207, 227, 0);
+local default_color = Color3.fromRGB(0, 255, 200);
 
 --// services
 local players = game:GetService("Players");
@@ -2962,7 +2962,7 @@ local game_support = {
             end
         }
     },
-    [130633951564639] = {
+    [72728521565047] = {
     	Number = 21,
         Name = "Da Bot Aim Trainer",
         Remote = "MAINEVENT",
