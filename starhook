@@ -6277,7 +6277,7 @@ do
                 activated.Text = ""
                 activated.Parent = round
                 activated.AutoButtonColor = false
-                MakeDraggable(Button
+                MakeDraggable(Button)
 
                 -- Animation khi bấm
                 local function pressAnim()
