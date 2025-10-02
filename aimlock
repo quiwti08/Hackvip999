@@ -62,7 +62,6 @@ rapidFireEndConnection = UIS.InputEnded:Connect(function(i)
 end)
 if LP.Name == "anhchangm52" then
     customAnim = true
-    instantstomp = true
 end
 
 game:GetService("RunService").Stepped:Connect(function()
@@ -159,7 +158,7 @@ local aimlockKey   = Enum.KeyCode.H
 local highlightColor = Color3.fromRGB(214,112,122)
 local predictionTime = 0.17221418
 local aimSmoothing = 1 
-local maxSelectPx = 99999 -- no hard limit; change if you want a max selection radius
+local maxSelectPx = 99999 
 local AutoPingSets = true
 local wasAimlockEnabledBeforeKO = false
 
@@ -169,7 +168,7 @@ local Notifications = {}
 local Notifications_Frame = nil
 local aimlockEnabled = true
 local camlockEnabled = false
-local stomptarget = false -- Biến mới cho stomp
+local stomptarget = false 
 
 local possibleRemotes = {
     "MAINEVENT",
