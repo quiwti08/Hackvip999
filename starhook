@@ -6225,19 +6225,27 @@ do
 		    end)
 		end;
 		
-		MakeButton = function(ButtonKeybind, ButtInstanceName)
-		    Instance.new('ScreenGui', game:GetService("RunService"):IsStudio() and game.Players.LocalPlayer.PlayerGui or game.CoreGui).DisplayOrder = 100
-		    local Button = Instance.new("TextButton", game:GetService("RunService"):IsStudio() and game.Players.LocalPlayer.PlayerGui or game.CoreGui)
+		local function MakeButton(ButtonKeybind, ButtInstanceName)
+            local player = game.Players.LocalPlayer
+            local parent = game:GetService("RunService"):IsStudio() and player.PlayerGui or player:WaitForChild("PlayerGui")
 		    
-		    MakeDraggable(Button)
-		    Button.Name = ButtonKeybind
-		    Button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-		    Button.AnchorPoint = Vector2.new(0.5, 0.5)
-		    Button.Position = UDim2.new(0.5, 0, 0.5, 0)
-		    Button.Text = ButtonKeybind
-		    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-		    Button.BorderColor3 = Color3.new(0,0,0)
-		    Button.AutoButtonColor = false
+            local screenGui = Instance.new("ScreenGui")
+            screenGui.Name = ButtInstanceName or "CustomButtonGui"
+            screenGui.DisplayOrder = 100
+            screenGui.Parent = parent
+
+            local Button = Instance.new("TextButton")
+            Button.Parent = screenGui -- Gán button vào ScreenGui chứ không phải CoreGui
+            Button.Name = ButtonKeybind
+            Button.Size = UDim2.new(0, 100, 0, 40)
+            Button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            Button.AnchorPoint = Vector2.new(0.5, 0.5)
+            Button.Position = UDim2.new(0.5, 0, 0.5, 0)
+            Button.Text = ButtonKeybind
+            Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Button.BorderColor3 = Color3.new(0,0,0)
+            Button.AutoButtonColor = false
+            MakeDraggable(Button)
 		    
 		    Button.MouseButton1Click:Connect(function()
 		        game:GetService("VirtualInputManager"):SendKeyEvent(true, ButtonKeybind, false, game)
