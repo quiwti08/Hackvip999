@@ -708,6 +708,60 @@ if getgenv().Elysian['Camlock']['Auto Shoot'] then
     end)
 end
 
+userInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent then return end -- Ignore input if processed by the game (e.g., typing in chat)
+
+    -- Keybind for Q: Select Target (Camlock)
+    if input.KeyCode == Enum.KeyCode.Q then
+        Locking = not Locking
+        if Locking then
+            Plr = GetClosestToCenter()
+        else
+            Plr = nil
+            Background.Visible = false
+        end
+        -- Update Camlock button state if it exists
+        if CamlockButton then
+            local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local targetColor = Locking and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+            game:GetService("TweenService"):Create(CamlockButton:FindFirstChild("Shadow"), tweenInfo, {BackgroundColor3 = targetColor}):Play()
+        end
+    end
+
+    -- Keybind for T: Toggle Walkspeed
+    if input.KeyCode == Enum.KeyCode.T and getgenv().Elysian['HvH']['Walkspeed']['Enabled'] then
+        walkspeedEnabled = not walkspeedEnabled
+        if client.Character then
+            local humanoid = client.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                applyStats(humanoid)
+            end
+        end
+        -- Update Walkspeed button state if it exists
+        if WalkspeedButton then
+            local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local targetColor = walkspeedEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+            game:GetService("TweenService"):Create(WalkspeedButton:FindFirstChild("Shadow"), tweenInfo, {BackgroundColor3 = targetColor}):Play()
+        end
+    end
+
+    -- Keybind for V: Toggle Desync
+    if input.KeyCode == Enum.KeyCode.V then
+        getgenv().Elysian['Desync']['Enabled'] = not getgenv().Elysian['Desync']['Enabled']
+    end
+
+    -- Keybind for Z: Toggle Auto-Shoot
+    if input.KeyCode == Enum.KeyCode.Z and getgenv().Elysian['Camlock']['Auto Shoot'] then
+        auto_shooting = not auto_shooting
+        -- Update AutoShoot button state if it exists
+        if AutoShootButton then
+            local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local targetColor = auto_shooting and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+            game:GetService("TweenService"):Create(AutoShootButton:FindFirstChild("Shadow"), tweenInfo, {BackgroundColor3 = targetColor}):Play()
+        end
+    end
+end)
+
 local function AutoShoot()
     if Locking and Plr and isValidTarget(Plr) then
         local character = client.Character
