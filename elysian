@@ -745,9 +745,15 @@ userInputService.InputBegan:Connect(function(input, gameProcessedEvent)
         end
     end
 
-    -- Keybind for V: Toggle Desync
-    if input.KeyCode == Enum.KeyCode.V then
-        getgenv().Elysian['Desync']['Enabled'] = not getgenv().Elysian['Desync']['Enabled']
+    -- Keybind for V: Toggle Strafe
+    if input.KeyCode == Enum.KeyCode.Y and getgenv().Elysian['HvH']['Target Strafe']['Enabled'] then
+        strafing = not strafing
+        -- Update Strafe button state if it exists
+        if StrafeButton then
+            local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local targetColor = strafing and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+            game:GetService("TweenService"):Create(StrafeButton:FindFirstChild("Shadow"), tweenInfo, {BackgroundColor3 = targetColor}):Play()
+        end
     end
 
     -- Keybind for Z: Toggle Auto-Shoot
