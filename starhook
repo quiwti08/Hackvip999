@@ -6225,32 +6225,78 @@ do
 		    end)
 		end;
 		
-		local function MakeButton(ButtonKeybind, ButtInstanceName)
-            local player = game.Players.LocalPlayer
-            local parent = game:GetService("RunService"):IsStudio() and player.PlayerGui or player:WaitForChild("PlayerGui")
-		    
-            local screenGui = Instance.new("ScreenGui")
-            screenGui.Name = ButtInstanceName or "CustomButtonGui"
-            screenGui.DisplayOrder = 100
-            screenGui.Parent = parent
+local function MakeButton(ButtonKeybind, ButtInstanceName)
+                local player = game.Players.LocalPlayer
+                local parent = player:WaitForChild("PlayerGui")
 
-            local Button = Instance.new("TextButton")
-            Button.Parent = screenGui -- Gán button vào ScreenGui chứ không phải CoreGui
-            Button.Name = ButtonKeybind
-            Button.Size = UDim2.new(0, 100, 0, 40)
-            Button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            Button.AnchorPoint = Vector2.new(0.5, 0.5)
-            Button.Position = UDim2.new(0.5, 0, 0.5, 0)
-            Button.Text = ButtonKeybind
-            Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-            Button.BorderColor3 = Color3.new(0,0,0)
-            Button.AutoButtonColor = false
-            MakeDraggable(Button)
-		    
-		    Button.MouseButton1Click:Connect(function()
-		        game:GetService("VirtualInputManager"):SendKeyEvent(true, ButtonKeybind, false, game)
-		    end)
-		end;
+                -- ScreenGui
+                local screenGui = Instance.new("ScreenGui")
+                screenGui.Name = ButtInstanceName or "CircleButtonGui"
+                screenGui.DisplayOrder = 100
+                screenGui.ResetOnSpawn = false
+                screenGui.Parent = parent
+
+                -- Frame để giữ nút
+                local btnFrame = Instance.new("Frame")
+                btnFrame.Size = UDim2.new(0, 60, 0, 60) -- nhỏ gọn
+                btnFrame.Position = UDim2.new(0.85, 0, 0.7, 0)
+                btnFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+                btnFrame.BackgroundTransparency = 1
+                btnFrame.Parent = screenGui
+
+                -- Nút tròn
+                local round = Instance.new("Frame")
+                round.Size = UDim2.fromScale(1,1)
+                round.BackgroundTransparency = 0.1
+                round.BackgroundColor3 = Color3.fromRGB(30,30,30)
+                round.Parent = btnFrame
+
+                local corner = Instance.new("UICorner")
+                corner.CornerRadius = UDim.new(1,0) -- làm tròn full
+                corner.Parent = round
+
+                local stroke = Instance.new("UIStroke")
+                stroke.Thickness = 1.8
+                stroke.Transparency = 0.4
+                stroke.Color = Color3.fromRGB(200,200,200)
+                stroke.Parent = round
+
+                -- Text label
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.fromScale(1,1)
+                label.BackgroundTransparency = 1
+                label.Text = ButtonKeybind
+                label.Font = Enum.Font.GothamSemibold
+                label.TextSize = 22
+                label.TextColor3 = Color3.fromRGB(255,255,255)
+                label.Parent = round
+
+                local activated = Instance.new("TextButton")
+                activated.Size = UDim2.fromScale(1,1)
+                activated.BackgroundTransparency = 1
+                activated.Text = ""
+                activated.Parent = round
+                activated.AutoButtonColor = false
+                MakeDraggable(Button
+
+                -- Animation khi bấm
+                local function pressAnim()
+                        local shrink = TweenService:Create(round, TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                                {Size = UDim2.new(0, 54, 0, 54)})
+                        local expand = TweenService:Create(round, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                                {Size = UDim2.new(0, 60, 0, 60)})
+
+                        shrink:Play()
+                        shrink.Completed:Wait()
+                        expand:Play()
+                end
+
+                -- Bấm để gửi key + hiệu ứng
+                activated.MouseButton1Click:Connect(function()
+                        pressAnim()
+                        game:GetService("VirtualInputManager"):SendKeyEvent(true, ButtonKeybind, false, game)
+                end)
+        end;
 		
 		tools:Textbox({Flag = "Tool Keybind", Placeholder = "Tool Keybind"});
 		tools:Button({Name = "Make Tool", Callback = function()
