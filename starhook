@@ -6225,7 +6225,7 @@ do
 		    end)
 		end;
 		
-local function MakeButton(ButtonKeybind, ButtInstanceName)
+        local function MakeButton(ButtonKeybind, ButtInstanceName)
                 local player = game.Players.LocalPlayer
                 local parent = player:WaitForChild("PlayerGui")
 
