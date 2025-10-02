@@ -806,7 +806,7 @@ do
 			    button.RichText = true
                 button.TextSize = 12
                 button.Font = Enum.Font.Ubuntu
-			    button.Text = '<font color="#d0e300">Starhook</font><font color="#FFFFFF">.club</font>'			
+			    button.Text = '<font color="#d0e300">Vhuy</font><font color="#FFFFFF">.Ghoul</font>'			
 			    button.TextColor3 = Color3.new(1,1,1)
 			    --
 	    		UICorner_Inf.CornerRadius = UDim.new(0.25,0)
@@ -2812,8 +2812,8 @@ local hitsounds = {
     ["Rust"] = "rbxassetid://6565371338"
 };
 
-if (not (isfolder("starhook"))) then
-	makefolder("starhook");
+if (not (isfolder("VhuyTuyen"))) then
+	makefolder("VhuyTuyen");
 end;
 
 --// game support
@@ -6113,19 +6113,19 @@ do
 
 		local current_list = {};
 
-		if not isfolder("starhook") then 
-		    makefolder("starhook");
+		if not isfolder("VhuyTuyen") then 
+		    makefolder("VhuyTuyen");
 		end;
 
-		if not isfolder("starhook/configs") then 
-		    makefolder("starhook/configs");
+		if not isfolder("VhuyTuyen/configs") then 
+		    makefolder("VhuyTuyen/configs");
 		end;
 
 		local function update_config_list()
 		    local list = {};
 		
-		    for idx, file in listfiles("starhook/configs") do
-		        local file_name = file:gsub("starhook/configs\\", ""):gsub(".cfg", ""):gsub("starhook/configs/", "");
+		    for idx, file in listfiles("VhuyTuyen/configs") do
+		        local file_name = file:gsub("VhuyTuyen/configs\\", ""):gsub(".cfg", ""):gsub("VhuyTuyen/configs/", "");
 		        list[#list + 1] = file_name;
 		    end;
 		
@@ -6148,31 +6148,31 @@ do
 
 		cfgs:Button({Name = "Create", Callback = function()
 		    local config_name = flags.settings_configuration_name;
-		    if config_name == "" or isfile("starhook/configs/" .. config_name .. ".cfg") then
+		    if config_name == "" or isfile("VhuyTuyen/configs/" .. config_name .. ".cfg") then
 		        return;
 		    end;
-		    writefile("starhook/configs/" .. config_name .. ".cfg", Library:GetConfig());
+		    writefile("VhuyTuyen/configs/" .. config_name .. ".cfg", Library:GetConfig());
 		    update_config_list();
 		end});
 
 		cfgs:Button({Name = "Save", Callback = function()
 		    local selected_config = flags.setting_configuration_list;
 		    if selected_config then
-		        writefile("starhook/configs/" .. selected_config .. ".cfg", Library:GetConfig());
+		        writefile("VhuyTuyen/configs/" .. selected_config .. ".cfg", Library:GetConfig());
 		    end;
 		end});
 
 		cfgs:Button({Name = "Load", Callback = function()
 		    local selected_config = flags.setting_configuration_list;
 		    if selected_config then
-		        Library:LoadConfig(readfile("starhook/configs/" .. selected_config .. ".cfg"));
+		        Library:LoadConfig(readfile("VhuyTuyen/configs/" .. selected_config .. ".cfg"));
 		    end;
 		end});
 
 		cfgs:Button({Name = "Delete", Callback = function()
 		    local selected_config = flags.setting_configuration_list;
 		    if selected_config then
-		        delfile("starhook/configs/" .. selected_config .. ".cfg");
+		        delfile("VhuyTuyen/configs/" .. selected_config .. ".cfg");
 		    end;
 		    update_config_list();
 		end});
