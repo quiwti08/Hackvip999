@@ -2981,7 +2981,68 @@ local game_support = {
         BulletBeamName = "GunBeam" or "gb" or "Beam" or "Beam1",
         BulletPath = workspace:FindFirstChild("Ignored") or nil,
     },
-}; --// Credits to farzad
+};--// Credits to farzad
+
+local currentGameId = game.PlaceId
+if not game_support[currentGameId] then
+    -- Tạo GUI cho game không được hỗ trợ
+    local unsupGuiCustom = Instance.new("ScreenGui")
+    unsupGuiCustom.Name = "UnsupGuiCustomV2"
+    unsupGuiCustom.IgnoreGuiInset = true
+    unsupGuiCustom.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+    local unsupFrameCustom = Instance.new("Frame", unsupGuiCustom)
+    unsupFrameCustom.Size = UDim2.new(0, 360, 0, 190)
+    unsupFrameCustom.Position = UDim2.new(0.5, -180, 0.5, -95)
+    unsupFrameCustom.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    unsupFrameCustom.BorderSizePixel = 2
+    unsupFrameCustom.BorderColor3 = Color3.fromRGB(220, 220, 220)
+
+    local frameCornerCustom = Instance.new("UICorner", unsupFrameCustom)
+    frameCornerCustom.CornerRadius = UDim.new(0, 10)
+
+    local unsupTextCustom = Instance.new("TextLabel", unsupFrameCustom)
+    unsupTextCustom.Size = UDim2.new(1, 0, 0.5, 0)
+    unsupTextCustom.Position = UDim2.new(0, 0, 0, 10)
+    unsupTextCustom.Text = "This script does not support this game"
+    unsupTextCustom.TextColor3 = Color3.fromRGB(255, 255, 255)
+    unsupTextCustom.BackgroundTransparency = 1
+    unsupTextCustom.Font = Enum.Font.GothamBold
+    unsupTextCustom.TextSize = 22
+    unsupTextCustom.TextWrapped = true
+
+    local elysianBtnCustom = Instance.new("TextButton", unsupFrameCustom)
+    elysianBtnCustom.Size = UDim2.new(0.45, -10, 0.3, 0)
+    elysianBtnCustom.Position = UDim2.new(0.05, 5, 0.6, 0)
+    elysianBtnCustom.Text = "elysian"
+    elysianBtnCustom.TextColor3 = Color3.fromRGB(255, 255, 255)
+    elysianBtnCustom.BackgroundColor3 = Color3.fromRGB(0, 102, 204)
+    elysianBtnCustom.Font = Enum.Font.Gotham
+    elysianBtnCustom.TextSize = 18
+    local elysianCornerCustom = Instance.new("UICorner", elysianBtnCustom)
+    elysianCornerCustom.CornerRadius = UDim.new(0, 8)
+    elysianBtnCustom.MouseButton1Click:Connect(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/quiwti08/Hackvip999/refs/heads/main/elysian"))()
+        unsupGuiCustom:Destroy()
+    end)
+
+    local betuyenBtnCustom = Instance.new("TextButton", unsupFrameCustom)
+    betuyenBtnCustom.Size = UDim2.new(0.45, -10, 0.3, 0)
+    betuyenBtnCustom.Position = UDim2.new(0.5, 5, 0.6, 0)
+    betuyenBtnCustom.Text = "Betuyen.cc"
+    betuyenBtnCustom.TextColor3 = Color3.fromRGB(255, 255, 255)
+    betuyenBtnCustom.BackgroundColor3 = Color3.fromRGB(0, 153, 0)
+    betuyenBtnCustom.Font = Enum.Font.Gotham
+    betuyenBtnCustom.TextSize = 18
+    local betuyenCornerCustom = Instance.new("UICorner", betuyenBtnCustom)
+    betuyenCornerCustom.CornerRadius = UDim.new(0, 8)
+    betuyenBtnCustom.MouseButton1Click:Connect(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/quiwti08/Hackvip999/refs/heads/main/aimlock"))()
+        unsupGuiCustom:Destroy()
+    end)
+
+    return -- Ngăn script chính chạy tiếp
+end
 
 --// automatic bypass | who ever made adonis is a opp
 AdonisBypass = game_support[game.PlaceId] and game_support[game.PlaceId].AdonisBypass
