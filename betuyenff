@@ -356,8 +356,8 @@ Title.TextColor3 = Color3.fromRGB(92, 169, 221)
 Title.BackgroundTransparency = 1
 
 local TitleIcon = Instance.new("ImageLabel", MainFrame)
-TitleIcon.Size = UDim2.new(0, 30, 0, 30) -- Kích thước icon
-TitleIcon.Position = UDim2.new(1, -40, 0, -5) -- Đặt bên phải, nhô lên 5 pixel trên chữ "n"
+TitleIcon.Size = UDim2.new(0, 40, 0, 40) -- Kích thước icon
+TitleIcon.Position = UDim2.new(1, -140, 0, -10) -- Đặt bên phải, nhô lên 5 pixel trên chữ "n"
 TitleIcon.BackgroundTransparency = 1
 TitleIcon.Image = "http://www.roblox.com/asset/?id=13968824463"
 TitleIcon.ScaleType = Enum.ScaleType.Fit
@@ -481,7 +481,7 @@ local ButtonFrame1 = Instance.new("ScrollingFrame", Page1)
 ButtonFrame1.Size = UDim2.new(0.5, -5, 1, -20)
 ButtonFrame1.Position = UDim2.new(0, 5, 0, 10)
 ButtonFrame1.BackgroundTransparency = 1
-ButtonFrame1.ScrollBarThickness = 4
+ButtonFrame1.ScrollBarThickness = 0
 ButtonFrame1.CanvasSize = UDim2.new(0, 0, 0, 0)
 
 local ButtonLayout1 = Instance.new("UIListLayout", ButtonFrame1)
@@ -495,7 +495,7 @@ local PlayerListFrame = Instance.new("ScrollingFrame", Page1)
 PlayerListFrame.Size = UDim2.new(0.5, -5, 1, -20)
 PlayerListFrame.Position = UDim2.new(0.5, 0, 0, 10)
 PlayerListFrame.BackgroundTransparency = 1
-PlayerListFrame.ScrollBarThickness = 4
+PlayerListFrame.ScrollBarThickness = 0
 PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 
 local UIListLayout = Instance.new("UIListLayout", PlayerListFrame)
@@ -517,7 +517,7 @@ local function UpdatePlayerList()
             button.Size = UDim2.new(1, -4, 0, 20)
             button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             button.BackgroundTransparency = 0.2
-            button.TextColor3 = Color3.fromRGB(0, 0, 0)
+            button.TextColor3 = Color3.fromRGB(92, 169, 221)
             button.TextSize = 14
             button.Font = Enum.Font.Gotham
             button.AutoButtonColor = false
@@ -549,7 +549,7 @@ local ButtonFrame2Left = Instance.new("ScrollingFrame", Page2)
 ButtonFrame2Left.Size = UDim2.new(0.5, -5, 1, -20)
 ButtonFrame2Left.Position = UDim2.new(0, 5, 0, 10)
 ButtonFrame2Left.BackgroundTransparency = 1
-ButtonFrame2Left.ScrollBarThickness = 4
+ButtonFrame2Left.ScrollBarThickness = 0
 ButtonFrame2Left.CanvasSize = UDim2.new(0, 0, 0, 0)
 
 local ButtonLayout2Left = Instance.new("UIListLayout", ButtonFrame2Left)
@@ -563,7 +563,7 @@ local ButtonFrame2Right = Instance.new("ScrollingFrame", Page2)
 ButtonFrame2Right.Size = UDim2.new(0.5, -5, 1, -20)
 ButtonFrame2Right.Position = UDim2.new(0.5, 0, 0, 10)
 ButtonFrame2Right.BackgroundTransparency = 1
-ButtonFrame2Right.ScrollBarThickness = 4
+ButtonFrame2Right.ScrollBarThickness = 0
 ButtonFrame2Right.CanvasSize = UDim2.new(0, 0, 0, 0)
 
 local ButtonLayout2Right = Instance.new("UIListLayout", ButtonFrame2Right)
@@ -578,7 +578,7 @@ local ScriptHubScroll = Instance.new("ScrollingFrame", Page3)
 ScriptHubScroll.Size = UDim2.new(1, -10, 1, -30) -- Extended height for more space
 ScriptHubScroll.Position = UDim2.new(0, 5, 0, 5)
 ScriptHubScroll.BackgroundTransparency = 1
-ScriptHubScroll.ScrollBarThickness = 6
+ScriptHubScroll.ScrollBarThickness = 0
 ScriptHubScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 ScriptHubScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 
@@ -3349,7 +3349,7 @@ if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
     local selectBtn = Instance.new("TextButton")
     selectBtn.Size = UDim2.new(0, 110, 0, 35)
     selectBtn.Position = UDim2.new(0, 300, 0, 200)
-    selectBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    selectBtn.BackgroundColor3 = Color3.fromRGB(234, 248, 251)
     selectBtn.Text = "Set Target"
     selectBtn.Font = Enum.Font.GothamBold
     selectBtn.TextSize = 14
