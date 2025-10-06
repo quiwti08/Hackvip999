@@ -55,12 +55,13 @@ local Config = {
     AutoWallhopEnabled = false,
     SpinbotEnabled = false,
     SpinbotSpeed = 450,
-    Prediction = nil,
+    Prediction = 0.1,
     OnlyTargetHitbox = false,
     RainbowHitEffectEnabled = true,
     WalkFloatEnabled = false,
     InfiniteZoomEnabled = false,
     AntiVoidEnabled = false,
+    AirPartEnabled = false,  
 }
 local desync_setback = Instance.new("Part")
 desync_setback.Name = "Desync Setback"
@@ -292,7 +293,7 @@ local function CreateButton(parent, name, callback)
             local screenBtn = Instance.new("TextButton")
             screenBtn.Size = UDim2.new(0, 70, 0, 30)
             screenBtn.Position = UDim2.new(0, 100, 0, 300)
-            screenBtn.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+            screenBtn.BackgroundColor3 = Color3.fromRGB(208, 240, 253)
             screenBtn.Text = name
             screenBtn.TextColor3 = Color3.fromRGB(92, 169, 221)
             screenBtn.TextSize = 10
@@ -840,7 +841,7 @@ local function sendNotification(title, text, duration)
 end
 
 local autoSelect = false
-local tbEnabled = true
+local tbEnabled = false
 local fovRadius = 20
 local Player = nil
 local camera = Workspace.CurrentCamera
@@ -943,35 +944,21 @@ local function GetPredFromPing(p)
     end
 end
 
--- Sửa hàm CalculateVIPPrediction (bỏ distanceFactor để giống standard Da Hood, dùng scalar pred)
-local function CalculateVIPPrediction(part, ping)
+local function CalculateVIPPrediction(part, scalar)  -- Thay 'ping' bằng 'scalar'
     if not part or not part:IsA("BasePart") then return nil end
     local velocity = part.Velocity
-    local pred = GetPredFromPing(ping)  -- Tính scalar pred từ ping
-    return part.Position + velocity * pred
+    return part.Position + velocity * scalar  -- Dùng scalar trực tiếp
 end
 
 createInput(
     ButtonFrame1,
-    "CustomPing",
-    Config.CustomPing,
-    "Enter CustomPing",
+    "Prediction",
+    Config.Prediction,
+    "Enter Prediction (e.g. 0.1)",
     function(value)
-        Config.CustomPing = value
+        Config.Prediction = value
     end
 )
-
-task.spawn(function()
-    while task.wait(0.2) do
-        local ping = GetPing()
-        if Config.AutoPredictionEnabled then
-            Config.Prediction = CalculateVIPPrediction(ping)
-        else
-            local cp = Config.CustomPing or ping
-            Config.Prediction = CalculateVIPPrediction(cp)
-        end
-    end
-end)
 
 autoPredictionButton = CreateButton(ButtonFrame1, "Auto Prediction: OFF", function()
     Config.AutoPredictionEnabled = not Config.AutoPredictionEnabled
@@ -986,6 +973,12 @@ hitpartButton = CreateButton(ButtonFrame1, "Hitpart: Head", function()
     getgenv().Aimbot.Hitpart = hitpartOptions[hitpartIndex]
     hitpartButton.Text = "Hitpart: " .. getgenv().Aimbot.Hitpart
     sendNotification("Aimlock", "Hitpart changed to " .. getgenv().Aimbot.Hitpart)
+end)
+
+airPartButton = CreateButton(ButtonFrame1, "Air Part: OFF", function()
+    Config.AirPartEnabled = not Config.AirPartEnabled
+    airPartButton.Text = "Air Part: " .. (Config.AirPartEnabled and "ON" or "OFF")
+    sendNotification("Air Part", Config.AirPartEnabled and "ON" or "OFF")
 end)
 
 -- Nút cho trang 1
@@ -3176,6 +3169,19 @@ local function GetClosestValidPlayer()
     return closestPlayer
 end
 
+local function getpart()
+    if not Config.AirPartEnabled or not Player or not Player.Character then
+        return Player.Character[getgenv().Aimbot.Hitpart]  -- Default nếu tắt hoặc invalid
+    end
+
+    local hum = Player.Character:FindFirstChildOfClass("Humanoid")
+    if hum and hum:GetState() == Enum.HumanoidStateType.Freefall then
+        return Player.Character:FindFirstChild("UpperTorso") or Player.Character[getgenv().Aimbot.Hitpart]  -- Air: UpperTorso (fallback nếu không có)
+    else
+        return Player.Character[getgenv().Aimbot.Hitpart]  -- Normal: Hitpart ban đầu
+    end
+end
+
 RunService.RenderStepped:Connect(function(deltaTime)
     UpdateESP()
     UpdateSpeed()
@@ -3185,11 +3191,19 @@ RunService.RenderStepped:Connect(function(deltaTime)
     end
 
     if Config.AimbotEnabled and getgenv().Aimbot.Status then
+        -- Thêm phần tính scalar ở đây (gộp GetPing và set prediction)
+        local pred_scalar
+        if Config.AutoPredictionEnabled then
+            local ping = GetPing()  -- Chỉ gọi GetPing nếu auto bật
+            pred_scalar = GetPredFromPing(ping)  -- Tính scalar từ ping
+        else
+            pred_scalar = Config.Prediction or 0.135  -- Dùng scalar từ input (hoặc default)
+        end
+
         Player = GetClosestValidPlayer()
         if Player and Player.Character and Player.Character:FindFirstChild(getgenv().Aimbot.Hitpart) then
-            local part = Player.Character[getgenv().Aimbot.Hitpart]
-            local ping = Config.AutoPredictionEnabled and GetPing() or (Config.CustomPing or GetPing())
-            local predictedPos = CalculateVIPPrediction(part, ping)
+            local part = getpart()
+            local predictedPos = CalculateVIPPrediction(part, pred_scalar)  -- Dùng scalar mới tính
             if predictedPos and not IsObstructed(Camera.CFrame.Position, predictedPos) then
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, predictedPos)
             end
