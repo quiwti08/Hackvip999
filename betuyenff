@@ -434,7 +434,7 @@ local function createTab(name)
     return btn
 end
 
-local Tab1Btn = createTab("Da Hood")
+local Tab1Btn = createTab("Aimlockk")
 local Tab2Btn = createTab("Universal")
 local Tab3Btn = createTab("Scripts")
 local Tab5Btn = createTab("Info")
@@ -939,8 +939,7 @@ local function GetPredFromPing(p)
     elseif p < 70 then return 0.13892
     elseif p < 80 then return 0.1403
     elseif p < 90 then return 0.1446
-    elseif p < 100 then return 0.1475
-    else return 0.165 + (p - 200) / 1000  
+    elseif p < 100 then return 0.1475  
     end
 end
 
