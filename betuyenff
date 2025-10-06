@@ -34,7 +34,7 @@ local Config = {
     CustomPing = 40,
     Buttons = {}, 
     ESPEnabled = false,
-    SpeedEnabled = false,
+    CframeSpeedEnabled = false,
     FlyEnabled = false,
     AimbotEnabled = false,
     FullbrightEnabled = false,
@@ -60,12 +60,22 @@ local Config = {
     RainbowHitEffectEnabled = true,
     WalkFloatEnabled = false,
     InfiniteZoomEnabled = false,
-    FlyV2Enabled = false,
-    FlyV2Speed = 1,  
+    AntiVoidEnabled = false,
 }
-
-local AscendEnabled = false
-local AscendSpeed = 70  -- Mặc định
+local desync_setback = Instance.new("Part")
+desync_setback.Name = "Desync Setback"
+desync_setback.Parent = Workspace
+desync_setback.Size = Vector3.new(2, 2, 1)
+desync_setback.CanCollide = false
+desync_setback.Anchored = true
+desync_setback.Transparency = 1
+local old_position = nil
+local DefaultWalkspeed = 16
+local DefaultJumppower = 50
+local WalkSpeedEnabled = false
+local WalkSpeedAmount = 100
+local JumpPowerEnabled = false
+local JumpPowerAmount = 70  -- Mặc định
 getgenv().HitboxSize = 15
 getgenv().HitboxTransparency = 0.9
 getgenv().HitboxStatus = "OFF"  -- "OFF", "NoVisual", "Visual"
@@ -80,10 +90,10 @@ local Keybinds = {}
 local function attachButtonEffects(btn, shrinkPx)
     local orig = btn.Size
     btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(200, 200, 200)}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
     end)
     btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(180, 180, 180)}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(174, 223, 247)}):Play()
     end)
     btn.MouseButton1Click:Connect(function()
         local s = shrinkPx or 3
@@ -202,6 +212,38 @@ local function toggleJerkOff()
     end
 end
 
+local function createInput(parent, name, defaultValue, placeholderText, onChangeCallback)
+    local inputBox = Instance.new("TextBox")
+    inputBox.Name = name
+    inputBox.Size = UDim2.new(1, -10, 0, 25)
+    inputBox.BackgroundColor3 = Color3.fromRGB(234, 248, 251)
+    inputBox.BackgroundTransparency = 0.2
+    inputBox.TextColor3 = Color3.fromRGB(58, 95, 125)
+    inputBox.TextSize = 14
+    inputBox.Font = Enum.Font.Gotham
+    inputBox.Text = tostring(defaultValue)
+    inputBox.PlaceholderText = placeholderText
+    inputBox.ClearTextOnFocus = false
+    inputBox.Parent = parent
+
+    local corner = Instance.new("UICorner", inputBox)
+    corner.CornerRadius = UDim.new(0, 6)
+
+    inputBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local num = tonumber(inputBox.Text)
+        if num and num > 0 then
+            onChangeCallback(num)
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = name,
+                Text = name .. " = " .. num,
+                Duration = 5
+            })
+        end
+    end)
+
+    return inputBox
+end
+
 local function CreateButton(parent, name, callback)
     local buttonFrame = Instance.new("Frame")
     buttonFrame.Size = UDim2.new(1, -10, 0, 30)
@@ -210,9 +252,9 @@ local function CreateButton(parent, name, callback)
 
     local button = Instance.new("TextButton")
     button.Size = UDim2.new(0.7, -5, 1, 0)
-    button.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
+    button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     button.BackgroundTransparency = 0.2
-    button.TextColor3 = Color3.fromRGB(0, 0, 0)
+    button.TextColor3 = Color3.fromRGB(92, 169, 221)
     button.TextSize = 14
     button.Font = Enum.Font.Gotham
     button.Text = name
@@ -224,10 +266,10 @@ local function CreateButton(parent, name, callback)
     local keyBox = Instance.new("TextBox")
     keyBox.Size = UDim2.new(0.3, 0, 1, 0)
     keyBox.Position = UDim2.new(0.7, 5, 0, 0)
-    keyBox.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
+    keyBox.BackgroundColor3 = Color3.fromRGB(234, 248, 251)
     keyBox.PlaceholderText = "Key"
     keyBox.Text = ""
-    keyBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+    keyBox.TextColor3 = Color3.fromRGB(58, 95, 125)
     keyBox.TextSize = 14
     keyBox.Font = Enum.Font.Gotham
     keyBox.ClearTextOnFocus = false
@@ -252,7 +294,7 @@ local function CreateButton(parent, name, callback)
             screenBtn.Position = UDim2.new(0, 100, 0, 300)
             screenBtn.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
             screenBtn.Text = name
-            screenBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+            screenBtn.TextColor3 = Color3.fromRGB(92, 169, 221)
             screenBtn.TextSize = 10
             screenBtn.Font = Enum.Font.GothamBold
             screenBtn.Parent = screenGui
@@ -279,8 +321,8 @@ end
 -- Tạo Toggle Button
 local ToggleButton = Instance.new("ImageButton")
 ToggleButton.Size = UDim2.new(0, 45, 0, 45)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-ToggleButton.Image = "rbxassetid://80952463173309"
+ToggleButton.BackgroundColor3 = Color3.fromRGB(208, 240, 253)
+ToggleButton.Image = "http://www.roblox.com/asset/?id=13968685036"
 ToggleButton.ScaleType = Enum.ScaleType.Fit
 ToggleButton.Parent = gui
 Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 10)
@@ -297,40 +339,36 @@ end
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 400, 0, 300)
 MainFrame.Position = UDim2.new(0.08, 0, 0.2, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainFrame.BackgroundColor3 = Color3.fromRGB(208, 240, 253)
 MainFrame.Visible = true
 MainFrame.Parent = gui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 makeSmoothDraggable(MainFrame, 0.2)
 
--- Shadow
-local shadow = Instance.new("ImageLabel", MainFrame)
-shadow.Size = UDim2.new(1, 30, 1, 30)
-shadow.Position = UDim2.new(0, -15, 0, -15)
-shadow.Image = "rbxassetid://1316045217"
-shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-shadow.ImageTransparency = 0.4
-shadow.ScaleType = Enum.ScaleType.Slice
-shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-shadow.ZIndex = -1
-shadow.BackgroundTransparency = 1
-
 -- Title
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, -10, 0, 35)
+Title.Size = UDim2.new(1, -40, 0, 35) -- Giảm chiều rộng để chừa chỗ cho icon
 Title.Position = UDim2.new(0, 5, 0, 5)
 Title.Text = "DhuyxDtuyen"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 18
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextColor3 = Color3.fromRGB(92, 169, 221)
 Title.BackgroundTransparency = 1
+
+local TitleIcon = Instance.new("ImageLabel", MainFrame)
+TitleIcon.Size = UDim2.new(0, 30, 0, 30) -- Kích thước icon
+TitleIcon.Position = UDim2.new(1, -40, 0, -5) -- Đặt bên phải, nhô lên 5 pixel trên chữ "n"
+TitleIcon.BackgroundTransparency = 1
+TitleIcon.Image = "http://www.roblox.com/asset/?id=13968824463"
+TitleIcon.ScaleType = Enum.ScaleType.Fit
+TitleIcon.Parent = Title
 
 -- Ping/FPS/Clock
 local PingClock = Instance.new("TextLabel")
 PingClock.Size = UDim2.new(0, 200, 0, 25)
 PingClock.Position = UDim2.new(0, 5, 0, 35)
 PingClock.BackgroundTransparency = 1
-PingClock.TextColor3 = Color3.fromRGB(200, 200, 200)
+PingClock.TextColor3 = Color3.fromRGB(92, 169, 221)
 PingClock.Font = Enum.Font.Gotham
 PingClock.TextSize = 12
 PingClock.Parent = MainFrame
@@ -388,8 +426,8 @@ local function createTab(name)
     btn.Text = name
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 14
-    btn.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
-    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextColor3 = Color3.fromRGB(92, 169, 221)
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     attachButtonEffects(btn, 3)
     return btn
@@ -563,7 +601,7 @@ local function CreateScriptItem(name, url)
     nameLabel.Position = UDim2.new(0, 5, 0, 0)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = name
-    nameLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+    nameLabel.TextColor3 = Color3.fromRGB(92, 169, 221)
     nameLabel.TextSize = 16
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -573,7 +611,7 @@ local function CreateScriptItem(name, url)
     runBtn.Position = UDim2.new(0.7, 5, 0, 2)
     runBtn.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
     runBtn.Text = "Run"
-    runBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    runBtn.TextColor3 = Color3.fromRGB(92, 169, 221)
     runBtn.TextSize = 16
     runBtn.Font = Enum.Font.GothamBold
     Instance.new("UICorner", runBtn).CornerRadius = UDim.new(0, 6)
@@ -625,7 +663,7 @@ local function mkLine()
     l.BackgroundTransparency = 1
     l.Font = Enum.Font.Gotham
     l.TextSize = 14
-    l.TextColor3 = Color3.fromRGB(200, 200, 200)
+    l.TextColor3 = Color3.fromRGB(92, 169, 221)
     l.TextXAlignment = Enum.TextXAlignment.Left
     l.TextWrapped = false
     l.ClipsDescendants = true
@@ -681,7 +719,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-local Notifications = {} -- Danh sách để theo dõi các thông báo hiện tại
+local Notifications = {} -- Đảm bảo biến này được định nghĩa trước
 
 local function sendNotification(title, text, duration)
     -- Tạo ScreenGui mới cho thông báo
@@ -694,13 +732,13 @@ local function sendNotification(title, text, duration)
     notifGui.ResetOnSpawn = false
 
     -- Tính toán vị trí dựa trên số lượng thông báo hiện tại
-    local offsetY = 20 + (#Notifications * 80) -- Mỗi thông báo cách nhau 80 pixel (70 pixel chiều cao + 10 pixel khoảng cách)
+    local offsetY = 20 + (#Notifications * 80) -- Mỗi thông báo cách nhau 80 pixel
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 280, 0, 70)
-    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BackgroundColor3 = Color3.fromRGB(208, 240, 253)
     frame.BorderSizePixel = 0
     frame.AnchorPoint = Vector2.new(1, 1)
-    frame.Position = UDim2.new(1, -20, 1, -offsetY) -- Đặt vị trí, thông báo mới ở dưới
+    frame.Position = UDim2.new(1, -20, 1, -offsetY)
     frame.Transparency = 1 -- Ban đầu trong suốt cho hiệu ứng fade-in
     frame.Parent = notifGui
 
@@ -712,8 +750,8 @@ local function sendNotification(title, text, duration)
     -- Gradient
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 60)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(208, 240, 253)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(188, 220, 233))
     }
     gradient.Rotation = 90
     gradient.Parent = frame
@@ -723,7 +761,7 @@ local function sendNotification(title, text, duration)
     shadow.Size = UDim2.new(1, 20, 1, 20)
     shadow.Position = UDim2.new(0, -10, 0, -10)
     shadow.Image = "rbxassetid://1316045217"
-    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageColor3 = Color3.fromRGB(255, 255, 255)
     shadow.ImageTransparency = 0.6
     shadow.ScaleType = Enum.ScaleType.Slice
     shadow.SliceCenter = Rect.new(10, 10, 118, 118)
@@ -733,16 +771,24 @@ local function sendNotification(title, text, duration)
 
     -- Title
     local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -10, 0, 25)
+    titleLabel.Size = UDim2.new(1, -40, 0, 25) -- Chừa chỗ cho icon
     titleLabel.Position = UDim2.new(0, 5, 0, 5)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Text = title or "DhuyxDtuyen"
-    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextColor3 = Color3.fromRGB(92, 169, 221)
     titleLabel.Font = Enum.Font.GothamBold
     titleLabel.TextSize = 16
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
     titleLabel.Parent = frame
+
+    local notificationIcon = Instance.new("ImageLabel")
+    notificationIcon.Size = UDim2.new(0, 30, 0, 30)
+    notificationIcon.Position = UDim2.new(1, -40, 0, -5) -- Nhô lên 5 pixel trên chữ "n"
+    notificationIcon.BackgroundTransparency = 1
+    notificationIcon.Image = "http://www.roblox.com/asset/?id=13968824463"
+    notificationIcon.ScaleType = Enum.ScaleType.Fit
+    notificationIcon.Parent = titleLabel
 
     -- Text
     local textLabel = Instance.new("TextLabel")
@@ -750,7 +796,7 @@ local function sendNotification(title, text, duration)
     textLabel.Position = UDim2.new(0, 5, 0, 30)
     textLabel.BackgroundTransparency = 1
     textLabel.Text = text or "Notification"
-    textLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    textLabel.TextColor3 = Color3.fromRGB(92, 169, 221)
     textLabel.Font = Enum.Font.Gotham
     textLabel.TextSize = 14
     textLabel.TextWrapped = true
@@ -784,7 +830,7 @@ local function sendNotification(title, text, duration)
             for i, gui in ipairs(Notifications) do
                 local frame = gui:FindFirstChildOfClass("Frame")
                 if frame then
-                    local newOffsetY = 20 + ((i - 1) * 80) -- Cập nhật vị trí
+                    local newOffsetY = 20 + ((i - 1) * 80)
                     local tween = TweenService:Create(frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -newOffsetY)})
                     tween:Play()
                 end
@@ -838,7 +884,7 @@ title.Position = UDim2.new(0.5, 0, 0.5, 0)
 title.Size = UDim2.new(0, 400, 0, 120)
 title.Text = "DhuyxDtuyen"
 title.Font = Enum.Font.GothamBlack
-title.TextColor3 = Color3.fromRGB(55, 55, 55)
+title.TextColor3 = Color3.fromRGB(92, 169, 221)
 title.TextScaled = true
 title.TextTransparency = 1
 title.BackgroundTransparency = 1
@@ -850,8 +896,8 @@ corner.Parent = title
 
 local gradient = Instance.new("UIGradient")
 gradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(55, 55, 55)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(230, 230, 230))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(208, 240, 253)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(188, 220, 233))
 }
 gradient.Rotation = 45
 gradient.Parent = title
@@ -884,18 +930,16 @@ end
 
 -- Thêm hàm tính prediction scalar dựa trên ping (standard cho Da Hood)
 local function GetPredFromPing(p)
-    if p < 20 then return 0.119
-    elseif p < 30 then return 0.122
-    elseif p < 40 then return 0.126
-    elseif p < 50 then return 0.130
-    elseif p < 60 then return 0.133
-    elseif p < 70 then return 0.136
-    elseif p < 80 then return 0.139
-    elseif p < 90 then return 0.143
-    elseif p < 100 then return 0.146
-    elseif p < 150 then return 0.150
-    elseif p < 200 then return 0.155
-    else return 0.165 + (p - 200) / 1000  -- Tăng dần cho ping cao
+    if p < 20 then return 0.10036
+    elseif p < 30 then return 0.1130
+    elseif p < 40 then return 0.13544
+    elseif p < 50 then return 0.1357
+    elseif p < 60 then return 0.13598
+    elseif p < 70 then return 0.13892
+    elseif p < 80 then return 0.1403
+    elseif p < 90 then return 0.1446
+    elseif p < 100 then return 0.1475
+    else return 0.165 + (p - 200) / 1000  
     end
 end
 
@@ -907,30 +951,15 @@ local function CalculateVIPPrediction(part, ping)
     return part.Position + velocity * pred
 end
 
--- Ô nhập Ping (bỏ qua khi AutoPrediction bật)
-local predictionBox = Instance.new("TextBox")
-predictionBox.Size = UDim2.new(1, -10, 0, 25)
-predictionBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-predictionBox.BackgroundTransparency = 0.2
-predictionBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-predictionBox.TextSize = 14
-predictionBox.Font = Enum.Font.Gotham
-predictionBox.PlaceholderText = "Nhập Ping"
-predictionBox.Text = tostring(Config.CustomPing or 40)
-predictionBox.ClearTextOnFocus = false
-predictionBox.Parent = ButtonFrame1
-Instance.new("UICorner", predictionBox).CornerRadius = UDim.new(0, 6)
-
-predictionBox:GetPropertyChangedSignal("Text"):Connect(function()
-    if Config.AutoPredictionEnabled then return end 
-    local num = tonumber(predictionBox.Text)
-    if num then
-        Config.CustomPing = math.clamp(num, 0, 1000)
-    else
-        Config.CustomPing = 40
-        predictionBox.Text = "40"
+createInput(
+    ButtonFrame1,
+    "CustomPing",
+    Config.CustomPing,
+    "Enter CustomPing",
+    function(value)
+        Config.CustomPing = value
     end
-end)
+)
 
 task.spawn(function()
     while task.wait(0.2) do
@@ -968,100 +997,354 @@ end)
 
 -- Thêm biến và nút toggle cho No Slowdown trong Page 1 (Da Hood)
 Config.NoSlowdownEnabled = true
+
 noSlowButton = CreateButton(ButtonFrame1, "No Slowdown: ON", function()
     Config.NoSlowdownEnabled = not Config.NoSlowdownEnabled
     noSlowButton.Text = "No Slowdown: " .. (Config.NoSlowdownEnabled and "ON" or "OFF")
     sendNotification("No Slowdown", Config.NoSlowdownEnabled and "ON" or "OFF")
 end)
 
--- Logic No Slowdown: Dùng CFrame để di chuyển thay vì WalkSpeed
+local antiSlowConnection
 local function applyNoSlowdown()
-    if not Config.NoSlowdownEnabled then return end
-
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not (hrp and hum) then return end
-
-    -- Kiểm tra trạng thái giảm tốc (reload, punch, v.v.)
-    local bodyEffects = char:FindFirstChild("BodyEffects")
-    local isSlowed = false
-    if bodyEffects then
-        local reload = bodyEffects:FindFirstChild("Reload")
-        local movement = bodyEffects:FindFirstChild("Movement")
-        -- Kiểm tra trạng thái reload hoặc movement bị giới hạn
-        isSlowed = (reload and reload.Value) or (movement and movement.Value < 1)
-    end
-
-    -- Nếu đang bị giảm tốc hoặc tốc độ nhỏ hơn bình thường
-    if isSlowed or hum.WalkSpeed < 16 then
-        local moveDirection = hum.MoveDirection
-        if moveDirection.Magnitude > 0 then
-            -- Di chuyển nhân vật bằng CFrame với tốc độ tương đương WalkSpeed 16
-            local speed = 16 / 60 -- Tốc độ 16 stud/s, chia cho 60 frame/s
-            hrp.CFrame = hrp.CFrame + moveDirection * speed
+    if not Config.NoSlowdownEnabled then
+        -- Tắt anti-slow: Ngắt kết nối Heartbeat
+        if antiSlowConnection then
+            antiSlowConnection:Disconnect()
+            antiSlowConnection = nil
         end
+        return
     end
+
+    -- Bật anti-slow: Kết nối Heartbeat và chạy logic
+    antiSlowConnection = RunService.Heartbeat:Connect(function()
+        if Config.NoSlowdownEnabled then
+            local character = LocalPlayer.Character
+            if character then
+                local bodyEffects = character:FindFirstChild("BodyEffects")
+                if bodyEffects then
+                    local movement = bodyEffects:FindFirstChild("Movement")
+                    if movement then
+                        for _, effect in ipairs(movement:GetChildren()) do
+                            if effect.Name == "NoJumping" or effect.Name == "ReduceWalk" or effect.Name == "NoWalkSpeed" then
+                                pcall(function() effect:Destroy() end)
+                            end
+                        end
+                    end
+
+                    local reload = bodyEffects:FindFirstChild("Reload")
+                    if reload and reload:IsA("BoolValue") and reload.Value then
+                        pcall(function() reload.Value = false end)
+                    end
+                end
+            end
+        end
+    end)
 end
 
--- Chạy logic No Slowdown mỗi frame
-local noSlowConnection
-if noSlowConnection then noSlowConnection:Disconnect() end
-noSlowConnection = RunService.Heartbeat:Connect(applyNoSlowdown)
+-- Gọi hàm khi toggle
+applyNoSlowdown()
 
--- Đảm bảo No Slowdown hoạt động sau khi respawn
-LocalPlayer.CharacterAdded:Connect(function(newChar)
+LocalPlayer.CharacterAdded:Connect(function()
     if Config.NoSlowdownEnabled then
         task.wait(0.5) -- Đợi nhân vật load đầy đủ
         applyNoSlowdown()
     end
 end)
 
+local function UpdateFly(deltaTime)
+    local plr = LocalPlayer
+    local char = plr.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not (Config.FlyEnabled and char and hum and root) then
+        return
+    end
+
+    local maxspeed = Config.FlySpeed or 50
+    local speed = Config.FlySpeed
+    local ctrl = {f = 0, b = 0, l = 0, r = 0}
+    local lastctrl = {f = 0, b = 0, l = 0, r = 0}
+    local bg, bv
+
+    if hum.RigType == Enum.HumanoidRigType.R6 then
+        bg = Instance.new("BodyGyro", root)
+        bv = Instance.new("BodyVelocity", root)
+    else
+        local upperTorso = char:FindFirstChild("UpperTorso")
+        if not upperTorso then return end
+        bg = Instance.new("BodyGyro", upperTorso)
+        bv = Instance.new("BodyVelocity", upperTorso)
+    end
+
+    bg.P = 9e4
+    bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bg.cframe = root.CFrame
+    bv.velocity = Vector3.new(0, 0.1, 0)
+    bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+
+    hum.PlatformStand = true
+    char.Animate.Disabled = true
+
+    for _, state in ipairs({
+        Enum.HumanoidStateType.Climbing,
+        Enum.HumanoidStateType.FallingDown,
+        Enum.HumanoidStateType.Flying,
+        Enum.HumanoidStateType.Freefall,
+        Enum.HumanoidStateType.GettingUp,
+        Enum.HumanoidStateType.Jumping,
+        Enum.HumanoidStateType.Landed,
+        Enum.HumanoidStateType.Physics,
+        Enum.HumanoidStateType.PlatformStanding,
+        Enum.HumanoidStateType.Ragdoll,
+        Enum.HumanoidStateType.Running,
+        Enum.HumanoidStateType.RunningNoPhysics,
+        Enum.HumanoidStateType.Seated,
+        Enum.HumanoidStateType.StrafingNoPhysics,
+        Enum.HumanoidStateType.Swimming
+    }) do
+        hum:SetStateEnabled(state, false)
+    end
+    hum:ChangeState(Enum.HumanoidStateType.Swimming)
+
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
+        if not Config.FlyEnabled or plr.Character.Humanoid.Health == 0 then
+            maxspeed = Config.FlySpeed
+            hum.PlatformStand = false
+            char.Animate.Disabled = false
+            for _, state in ipairs({
+                Enum.HumanoidStateType.Climbing,
+                Enum.HumanoidStateType.FallingDown,
+                Enum.HumanoidStateType.Flying,
+                Enum.HumanoidStateType.Freefall,
+                Enum.HumanoidStateType.GettingUp,
+                Enum.HumanoidStateType.Jumping,
+                Enum.HumanoidStateType.Landed,
+                Enum.HumanoidStateType.Physics,
+                Enum.HumanoidStateType.PlatformStanding,
+                Enum.HumanoidStateType.Ragdoll,
+                Enum.HumanoidStateType.Running,
+                Enum.HumanoidStateType.RunningNoPhysics,
+                Enum.HumanoidStateType.Seated,
+                Enum.HumanoidStateType.StrafingNoPhysics,
+                Enum.HumanoidStateType.Swimming
+            }) do
+                hum:SetStateEnabled(state, true)
+            end
+            hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+            bg:Destroy()
+            bv:Destroy()
+            connection:Disconnect()
+            return
+        end
+
+        local camera = game.Workspace.CurrentCamera
+        local forward = UserInputService:IsKeyDown(Enum.KeyCode.W) and 1 or 0
+        local backward = UserInputService:IsKeyDown(Enum.KeyCode.S) and -1 or 0
+        local left = UserInputService:IsKeyDown(Enum.KeyCode.A) and -1 or 0
+        local right = UserInputService:IsKeyDown(Enum.KeyCode.D) and 1 or 0
+
+        ctrl = {f = forward, b = backward, l = left, r = right}
+
+        if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
+            speed = speed + 0.5 + (speed / maxspeed)
+            if speed > maxspeed then
+                speed = maxspeed
+            end
+        elseif speed ~= 0 then
+            speed = speed - 1
+            if speed < 0 then
+                speed = 0
+            end
+        end
+
+        if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
+            bv.velocity = ((camera.CoordinateFrame.lookVector * (ctrl.f + ctrl.b)) +
+                          ((camera.CoordinateFrame * CFrame.new(ctrl.l + ctrl.r, (ctrl.f + ctrl.b) * 0.2, 0).p) - camera.CoordinateFrame.p)) * speed
+            lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
+        elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and speed ~= 0 then
+            bv.velocity = ((camera.CoordinateFrame.lookVector * (lastctrl.f + lastctrl.b)) +
+                          ((camera.CoordinateFrame * CFrame.new(lastctrl.l + lastctrl.r, (lastctrl.f + lastctrl.b) * 0.2, 0).p) - camera.CoordinateFrame.p)) * speed
+        else
+            bv.velocity = Vector3.new(0, 0, 0)
+        end
+
+        bg.cframe = camera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f + ctrl.b) * 50 * speed / maxspeed), 0, 0)
+    end)
+
+    -- Handle up/down movement with Space and LeftControl
+    local upConnection, downConnection
+    if Config.FlyEnabled then
+        upConnection = UserInputService.InputBegan:Connect(function(input)
+            if input.KeyCode == Enum.KeyCode.Space then
+                while UserInputService:IsKeyDown(Enum.KeyCode.Space) and Config.FlyEnabled and root and root.Parent do
+                    root.CFrame = root.CFrame * CFrame.new(0, 1, 0)
+                    wait()
+                end
+            end
+        end)
+
+        downConnection = UserInputService.InputBegan:Connect(function(input)
+            if input.KeyCode == Enum.KeyCode.LeftControl then
+                while UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) and Config.FlyEnabled and root and root.Parent do
+                    root.CFrame = root.CFrame * CFrame.new(0, -1, 0)
+                    wait()
+                end
+            end
+        end)
+    end
+
+    -- Cleanup when fly is disabled
+    if not Config.FlyEnabled then
+        if upConnection then upConnection:Disconnect() end
+        if downConnection then downConnection:Disconnect() end
+        if connection then connection:Disconnect() end
+        hum.PlatformStand = false
+        char.Animate.Disabled = false
+        for _, state in ipairs({
+            Enum.HumanoidStateType.Climbing,
+            Enum.HumanoidStateType.FallingDown,
+            Enum.HumanoidStateType.Flying,
+            Enum.HumanoidStateType.Freefall,
+            Enum.HumanoidStateType.GettingUp,
+            Enum.HumanoidStateType.Jumping,
+            Enum.HumanoidStateType.Landed,
+            Enum.HumanoidStateType.Physics,
+            Enum.HumanoidStateType.PlatformStanding,
+            Enum.HumanoidStateType.Ragdoll,
+            Enum.HumanoidStateType.Running,
+            Enum.HumanoidStateType.RunningNoPhysics,
+            Enum.HumanoidStateType.Seated,
+            Enum.HumanoidStateType.StrafingNoPhysics,
+            Enum.HumanoidStateType.Swimming
+        }) do
+            hum:SetStateEnabled(state, true)
+        end
+        hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+        if bg then bg:Destroy() end
+        if bv then bv:Destroy() end
+    end
+end
+
 flyButton = CreateButton(ButtonFrame1, "Fly: OFF", function()
     Config.FlyEnabled = not Config.FlyEnabled
     flyButton.Text = "Fly: " .. (Config.FlyEnabled and "ON" or "OFF")
+    UpdateFly(deltaTime)
     sendNotification("FLY", Config.FlyEnabled and "ON" or "OFF")
 end)
 
-speedButton = CreateButton(ButtonFrame1, "Speed: OFF", function()
-    Config.SpeedEnabled = not Config.SpeedEnabled
-    speedButton.Text = "Speed: " .. (Config.SpeedEnabled and "ON" or "OFF")
-    sendNotification("SPEED", Config.SpeedEnabled and "ON" or "OFF")
+createInput(
+    ButtonFrame1,
+    "FlySpeed",
+    Config.FlySpeed or 50,
+    "Enter Fly Speed",
+    function(value)
+        Config.FlySpeed = value
+    end
+)
+
+speedButton = CreateButton(ButtonFrame1, "CframeSpeed: OFF", function()
+    Config.CframeSpeedEnabled = not Config.CframeSpeedEnabled
+    speedButton.Text = "Speed: " .. (Config.CframeSpeedEnabled and "ON" or "OFF")
+    sendNotification("SPEED", Config.CframeSpeedEnabled and "ON" or "OFF")
 end)
 
--- Thêm vào cuối script (trước phần kết thúc)
--- Logic Boost Jump
-RunService.Heartbeat:Connect(function(dt)
-    if AscendEnabled then
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local step = AscendSpeed * dt
-            hrp.CFrame = hrp.CFrame + Vector3.new(0, step, 0)
+createInput(
+    ButtonFrame1,
+    "SpeedAmount",
+    Config.SpeedAmount,
+    "Enter Speed",
+    function(value)
+        Config.SpeedAmount = value
+    end
+)
+
+local function applyStats(humanoid)
+    if not humanoid then return end
+
+    if WalkSpeedEnabled then
+        humanoid.WalkSpeed = WalkSpeedAmount
+    else
+        humanoid.WalkSpeed = DefaultWalkspeed
+    end
+
+    if JumpPowerEnabled then
+        humanoid.JumpPower = JumpPowerAmount
+    else
+        humanoid.JumpPower = DefaultJumppower
+    end
+
+    -- Protect against game resets
+    humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+        if WalkSpeedEnabled then
+            humanoid.WalkSpeed = WalkSpeedAmount
+        end
+    end)
+    humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
+        if JumpPowerEnabled then
+            humanoid.JumpPower = JumpPowerAmount
+        end
+    end)
+end
+
+-- Apply stats when character is added
+LocalPlayer.CharacterAdded:Connect(function(Character)
+    local humanoid = Character:WaitForChild("Humanoid")
+    applyStats(humanoid)
+end)
+
+-- Apply stats to current character if it exists
+if LocalPlayer.Character then
+    local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+    if humanoid then
+        applyStats(humanoid)
+    end
+end
+
+walkspeedbutton = CreateButton(ButtonFrame1, "Speed: OFF", function()
+    WalkSpeedEnabled = not WalkSpeedEnabled
+    walkspeedbutton.Text = "WalkSpeed: " .. (WalkSpeedEnabled and "ON" or "OFF")
+    sendNotification("Walkspeed", WalkSpeedEnabled and "ON" or "OFF")
+    if LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            applyStats(humanoid)
         end
     end
 end)
 
--- Ô nhập Speed Value
-local speedBox = Instance.new("TextBox")
-speedBox.Size = UDim2.new(1, 0, 0, 20)
-speedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-speedBox.TextColor3 = Color3.new(1, 1, 1)
-speedBox.Text = tostring(Config.SpeedValue or 16) -- mặc định 16
-speedBox.PlaceholderText = "Speed Value"
-speedBox.ClearTextOnFocus = false
-speedBox.Font = Enum.Font.GothamBold
-speedBox.TextSize = 12
-speedBox.Parent = ButtonFrame1
-Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 4)
+createInput(
+    ButtonFrame1,
+    "WalkspeedAmount",
+    WalkSpeedAmount,
+    "Enter Speed",
+    function(value)
+        WalkSpeedAmount = value
+    end
+)
 
-speedBox.FocusLost:Connect(function()
-    local num = tonumber(speedBox.Text)
-    if num then
-        Config.SpeedAmount = num
-    else
-        speedBox.Text = tostring(Config.SpeedAmount or 16)
+-- Nút Boost Jump
+boostJumpButton = CreateButton(ButtonFrame1, "Jump Power: OFF", function()
+    JumpPowerEnabled = not JumpPowerEnabled
+    boostJumpButton.Text = "Jump Power: " .. (JumpPowerEnabled and "ON" or "OFF")
+    sendNotification("Boost Jump", JumpPowerEnabled and "ON" or "OFF")
+    if LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            applyStats(humanoid)
+        end
     end
 end)
+
+createInput(
+    ButtonFrame1,
+    "JumpPower",
+    JumpPowerAmount or 50,
+    "Enter Jump Power",
+    function(value)
+        JumpPowerAmount = value
+    end
+)
 
 autoArmorButton = CreateButton(ButtonFrame1, "AutoArmor", function()
     local player = LocalPlayer
@@ -1071,10 +1354,8 @@ autoArmorButton = CreateButton(ButtonFrame1, "AutoArmor", function()
         return 
     end
 
-    local hrp = char.HumanoidRootPart
+    local hrp = char:FindFirstChild("HumanoidRootPart")
     local originalCFrame = hrp.CFrame
-
-    hrp.CFrame = CFrame.new(-934.26, -28.50, 566.75)
     task.wait(0.5)
 
     local Ignored = workspace:FindFirstChild("Ignored") or workspace:FindFirstChild("MAP") or workspace:FindFirstChild("Blacklisted")
@@ -1106,33 +1387,16 @@ autoArmorButton = CreateButton(ButtonFrame1, "AutoArmor", function()
     sendNotification("AutoArmor", "Armor purchase attempted!")
 end)
 
--- Nút Boost Jump
-boostJumpButton = CreateButton(ButtonFrame1, "Boost Jump: OFF", function()
-    AscendEnabled = not AscendEnabled
-    boostJumpButton.Text = "Boost Jump: " .. (AscendEnabled and "ON" or "OFF")
-    sendNotification("Boost Jump", AscendEnabled and "ON" or "OFF")
-end)
-
--- Ô nhập Boost Jump Power
-local boostBox = Instance.new("TextBox")
-boostBox.Size = UDim2.new(1, 0, 0, 20)
-boostBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-boostBox.TextColor3 = Color3.new(1, 1, 1)
-boostBox.Text = tostring(AscendSpeed or 35) -- mặc định 35
-boostBox.PlaceholderText = "Boost Jump Power"
-boostBox.ClearTextOnFocus = false
-boostBox.Font = Enum.Font.GothamBold
-boostBox.TextSize = 12
-boostBox.Parent = ButtonFrame1
-Instance.new("UICorner", boostBox).CornerRadius = UDim.new(0, 4)
-
-boostBox.FocusLost:Connect(function()
-    local num = tonumber(boostBox.Text)
-    if num then
-        AscendSpeed = num
+antiVoidButton = CreateButton(ButtonFrame1, "AntiVoid: OFF", function()
+    Config.AntiVoidEnabled = not Config.AntiVoidEnabled
+    if Config.AntiVoidEnabled then
+        workspace.FallenPartsDestroyHeight = -math.huge
+        antiVoidButton.Text = "AntiVoid: ON"
     else
-        boostBox.Text = tostring(AscendSpeed or 35)
+        workspace.FallenPartsDestroyHeight = -50
+        antiVoidButton.Text = "AntiVoid: OFF"
     end
+    sendNotification("AntiVoid", Config.AntiVoidEnabled and "ON" or "OFF")
 end)
 
 -- Danh sách mode AntiLock
@@ -1294,12 +1558,28 @@ csyncRandomButton = CreateButton(ButtonFrame1, "Csync Random: " .. (Config.Csync
     Config.CsyncRandomEnabled = not Config.CsyncRandomEnabled
     csyncRandomButton.Text = "Csync Random: " .. (Config.CsyncRandomEnabled and "ON" or "OFF")
     sendNotification("Csync Random", Config.CsyncRandomEnabled and "Enabled" or "Disabled")
+	if not Config.CsyncRandomEnabled then
+        if LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                workspace.CurrentCamera.CameraSubject = humanoid
+            end
+        end
+    end
 end)
 
 csyncOrbitButton = CreateButton(ButtonFrame1, "Csync Orbit: " .. (Config.CsyncOrbitEnabled and "ON" or "OFF"), function()
     Config.CsyncOrbitEnabled = not Config.CsyncOrbitEnabled
     csyncOrbitButton.Text = "Csync Orbit: " .. (Config.CsyncOrbitEnabled and "ON" or "OFF")
     sendNotification("Csync Orbit", Config.CsyncOrbitEnabled and "Enabled" or "Disabled")
+	if not Config.CsyncOrbitEnabled then
+        if LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                workspace.CurrentCamera.CameraSubject = humanoid
+            end
+        end
+    end
 end)
 
 -- Frame nhập Radius, Height, Speed
@@ -1320,14 +1600,14 @@ local function createLabeledBox(parent, labelText, default, onChange, pos)
     label.BackgroundTransparency = 1
     label.Text = labelText
     label.TextSize = 10
-    label.TextColor3 = Color3.fromRGB(180, 180, 180)
+    label.TextColor3 = Color3.fromRGB(58, 95, 125)
     label.Font = Enum.Font.Gotham
     label.Parent = container
 
     local tb = Instance.new("TextBox")
     tb.Size = UDim2.new(1, 0, 0, 20)
     tb.Position = UDim2.new(0, 0, 0, 12)
-    tb.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    tb.BackgroundColor3 = Color3.fromRGB(92, 169, 221)
     tb.TextColor3 = Color3.new(1, 1, 1)
     tb.Text = tostring(default)
     tb.PlaceholderText = labelText
@@ -1354,6 +1634,7 @@ createLabeledBox(boxFrame, "Speed",  Config.CsyncSpeed,  function(v) Config.Csyn
 local currentTarget = nil
 local csyncPaused = false
 
+
 if _G.VHUB_CSYNC_LOOP then _G.VHUB_CSYNC_LOOP:Disconnect() end
 _G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function(deltaTime)
     if not (Config.CsyncRandomEnabled or Config.CsyncOrbitEnabled) then
@@ -1366,22 +1647,22 @@ _G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function(deltaTime)
         currentTarget = GetClosestTarget()
         if not currentTarget then
             csyncPaused = true
-            print("Debug: Csync paused - no valid target")
             return
         end
     end
 
     -- Kiểm tra nhân vật và HumanoidRootPart
     local hrp = currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
-    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp or not myHRP then
+    local rootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not rootPart then
         csyncPaused = true
-        print("Debug: Missing HRP for local or target player")
         return
     end
 
     csyncPaused = false
     local targetPos = hrp.Position
+
+    local old_position = rootPart and rootPart.CFrame or nil
 
     -- Csync Orbit
     if Config.CsyncOrbitEnabled then
@@ -1391,8 +1672,13 @@ _G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function(deltaTime)
             Config.CsyncHeight or 0,
             math.sin(t) * (Config.CsyncRadius or 10)
         )
-        myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
-        print("Debug: Orbiting at position:", (targetPos + offset))
+        workspace.CurrentCamera.CameraSubject = desync_setback
+        rootPart.CFrame = CFrame.new(targetPos + offset, targetPos)
+
+        RunService.RenderStepped:Wait()
+
+        desync_setback.CFrame = old_position * CFrame.new(0, rootPart.Size.Y / 2 + 0.5, 0)
+        rootPart.CFrame = old_position
 
     -- Csync Random
     elseif Config.CsyncRandomEnabled then
@@ -1401,8 +1687,21 @@ _G.VHUB_CSYNC_LOOP = RunService.Heartbeat:Connect(function(deltaTime)
             Config.CsyncHeight or 0,
             math.random(-(Config.CsyncRadius or 10), Config.CsyncRadius or 10)
         )
-        myHRP.CFrame = CFrame.new(targetPos + offset, targetPos)
-        print("Debug: Random position:", (targetPos + offset))
+		
+        workspace.CurrentCamera.CameraSubject = desync_setback
+        rootPart.CFrame = CFrame.new(targetPos + offset, targetPos)
+
+        RunService.RenderStepped:Wait()
+
+        desync_setback.CFrame = old_position * CFrame.new(0, rootPart.Size.Y / 2 + 0.5, 0)
+        rootPart.CFrame = old_position
+    else
+        if LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                workspace.CurrentCamera.CameraSubject = humanoid
+            end
+        end
     end
 end)
 
@@ -1429,35 +1728,15 @@ fovButton = CreateButton(ButtonFrame2Left, "Custom FOV: " .. (Config.CustomFOVEn
     applyFOV()
 end)
 
--- Tạo ô nhập FOV
-local fovBox = Instance.new("TextBox")
-fovBox.Size = UDim2.new(1, -10, 0, 25)
-fovBox.Position = UDim2.new(0, 0, 0, 40) -- Điều chỉnh vị trí theo GUI của bạn
-fovBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-fovBox.TextColor3 = Color3.new(1, 1, 1)
-fovBox.Text = tostring(Config.CustomFOV)
-fovBox.PlaceholderText = "FOV (40-120)"
-fovBox.ClearTextOnFocus = false
-fovBox.Font = Enum.Font.GothamBold
-fovBox.TextSize = 12
-fovBox.Parent = ButtonFrame2Left
-Instance.new("UICorner", fovBox).CornerRadius = UDim.new(0, 4)
-
--- Xử lý khi người dùng nhập FOV
-fovBox:GetPropertyChangedSignal("Text"):Connect(function()
-    local num = tonumber(fovBox.Text)
-    if num then
-        -- Giới hạn giá trị trong khoảng 40-120
-        Config.CustomFOV = math.clamp(num, 40, 120)
-        fovBox.Text = tostring(Config.CustomFOV) -- Cập nhật ô nhập
-        if Config.CustomFOVEnabled then
-            applyFOV()
-            sendNotification("Custom FOV", "Đã đặt FOV thành " .. Config.CustomFOV)
-        end
-    else
-        fovBox.Text = tostring(Config.CustomFOV) -- Khôi phục giá trị hợp lệ
+createInput(
+    ButtonFrame2Left,
+    "Fov",
+    Config.CustomFOV,
+    "Enter Fov Speed",
+    function(value)
+        Config.CustomFOV = value
     end
-end)
+)
 
 -- Áp dụng FOV khi nhân vật respawn
 LocalPlayer.CharacterAdded:Connect(function()
@@ -1536,28 +1815,15 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- Ô nhập giá trị Hitbox Size (mặc định 15)
-local hitboxBox = Instance.new("TextBox")
-hitboxBox.Size = UDim2.new(1, -10, 0, 25)
-hitboxBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-hitboxBox.BackgroundTransparency = 0.2
-hitboxBox.TextColor3 = Color3.fromRGB(0, 0, 0)
-hitboxBox.TextSize = 14
-hitboxBox.Font = Enum.Font.Gotham
-hitboxBox.Text = tostring(getgenv().HitboxSize or 15) -- mặc định giá trị 15
-hitboxBox.PlaceholderText = "Nhập Hitbox Size"
-hitboxBox.ClearTextOnFocus = false
-hitboxBox.Parent = ButtonFrame2Left
-Instance.new("UICorner", hitboxBox).CornerRadius = UDim.new(0, 6)
-
--- Nếu người dùng nhập giá trị hợp lệ thì cập nhật
-hitboxBox:GetPropertyChangedSignal("Text"):Connect(function()
-    local num = tonumber(hitboxBox.Text)
-    if num and num > 0 then
-        getgenv().HitboxSize = num
-        sendNotification("Hitbox", "Size = "..num)
+createInput(
+    ButtonFrame2Left,
+    "Hitbox",
+    getgenv().HitboxSize,
+    "Enter hitbox",
+    function(value)
+        getgenv().HitboxSize = value
     end
-end)
+)
 
 -- ============ PIGGYBACK ============
 local piggyEnabled = false
@@ -2332,27 +2598,15 @@ spinbotButton = CreateButton(ButtonFrame2Right, "Spinbot: " .. (Config.SpinbotEn
     sendNotification("Spinbot", Config.SpinbotEnabled and "Enabled" or "Disabled")
 end)
 
--- Ô nhập Speed
-local spinbotSpeedBox = Instance.new("TextBox")
-spinbotSpeedBox.Size = UDim2.new(1, 0, 0, 20)
-spinbotSpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-spinbotSpeedBox.TextColor3 = Color3.new(1, 1, 1)
-spinbotSpeedBox.Text = tostring(Config.SpinbotSpeed)
-spinbotSpeedBox.PlaceholderText = "Speed"
-spinbotSpeedBox.ClearTextOnFocus = false
-spinbotSpeedBox.Font = Enum.Font.GothamBold
-spinbotSpeedBox.TextSize = 12
-spinbotSpeedBox.Parent = ButtonFrame2Right
-Instance.new("UICorner", spinbotSpeedBox).CornerRadius = UDim.new(0, 4)
-
-spinbotSpeedBox.FocusLost:Connect(function()
-    local num = tonumber(spinbotSpeedBox.Text)
-    if num then
-        Config.SpinbotSpeed = num
-    else
-        spinbotSpeedBox.Text = tostring(Config.SpinbotSpeed)
+createInput(
+    ButtonFrame2Right,
+    "SpinBot",
+    Config.SpinbotSpeed,
+    "Enter Spin Speed",
+    function(value)
+        Config.SpinbotSpeed = value
     end
-end)
+)
 
 -- Logic Spinbot
 RunService.RenderStepped:Connect(function(delta)
@@ -2370,10 +2624,8 @@ RunService.RenderStepped:Connect(function(delta)
     end
 end)
 
--- Biến toàn cục cho Walk Float
-local floatPart = nil
+local floatParts = {}
 
--- Nút Walk Float
 walkFloatButton = CreateButton(ButtonFrame2Right, "Walk Float: OFF", function()
     Config.WalkFloatEnabled = not Config.WalkFloatEnabled
     walkFloatButton.Text = "Walk Float: " .. (Config.WalkFloatEnabled and "ON" or "OFF")
@@ -2384,48 +2636,63 @@ walkFloatButton = CreateButton(ButtonFrame2Right, "Walk Float: OFF", function()
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if hrp then
             -- Tạo part nền nổi
-            floatPart = Instance.new("Part")
+            local floatPart = Instance.new("Part")
             floatPart.Size = Vector3.new(6, 1, 6)  -- Kích thước nền (có thể chỉnh)
             floatPart.Anchored = true
             floatPart.CanCollide = true
             floatPart.Transparency = 0.5  -- Nửa trong suốt để thấy
             floatPart.Material = Enum.Material.Neon
-            floatPart.Color = Color3.fromRGB(0, 255, 0)  -- Màu xanh để dễ thấy
+            floatPart.Color = Color3.fromRGB(208, 240, 253)  -- Màu xanh để dễ thấy
             floatPart.Parent = Workspace
             floatPart.CFrame = hrp.CFrame * CFrame.new(0, -3.5, 0)  -- Dưới chân 3.5 studs
+
+            -- Thêm floatPart vào bảng
+            table.insert(floatParts, floatPart)
+
+            -- Cập nhật vị trí part theo nhân vật (nếu cần)
+            local function updateFloatPart()
+                if Config.WalkFloatEnabled and hrp then
+                    floatPart.CFrame = hrp.CFrame * CFrame.new(0, -3.5, 0)
+                end
+            end
+            RunService.RenderStepped:Connect(updateFloatPart)
         end
     else
-        -- Xóa part khi tắt
-        if floatPart then
-            floatPart:Destroy()
-            floatPart = nil
+        -- Xóa tất cả các floatPart khi tắt
+        for _, part in pairs(floatParts) do
+            if part and part.Parent then
+                part:Destroy()
+            end
         end
+        floatParts = {} -- Xóa bảng sau khi xóa tất cả
     end
 end)
 
--- Logic cập nhật part mỗi frame (thêm vào RunService.RenderStepped:Connect(function(deltaTime) ... end) ở cuối script
-if Config.WalkFloatEnabled and floatPart and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-    local hrp = LocalPlayer.Character.HumanoidRootPart
-    floatPart.CFrame = hrp.CFrame * CFrame.new(0, -3.5, 0)  -- Luôn dưới chân
-end
-
--- Giữ Walk Float khi respawn (thêm vào LocalPlayer.CharacterAdded:Connect(function() ... end) ở cuối script
-if Config.WalkFloatEnabled then
-    task.wait(0.5)  -- Đợi load
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        floatPart = Instance.new("Part")  -- Tạo lại part
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if Config.WalkFloatEnabled then
+        task.wait(0.7) -- Đợi nhân vật tải xong
+        local hrp = char:WaitForChild("HumanoidRootPart")
+        local floatPart = Instance.new("Part")
         floatPart.Size = Vector3.new(6, 1, 6)
         floatPart.Anchored = true
         floatPart.CanCollide = true
         floatPart.Transparency = 0.5
         floatPart.Material = Enum.Material.Neon
-        floatPart.Color = Color3.fromRGB(0, 255, 0)
+        floatPart.Color = Color3.fromRGB(208, 240, 253)
         floatPart.Parent = Workspace
         floatPart.CFrame = hrp.CFrame * CFrame.new(0, -3.5, 0)
+
+        table.insert(floatParts, floatPart)
+
+        -- Cập nhật vị trí part theo nhân vật
+        local function updateFloatPart()
+            if Config.WalkFloatEnabled and hrp then
+                floatPart.CFrame = hrp.CFrame * CFrame.new(0, -3.5, 0)
+            end
+        end
+        RunService.RenderStepped:Connect(updateFloatPart)
     end
-end
+end)
 
 -- Nút Infinite Zoom
 infiniteZoomButton = CreateButton(ButtonFrame2Right, "Infinite Zoom: OFF", function()
@@ -2445,111 +2712,6 @@ if Config.InfiniteZoomEnabled then
     task.wait(0.5)
     LocalPlayer.CameraMaxZoomDistance = math.huge
 end
-
--- Nút Fly V2
-flyV2Button = CreateButton(ButtonFrame2Right, "Fly V2: OFF", function()
-    Config.FlyV2Enabled = not Config.FlyV2Enabled
-    flyV2Button.Text = "Fly V2: " .. (Config.FlyV2Enabled and "ON" or "OFF")
-    sendNotification("Fly V2", Config.FlyV2Enabled and "Enabled" or "Disabled")
-end)
-
--- Ô nhập Fly V2 Speed (thêm sau nút Fly V2)
-local flyV2SpeedBox = Instance.new("TextBox")
-flyV2SpeedBox.Size = UDim2.new(1, 0, 0, 20)
-flyV2SpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-flyV2SpeedBox.TextColor3 = Color3.new(1, 1, 1)
-flyV2SpeedBox.Text = tostring(Config.FlyV2Speed)
-flyV2SpeedBox.PlaceholderText = "Fly V2 Speed"
-flyV2SpeedBox.ClearTextOnFocus = false
-flyV2SpeedBox.Font = Enum.Font.GothamBold
-flyV2SpeedBox.TextSize = 12
-flyV2SpeedBox.Parent = ButtonFrame2Right
-Instance.new("UICorner", flyV2SpeedBox).CornerRadius = UDim.new(0, 4)
-
-flyV2SpeedBox.FocusLost:Connect(function()
-    local num = tonumber(flyV2SpeedBox.Text)
-    if num and num >= 1 then
-        Config.FlyV2Speed = num
-    else
-        flyV2SpeedBox.Text = tostring(Config.FlyV2Speed)
-    end
-end)
-
--- Logic Fly V2 (thêm vào RunService.RenderStepped:Connect(function(deltaTime) ... end) ở cuối script
-if Config.FlyV2Enabled then
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildWhichIsA("Humanoid")
-    if hum then
-        hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Flying, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Running, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
-        hum:ChangeState(Enum.HumanoidStateType.Swimming)
-
-        -- Fly với tốc độ từ textbox (tpwalking logic)
-        local tpwalking = true
-        for i = 1, Config.FlyV2Speed do
-            task.spawn(function()
-                while tpwalking and char and hum and hum.Parent do
-                    RunService.Heartbeat:Wait()
-                    if hum.MoveDirection.Magnitude > 0 then
-                        char:TranslateBy(hum.MoveDirection)
-                    end
-                end
-            end)
-        end
-    end
-end
-
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.5)
-    -- Lặp lại logic bật Fly V2 ở trên để áp dụng cho nhân vật mới
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildWhichIsA("Humanoid")
-    if hum then
-        hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Flying, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Running, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
-        hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
-        hum:ChangeState(Enum.HumanoidStateType.Swimming)
-
-        -- Logic Fly V2 once the character respawns
-        local tpwalking = true
-        for i = 1, Config.FlyV2Speed do
-            task.spawn(function()
-                while tpwalking and char and hum and hum.Parent do
-                    RunService.Heartbeat:Wait()
-                    if hum.MoveDirection.Magnitude > 0 then
-                        char:TranslateBy(hum.MoveDirection)
-                    end
-                end
-            end)
-        end
-    end
-end)
-
 
 -- Anti Fling Button (Page 2, Right Side)
 local antiFlingEnabled = false
@@ -2597,7 +2759,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
---// Track trạng thái Alive / KO / Grab trong Da Hood
 local lastState = {}
 
 local function getDHState(plr)
@@ -2642,7 +2803,6 @@ game:GetService("RunService").Heartbeat:Connect(function()
         end
     end
 end)
-
 
 local hiddenFling = false
 local flingPower = 55000
@@ -2791,7 +2951,7 @@ local function CreateESP(player)
     if ESPs[player] or player == LocalPlayer then return end
     local label = Instance.new("TextLabel")
     label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 179, 186)
+    label.TextColor3 = Color3.fromRGB(142, 197, 252)
     label.TextSize = 16
     label.Font = Enum.Font.GothamBold
     label.Text = player.DisplayName
@@ -2807,8 +2967,8 @@ local function CreateESP(player)
     highlight.Enabled = false
     highlight.FillTransparency = 0.6
     highlight.OutlineTransparency = 0.2
-    highlight.FillColor = Color3.fromRGB(55, 55, 55)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillColor = Color3.fromRGB(208, 240, 253)
+    highlight.OutlineColor = Color3.fromRGB(165, 216, 243)
     highlight.Adornee = player.Character
     highlight.Parent = espGui
 
@@ -2847,15 +3007,15 @@ local function UpdateESP()
                     -- Kiểm tra trạng thái K.O hoặc grab
                     local isKnockedOrGrabbed = IsPlayerKnockedOrGrabbed(player)
                     if isKnockedOrGrabbed then
-                        -- Màu vàng cho K.O hoặc grab
-                        esp.label.TextColor3 = Color3.fromRGB(255, 255, 0)
-                        esp.highlight.FillColor = Color3.fromRGB(255, 255, 0)
-                        esp.highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
+                        esp.label.TextColor3 = Color3.fromRGB(0,0,128)
+                        esp.highlight.FillColor = Color3.fromRGB(0,0,128)
+                        esp.highlight.OutlineColor = Color3.fromRGB(0,0,128)
                     else
                         -- Màu cho người được chọn hoặc không chọn
-                        esp.label.TextColor3 = isSelected and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(255, 255, 255)
-                        esp.highlight.FillColor = isSelected and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(255, 255, 255)
-                        esp.highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- Giữ outline trắng
+                        esp.label.TextColor3 = isSelected and Color3.fromRGB(142, 197, 252) or Color3.fromRGB(255, 255, 255)
+                        esp.highlight.FillColor = isSelected and Color3.fromRGB(208, 240, 253) or Color3.fromRGB(255, 255, 255)
+                        esp.highlight.OutlineColor = isSelected and Color3.fromRGB(165, 216, 243) or Color3.fromRGB(255, 255, 255)
+                        esp.highlight.FillTransparency = isSelected and 0.65 or 0.72
                     end
                     if onScreen then
                         esp.label.Visible = true
@@ -2876,24 +3036,12 @@ local function UpdateESP()
 end
 
 local function UpdateSpeed()
-    if Config.SpeedEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+    if Config.CframeSpeedEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local root = LocalPlayer.Character.HumanoidRootPart
         local humanoid = LocalPlayer.Character.Humanoid
         local moveDirection = humanoid.MoveDirection
         local speedAmount = Config.SpeedAmount / 8
         root.CFrame = root.CFrame + moveDirection * speedAmount
-    end
-end
-
-local function UpdateFly(deltaTime)
-    if Config.FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local root = LocalPlayer.Character.HumanoidRootPart
-        local moveDirection = LocalPlayer.Character.Humanoid.MoveDirection
-        local flySpeed = Config.FlySpeed
-        local vertical = UserInputService:IsKeyDown(Enum.KeyCode.Space) and flySpeed / 8 or UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) and -flySpeed / 8 or 0
-        root.CFrame = root.CFrame + moveDirection * deltaTime * flySpeed * 10
-        root.CFrame = root.CFrame + Vector3.new(0, vertical, 0)
-        root.Velocity = root.Velocity * Vector3.new(1, 0, 1) + Vector3.new(0, 1.9, 0)
     end
 end
 
@@ -3031,7 +3179,10 @@ end
 RunService.RenderStepped:Connect(function(deltaTime)
     UpdateESP()
     UpdateSpeed()
-    UpdateFly(deltaTime)
+
+    if Config.CustomFOVEnabled then
+        applyFOV()
+    end
 
     if Config.AimbotEnabled and getgenv().Aimbot.Status then
         Player = GetClosestValidPlayer()
@@ -3150,6 +3301,13 @@ task.spawn(function()
     end
 end)
 
+LocalPlayer.CharacterAdded:Connect(function()
+    if Config.FlyEnabled then
+        task.wait(0.7) -- Wait for character to load
+        UpdateFly(0)
+    end
+end)
+
 -- === Nút Select Target ===
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -3195,7 +3353,7 @@ if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
     selectBtn.Text = "Set Target"
     selectBtn.Font = Enum.Font.GothamBold
     selectBtn.TextSize = 14
-    selectBtn.TextColor3 = Color3.new(230, 230, 230)
+    selectBtn.TextColor3 = Color3.new(92, 169, 221)
     selectBtn.Parent = selectGui
     Instance.new("UICorner", selectBtn).CornerRadius = UDim.new(0, 8)
     makeSmoothDraggable(selectBtn, 0.2)
