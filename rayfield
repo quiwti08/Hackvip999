@@ -306,6 +306,7 @@ local function autoFarmCoins()
                 return E
             end
         end
+        task.wait()
         return nil
     end
     local function findCoin()
@@ -330,15 +331,7 @@ local function autoFarmCoins()
         local distance = (hrp.Position - coin.Position).Magnitude
         if distance > MAX_COIN_DISTANCE then return end
         local offset = Vector3.new(math.random(-5, 5)/10, 0, math.random(-5, 5)/10)
-        -- Tối ưu thời gian tween để di chuyển cực nhanh
-        local tween = TweenService:Create(
-            hrp,
-            TweenInfo.new(
-                math.min(distance / 100, 0.1), -- Tốc độ dựa trên khoảng cách, tối đa 0.1 giây
-                Enum.EasingStyle.Linear
-            ),
-            {CFrame = coin.CFrame * CFrame.Angles(0, math.rad(math.random(-10, 10)), 0) + offset}
-        )
+        local tween = TweenService:Create(hrp, TweenInfo.new(distance / 25, Enum.EasingStyle.Linear), {CFrame = coin.CFrame * CFrame.Angles(0, math.rad(math.random(-10, 10)), 0) + offset})
         tween:Play()
         tween.Completed:Wait()
     end
@@ -352,10 +345,10 @@ local function autoFarmCoins()
                 if newCoin and newCoin ~= coin then
                     break
                 end
-                task.wait() -- Tối thiểu delay để tránh treo game
+                task.wait()
             end
         end
-        task.wait() -- Tối thiểu delay giữa các lần lặp
+        task.wait()
     end
 end
 
