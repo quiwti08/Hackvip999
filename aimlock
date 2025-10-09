@@ -466,6 +466,27 @@ local function distToCursorFromWorldPos(pos)
     return (screenPos - Vector2.new(mousePos.X, mousePos.Y)).Magnitude
 end
 
+local function getNearestSelectedAliveVisible()
+    local best, bestDist = nil, math.huge
+    for ply in pairs(selected) do
+        if ply then
+            if isAlive(ply) and ply.Character then
+                local head = ply.Character:FindFirstChild("Head")
+                if head and head.Position then
+                    if isVisibleFromCamera(head) then
+                        local d = distToCursorFromWorldPos(head.Position)
+                        if d < bestDist and d <= maxSelectPx then
+                            bestDist = d
+                            best = ply
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best, bestDist
+end
+
 -- VISIBILITY CHECK: returns true if direct line from camera to targetHead hits the target (or nothing)
 local function isVisibleFromCamera(targetHead)
     if not targetHead or not targetHead.Position then return false end
