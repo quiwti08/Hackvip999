@@ -86,6 +86,7 @@ end)
 -- ====== CONFIG ======
 local selectKey    = Enum.KeyCode.Q
 local aimlockKey   = Enum.KeyCode.H
+local viewKey = Enum.KeyCode.B
 local predictionTime = 0.17221418
 local aimSmoothing = 1 
 local maxSelectPx = 99999 
@@ -93,11 +94,11 @@ local AutoPingSets = true
 local wasAimlockEnabledBeforeKO = false
 
 -- ====== STATE ======
-local selected = {}   -- map player -> Highlight instance
+local selected = nil
 local Notifications = {}
 local Notifications_Frame = nil
 local aimlockEnabled = true
-local camlockEnabled = false
+local viewEnabled = false
 local stomptarget = false 
 
 local possibleRemotes = {
@@ -345,13 +346,8 @@ local function Notify(Content, Delay)
     end)
 end
 
--- Highlight helpers (create once, enable/disable)
 local function createOrGetHighlightForPlayer(ply)
     if not ply then return nil end
-    local existing = selected[ply]
-    if existing and existing:IsA("Highlight") then
-        return existing
-    end
     local hl = Instance.new("Highlight")
     hl.Name = "TB_Highlight"
     hl.Adornee = ply.Character or nil
@@ -361,28 +357,20 @@ local function createOrGetHighlightForPlayer(ply)
     hl.OutlineTransparency = 0
     hl.Enabled = false
     hl.Parent = workspace
-    selected[ply] = hl
     return hl
 end
-
-local tracers = {} -- map player -> Beam
 
 local function createTracer(ply)
     if not LP.Character or not ply.Character then return end
     local hrp1 = LP.Character:FindFirstChild("HumanoidRootPart")
     local hrp2 = ply.Character:FindFirstChild("HumanoidRootPart")
     if not hrp1 or not hrp2 then return end
-
-    -- Nếu đã có tracer cũ thì xóa
     if tracers[ply] then
         tracers[ply]:Destroy()
         tracers[ply] = nil
     end
-
-    -- Tạo tracer
     local att1 = Instance.new("Attachment", hrp1)
     local att2 = Instance.new("Attachment", hrp2)
-
     local beam = Instance.new("Beam")
     beam.Attachment0 = att1
     beam.Attachment1 = att2
@@ -390,15 +378,10 @@ local function createTracer(ply)
     beam.Width0 = 0.08
     beam.Width1 = 0.08
     beam.Parent = hrp1
-
     tracers[ply] = beam
-
-    -- Cập nhật khi target respawn
     ply.CharacterAdded:Connect(function(newChar)
         task.wait(0.2)
         local newHrp = newChar:WaitForChild("HumanoidRootPart")
-
-        -- cập nhật beam
         if tracers[ply] then
             local newAtt = Instance.new("Attachment", newHrp)
             tracers[ply].Attachment1 = newAtt
@@ -406,7 +389,6 @@ local function createTracer(ply)
     end)
 end
 
--- Sửa hàm removeTracer để xóa cả vòng tròn
 local function removeTracer(ply)
     if tracers[ply] then
         tracers[ply]:Destroy()
@@ -414,24 +396,16 @@ local function removeTracer(ply)
     end
 end
 
--- Sửa hàm removeAllTracers để xóa tất cả vòng tròn
-local function removeAllTracers()
-    for ply, beam in pairs(tracers) do
-        if beam then beam:Destroy() end
-    end
-    tracers = {}
-end
-
--- Xử lý khi LocalPlayer hồi sinh
 LocalPlayer.CharacterAdded:Connect(function(newChar)
-    task.wait(0.2) -- Đợi nhân vật tải hoàn tất
-    -- Xóa tất cả tracer và vòng tròn cũ
-    removeAllTracers()
-    
-    -- Tái tạo tracer và vòng tròn cho tất cả mục tiêu đang được chọn
-    for ply, hl in pairs(selected) do
-        if ply and hl and hl.Enabled and ply.Character then
-            createTracer(ply) -- Gắn lại tracer và vòng tròn
+    task.wait(0.2)
+    if selected and selected.Character then
+        if chamsTargetEnabled then
+            local hl = createOrGetHighlightForPlayer(selected)
+            hl.Adornee = selected.Character
+            hl.Enabled = true
+        end
+        if tracerTargetEnabled then
+            createTracer(selected)
         end
     end
 end)
@@ -441,48 +415,106 @@ local function addHighlightToPlayer(ply)
     local hl = createOrGetHighlightForPlayer(ply)
     if hl then
         hl.Adornee = ply.Character or hl.Adornee
-        hl.Enabled = true
+        hl.Enabled = chamsTargetEnabled
     end
 end
 
 local function removeHighlightFromPlayer(ply)
     if not ply then return end
-    local hl = selected[ply]
-    if hl and hl:IsA("Highlight") then
-        pcall(function() hl.Enabled = false end)
+    local hl = createOrGetHighlightForPlayer(ply)
+    if hl then
+        hl.Enabled = false
     end
 end
 
 local function fullyRemoveHighlight(ply)
     if not ply then return end
-    local hl = selected[ply]
+    local hl = createOrGetHighlightForPlayer(ply)
     if hl and hl.Destroy then
         pcall(function() hl:Destroy() end)
     end
-    selected[ply] = nil
 end
 
 local function toggleSelectPlayer(ply)
-    if not ply then return end
-    local hl = createOrGetHighlightForPlayer(ply)
-    if hl and hl.Enabled then
+    if not ply then
+        if selected then
+            removeHighlightFromPlayer(selected)
+            removeTracer(selected)
+            Notify(string.format("Deselected %s (@%s)", selected.DisplayName or selected.Name, selected.Name), 2)
+            selected = nil
+            if UIS.TouchEnabled then
+                ImageButton.Image = "rbxassetid://140623923630784"
+                task.spawn(function()
+                    task.wait(1)
+                    ImageButton.Image = "rbxassetid://96086736054343"
+                end)
+            end
+        end
+        return
+    end
+    if selected == ply then
         removeHighlightFromPlayer(ply)
-        removeTracer(ply) -- gỡ tracer khi bỏ chọn
+        removeTracer(ply)
         Notify(string.format("Deselected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 2)
-        -- Thay đổi hình ảnh ImageButton khi unselected
-        ImageButton.Image = "rbxassetid://140623923630784"
-        -- Chờ 1 giây rồi đổi lại hình ảnh gốc
-        task.spawn(function()
-            task.wait(1)
-            ImageButton.Image = "rbxassetid://96086736054343"
-        end)
+        selected = nil
+        if UIS.TouchEnabled then
+            ImageButton.Image = "rbxassetid://140623923630784"
+            task.spawn(function()
+                task.wait(1)
+                ImageButton.Image = "rbxassetid://96086736054343"
+            end)
+        end
     else
-        addHighlightToPlayer(ply)
-        createTracer(ply) -- tạo tracer khi chọn
+        if selected then
+            removeHighlightFromPlayer(selected)
+            removeTracer(selected)
+        end
+        selected = ply
+        if chamsTargetEnabled then
+            addHighlightToPlayer(ply)
+        end
+        if tracerTargetEnabled then
+            createTracer(ply)
+        end
         Notify(string.format("Selected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 3)
-        ImageButton.Image = "rbxassetid://96086736054343"
+        if UIS.TouchEnabled then
+            ImageButton.Image = "rbxassetid://96086736054343"
+        end
     end
 end
+
+-- View Target
+local function toggleViewTarget(state)
+    viewEnabled = state
+    if viewEnabled then
+        if selected and selected.Character then
+            local head = selected.Character:FindFirstChild("Head")
+            if head then
+                Cam.CameraSubject = head
+                Notify("Viewing " .. selected.Name .. "'s head", 2)
+            else
+                viewEnabled = false
+                Notify("Target has no head.", 2)
+            end
+        else
+            viewEnabled = false
+            Notify("No target selected.", 2)
+        end
+    else
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            Cam.CameraSubject = hum
+        end
+        Notify("View disabled", 2)
+    end
+end
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == viewKey then
+        toggleViewTarget(not viewEnabled)
+    end
+end)
 
 -- Distance from world pos to mouse cursor in px (no visibility check here)
 local function distToCursorFromWorldPos(pos)
@@ -658,48 +690,18 @@ instantStompConnection = UIS.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
-UIS.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.B then
-        camlockEnabled = not camlockEnabled
-        if camlockEnabled then
-            local target = getNearestSelectedPlayer()
-            if target and target.Character then
-                local head = target.Character:FindFirstChild("Head")
-                if head then
-                    Cam.CameraSubject = head
-                    Notify("Camera locked to "..target.Name.."'s head", 2)
-                else
-                    camlockEnabled = false
-                    Notify("Target has no head.", 2)
-                end
-            else
-                camlockEnabled = false
-                Notify("No valid target.", 2)
-            end
-        else
-            local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                Cam.CameraSubject = hum
-            end
-            Notify("Camera lock disabled", 2)
-        end
-    end
-end)
-
 -- chọn player gần tâm màn hình nhất
 local function selectNearestPlayerToCenter()
     local center = Vector2.new(Cam.ViewportSize.X/2, Cam.ViewportSize.Y/2)
     local best, bestDist = nil, math.huge
-    for _,p in ipairs(Players:GetPlayers()) do
+    for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LP and p.Character then
             local root = p.Character:FindFirstChild("HumanoidRootPart")
             if root and root.Position then
                 local v = Cam:WorldToViewportPoint(root.Position)
-                local screenPos = Vector2.new(v.X, v.Y)
                 local onScreen = v.Z > 0 and v.X >= 0 and v.X <= Cam.ViewportSize.X and v.Y >= 0 and v.Y <= Cam.ViewportSize.Y
                 if onScreen then
-                    local d = (screenPos - center).Magnitude
+                    local d = (Vector2.new(v.X, v.Y) - center).Magnitude
                     if d < bestDist then
                         bestDist = d
                         best = p
@@ -708,12 +710,7 @@ local function selectNearestPlayerToCenter()
             end
         end
     end
-
-    if best then
-        toggleSelectPlayer(best)
-    else
-        Notify("No valid target found.", 2)
-    end
+    toggleSelectPlayer(best)
 end
 
 local Sigmaballs = Instance.new("ScreenGui")
@@ -1011,14 +1008,13 @@ local hitParts = {
 local function validPart(p)
     if not p or not p.Parent or not p.Parent:FindFirstChild("Humanoid") then return false end
     local player = Players:GetPlayerFromCharacter(p.Parent)
-    if not player or not selected[player] or not selected[player].Enabled then return false end
+    if not player or player ~= selected then return false end
     for _, n in ipairs(hitParts) do
         if p.Name:lower() == n:lower() then return true end
     end
     return false
 end
 
--- Hàm tính khoảng cách từ bộ phận đến con trỏ
 local function distToCursor(part)
     local v, vis = Cam:WorldToViewportPoint(part.Position)
     if not vis then return math.huge end
@@ -1026,7 +1022,6 @@ local function distToCursor(part)
     return (Vector2.new(v.X, v.Y) - Vector2.new(m.X, m.Y)).Magnitude
 end
 
--- Hàm giả lập click
 local function click()
     if UIS.TouchEnabled then
         local touchPos = UIS:GetMouseLocation()
@@ -1034,40 +1029,24 @@ local function click()
         task.wait()
         VIM:SendTouchEvent(0, Enum.UserInputState.End, touchPos)
     else
-        -- Kiểm tra sự tồn tại của mouse1press/mouse1release hoặc mouse1click
-        if mouse1press and mouse1release then
-            pcall(function()
-                mouse1press()
-                mouse1release()
-            end)
-        elseif mouse1click then
-            pcall(function()
-                mouse1click()
-            end)
-        else
-            -- Fallback: Giả lập click chuột trái nếu các hàm trên không tồn tại
-            pcall(function()
-                VIM:SendMouseButtonEvent(0, 0, 0, true) -- MouseButton1 down
-                task.wait()
-                VIM:SendMouseButtonEvent(0, 0, 0, false) -- MouseButton1 up
-            end)
-        end
+        pcall(function()
+            VIM:SendMouseButtonEvent(0, 0, 0, true)
+            task.wait()
+            VIM:SendMouseButtonEvent(0, 0, 0, false)
+        end)
     end
 end
 
--- Hàm tìm bộ phận mục tiêu tốt nhất
 local function GetBestTargetPart()
     local bestPart, bestDist = nil, fovRadius
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and selected[plr] and selected[plr].Enabled and isAlive(plr) and plr.Character then
-            for _, partName in ipairs(hitParts) do
-                local part = plr.Character:FindFirstChild(partName)
-                if part and part:IsA("BasePart") then
-                    local dist = distToCursor(part)
-                    if dist < bestDist then
-                        bestPart = part
-                        bestDist = dist
-                    end
+    if selected and selected.Character and isAlive(selected) then
+        for _, partName in ipairs(hitParts) do
+            local part = selected.Character:FindFirstChild(partName)
+            if part and part:IsA("BasePart") then
+                local dist = distToCursor(part)
+                if dist < bestDist then
+                    bestPart = part
+                    bestDist = dist
                 end
             end
         end
@@ -1238,30 +1217,17 @@ end)
 
 -- ====== AIMLOCK LOOP ======
 Run.RenderStepped:Connect(function(dt)
-
     local char = LocalPlayer.Character
     if not char then return end
-    
     local tool = char:FindFirstChildWhichIsA("Tool")
     if not tool then return end
-
     local ammo = tool:FindFirstChild("Ammo")
     if ammo and ammo.Value <= 0 and autoReload then
-        -- Reload (Normal)
         MainRemote:FireServer("Reload", tool)
         task.wait(3.7)
     end
-
-    if not aimlockEnabled then return end
-
-    -- choose nearest selected & alive & visible target (head only)
-    local target, dist = getNearestSelectedAliveVisible()
-    if not target then
-        return
-    end
-
-    -- get head and predict
-    local targetPart = target.Character and target.Character:FindFirstChild(currentHitPart)
+    if not aimlockEnabled or not selected then return end
+    local targetPart = selected.Character and selected.Character:FindFirstChild(GetPart(selected))
     if not targetPart then return end
     if resolverEnabled then
         pcall(function()
@@ -1269,23 +1235,17 @@ Run.RenderStepped:Connect(function(dt)
             targetPart.AssemblyLinearVelocity = Vector3.new(targetPart.AssemblyLinearVelocity.X, 0, targetPart.AssemblyLinearVelocity.Z)
         end)
     end
-
-    if resolverEnabled and target.Character:FindFirstChild("HumanoidRootPart") and
-        target.Character.HumanoidRootPart.Velocity.Magnitude > targetPart.Velocity.Magnitude then
+    if resolverEnabled and selected.Character:FindFirstChild("HumanoidRootPart") and
+        selected.Character.HumanoidRootPart.Velocity.Magnitude > targetPart.Velocity.Magnitude then
         pcall(function()
             targetPart.Velocity = Vector3.new(0, 0, 0)
             targetPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
         end)
     end
-    
     local vel = targetPart.Velocity or Vector3.new(0,0,0)
     local predicted = targetPart.Position + vel * predictionTime
-
-    -- desired camera CFrame looking from current cam position to predicted point
     local camPos = Cam.CFrame.Position
     local desiredCFrame = CFrame.new(camPos, predicted)
-
-    -- apply smoothing (alpha = aimSmoothing)
     local alpha = math.clamp(aimSmoothing, 0, 1)
     local newCFrame = Cam.CFrame:Lerp(desiredCFrame, alpha)
     pcall(function() Cam.CFrame = newCFrame end)
@@ -1752,7 +1712,6 @@ local Window = WindUI:CreateWindow({
 
 -- Các Tab mới theo yêu cầu
 local AimlockTab = Window:Tab({ Title = "Aimlock", Icon = "target" })
-local AntilockTab = Window:Tab({ Title = "Antilock", Icon = "shield" })
 local VisualESPTab = Window:Tab({ Title = "Visual ESP", Icon = "eye" })
 local MiscTab = Window:Tab({ Title = "Misc", Icon = "settings" })
 local SettingsTab = Window:Tab({ Title = "Settings", Icon = "settings-2" })
@@ -1870,7 +1829,13 @@ AimlockSection:Toggle({
         Notify("Aimlock: " .. (state and "ON" or "OFF"), 2)
     end
 })
-
+AimlockSection:Toggle({
+    Title = "View Target",
+    Value = viewEnabled,
+    Callback = function(state)
+        toggleViewTarget(state)
+    end
+})
 AimlockSection:Slider({
     Title = "Smoothing",
     Value = { Min = 0.1, Max = 1, Default = aimSmoothing },
@@ -1896,6 +1861,25 @@ AimlockSection:Dropdown({
     Callback = function(value)
         airPart = value
         Notify("Air Part set to " .. value, 2)
+    end
+})
+
+AimlockSection:Toggle({
+    Title = "Antilock",
+    Value = getgenv().antilock,
+    Callback = function(state)
+        getgenv().antilock = state
+        Notify("Antilock: " .. (state and "ON" or "OFF"), 2)
+    end
+})
+
+
+AimlockSection:Toggle({
+    Title = "Resolver",
+    Value = resolverEnabled,
+    Callback = function(state)
+        resolverEnabled = state
+        Notify("Resolver: " .. (state and "ON" or "OFF"), 2)
     end
 })
 
@@ -1929,12 +1913,45 @@ AimlockSection:Dropdown({
 
 local TargetSection = AimlockTab:Section({ Title = "Target Visuals" })
 
+TargetSection:Toggle({
+    Title = "Chams",
+    Value = chamsTargetEnabled,
+    Callback = function(state)
+        chamsTargetEnabled = state
+        if selected then
+            local hl = createOrGetHighlightForPlayer(selected)
+            hl.Enabled = state and selected.Character ~= nil
+        end
+        Notify("Chams: " .. (state and "ON" or "OFF"), 2)
+    end
+})
 TargetSection:Colorpicker({
     Title = "Chams Color",
     Default = targetChamsColor,
     Callback = function(color)
         targetChamsColor = color
+        if selected then
+            local hl = createOrGetHighlightForPlayer(selected)
+            hl.FillColor = color
+            hl.OutlineColor = color
+        end
         Notify("Chams Color updated", 2)
+    end
+})
+
+TargetSection:Toggle({
+    Title = "Tracer",
+    Value = tracerTargetEnabled,
+    Callback = function(state)
+        tracerTargetEnabled = state
+        if selected then
+            if state and selected.Character then
+                createTracer(selected)
+            else
+                removeTracer(selected)
+            end
+        end
+        Notify("Tracer: " .. (state and "ON" or "OFF"), 2)
     end
 })
 
@@ -1943,25 +1960,10 @@ TargetSection:Colorpicker({
     Default = targetTracerColor,
     Callback = function(color)
         targetTracerColor = color
-    end
-})
-
-local AntilockSection = AntilockTab:Section({ Title = "Antilock Settings" })
-AntilockSection:Toggle({
-    Title = "Antilock",
-    Value = getgenv().antilock,
-    Callback = function(state)
-        getgenv().antilock = state
-        Notify("Antilock: " .. (state and "ON" or "OFF"), 2)
-    end
-})
-
-AntilockSection:Toggle({
-    Title = "Resolver",
-    Value = resolverEnabled,
-    Callback = function(state)
-        resolverEnabled = state
-        Notify("Resolver: " .. (state and "ON" or "OFF"), 2)
+        if selected and tracerTargetEnabled then
+            removeTracer(selected)
+            createTracer(selected)
+        end
     end
 })
 
