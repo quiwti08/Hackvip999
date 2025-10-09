@@ -60,7 +60,18 @@ rapidFireEndConnection = UIS.InputEnded:Connect(function(i)
     end
 end)
 
-
+game:GetService("RunService").Stepped:Connect(function()
+    if not inStomp then
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("Animate") then
+            char.Animate.idle.Animation1.AnimationId = "http://www.roblox.com/asset/?id=133806214992291"
+            char.Animate.idle.Animation2.AnimationId = "http://www.roblox.com/asset/?id=94970088341563"
+            char.Animate.run.RunAnim.AnimationId = "http://www.roblox.com/asset/?id=616163682"
+            char.Animate.jump.JumpAnim.AnimationId = "http://www.roblox.com/asset/?id=656117878"
+            char.Animate.fall.FallAnim.AnimationId = "http://www.roblox.com/asset/?id=707829716"
+        end
+    end
+end)
 
 spawn(function()
     Run.Heartbeat:Connect(function()
@@ -466,27 +477,6 @@ local function distToCursorFromWorldPos(pos)
     return (screenPos - Vector2.new(mousePos.X, mousePos.Y)).Magnitude
 end
 
-local function getNearestSelectedAliveVisible()
-    local best, bestDist = nil, math.huge
-    for ply in pairs(selected) do
-        if ply then
-            if isAlive(ply) and ply.Character then
-                local head = ply.Character:FindFirstChild("Head")
-                if head and head.Position then
-                    if isVisibleFromCamera(head) then
-                        local d = distToCursorFromWorldPos(head.Position)
-                        if d < bestDist and d <= maxSelectPx then
-                            bestDist = d
-                            best = ply
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return best, bestDist
-end
-
 -- VISIBILITY CHECK: returns true if direct line from camera to targetHead hits the target (or nothing)
 local function isVisibleFromCamera(targetHead)
     if not targetHead or not targetHead.Position then return false end
@@ -509,7 +499,46 @@ local function isVisibleFromCamera(targetHead)
         return true
     end
     return false
-end 
+end
+
+-- get nearest SELECTED, ALIVE, VISIBLE player to cursor (head target). returns player or nil
+local function getNearestSelectedAliveVisible()
+    local best, bestDist = nil, math.huge
+    for ply, hl in pairs(selected) do
+        if ply and hl and hl.Enabled then
+            if isAlive(ply) and ply.Character then
+                local head = ply.Character:FindFirstChild("Head")
+                if head and head.Position then
+                    if isVisibleFromCamera(head) then
+                        local d = distToCursorFromWorldPos(head.Position)
+                        if d < bestDist and d <= maxSelectPx then
+                            bestDist = d
+                            best = ply
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best, bestDist
+end
+
+local function getNearestSelectedPlayer()
+    local best, bestDist = nil, math.huge
+    for ply, hl in pairs(selected) do
+        if ply and hl and hl.Enabled and isAlive(ply) and ply.Character then
+            local root = ply.Character:FindFirstChild("HumanoidRootPart") or ply.Character.PrimaryPart
+            if root then
+                local dist = (root.Position - Cam.CFrame.Position).Magnitude
+                if dist < bestDist then
+                    bestDist = dist
+                    best = ply
+                end
+            end
+        end
+    end
+    return best
+end
 
 -- cleanup when players leave
 Players.PlayerRemoving:Connect(function(p)
@@ -1195,30 +1224,17 @@ end)
 
 -- ====== AIMLOCK LOOP ======
 Run.RenderStepped:Connect(function(dt)
-
     local char = LocalPlayer.Character
     if not char then return end
-    
     local tool = char:FindFirstChildWhichIsA("Tool")
     if not tool then return end
-
     local ammo = tool:FindFirstChild("Ammo")
     if ammo and ammo.Value <= 0 and autoReload then
-        -- Reload (Normal)
         MainRemote:FireServer("Reload", tool)
         task.wait(3.7)
     end
-
-    if not aimlockEnabled then return end
-
-    -- choose nearest selected & alive & visible target (head only)
-    local target, dist = getNearestSelectedAliveVisible()
-    if not target then
-        return
-    end
-
-    -- get head and predict
-    local targetPart = target.Character and GetPart(target)
+    if not aimlockEnabled or not selected then return end
+    local targetPart = selected.Character and selected.Character:FindFirstChild(GetPart(selected))
     if not targetPart then return end
     if resolverEnabled then
         pcall(function()
@@ -1226,23 +1242,17 @@ Run.RenderStepped:Connect(function(dt)
             targetPart.AssemblyLinearVelocity = Vector3.new(targetPart.AssemblyLinearVelocity.X, 0, targetPart.AssemblyLinearVelocity.Z)
         end)
     end
-
-    if resolverEnabled and target.Character:FindFirstChild("HumanoidRootPart") and
-        target.Character.HumanoidRootPart.Velocity.Magnitude > targetPart.Velocity.Magnitude then
+    if resolverEnabled and selected.Character:FindFirstChild("HumanoidRootPart") and
+        selected.Character.HumanoidRootPart.Velocity.Magnitude > targetPart.Velocity.Magnitude then
         pcall(function()
             targetPart.Velocity = Vector3.new(0, 0, 0)
             targetPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
         end)
     end
-    
     local vel = targetPart.Velocity or Vector3.new(0,0,0)
     local predicted = targetPart.Position + vel * predictionTime
-
-    -- desired camera CFrame looking from current cam position to predicted point
     local camPos = Cam.CFrame.Position
     local desiredCFrame = CFrame.new(camPos, predicted)
-
-    -- apply smoothing (alpha = aimSmoothing)
     local alpha = math.clamp(aimSmoothing, 0, 1)
     local newCFrame = Cam.CFrame:Lerp(desiredCFrame, alpha)
     pcall(function() Cam.CFrame = newCFrame end)
