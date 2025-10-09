@@ -499,46 +499,7 @@ local function isVisibleFromCamera(targetHead)
         return true
     end
     return false
-end
-
--- get nearest SELECTED, ALIVE, VISIBLE player to cursor (head target). returns player or nil
-local function getNearestSelectedAliveVisible()
-    local best, bestDist = nil, math.huge
-    for ply, hl in pairs(selected) do
-        if ply and hl and hl.Enabled then
-            if isAlive(ply) and ply.Character then
-                local head = ply.Character:FindFirstChild("Head")
-                if head and head.Position then
-                    if isVisibleFromCamera(head) then
-                        local d = distToCursorFromWorldPos(head.Position)
-                        if d < bestDist and d <= maxSelectPx then
-                            bestDist = d
-                            best = ply
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return best, bestDist
-end
-
-local function getNearestSelectedPlayer()
-    local best, bestDist = nil, math.huge
-    for ply, hl in pairs(selected) do
-        if ply and hl and hl.Enabled and isAlive(ply) and ply.Character then
-            local root = ply.Character:FindFirstChild("HumanoidRootPart") or ply.Character.PrimaryPart
-            if root then
-                local dist = (root.Position - Cam.CFrame.Position).Magnitude
-                if dist < bestDist then
-                    bestDist = dist
-                    best = ply
-                end
-            end
-        end
-    end
-    return best
-end
+end 
 
 -- cleanup when players leave
 Players.PlayerRemoving:Connect(function(p)
@@ -1234,8 +1195,14 @@ Run.RenderStepped:Connect(function(dt)
         task.wait(3.7)
     end
     if not aimlockEnabled or not selected then return end
+    -- Kiểm tra trạng thái sống, K.O, Grab
+    if not isAlive(selected) then
+        return -- Tạm dừng aimlock, không bỏ chọn mục tiêu
+    end
     local targetPart = selected.Character and selected.Character:FindFirstChild(GetPart(selected))
     if not targetPart then return end
+    -- Kiểm tra xem mục tiêu có bị chặn bởi tường không
+    if not isVisibleFromCamera(targetPart) then return end
     if resolverEnabled then
         pcall(function()
             targetPart.Velocity = Vector3.new(targetPart.Velocity.X, 0, targetPart.Velocity.Z)
