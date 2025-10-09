@@ -360,6 +360,8 @@ local function createOrGetHighlightForPlayer(ply)
     return hl
 end
 
+local tracers = {}  -- Giữ table tracers như cũ
+
 local function createTracer(ply)
     if not LP.Character or not ply.Character then return end
     local hrp1 = LP.Character:FindFirstChild("HumanoidRootPart")
@@ -388,7 +390,6 @@ local function createTracer(ply)
         end
     end)
 end
-
 local function removeTracer(ply)
     if tracers[ply] then
         tracers[ply]:Destroy()
@@ -432,54 +433,6 @@ local function fullyRemoveHighlight(ply)
     local hl = createOrGetHighlightForPlayer(ply)
     if hl and hl.Destroy then
         pcall(function() hl:Destroy() end)
-    end
-end
-
-local function toggleSelectPlayer(ply)
-    if not ply then
-        if selected then
-            removeHighlightFromPlayer(selected)
-            removeTracer(selected)
-            Notify(string.format("Deselected %s (@%s)", selected.DisplayName or selected.Name, selected.Name), 2)
-            selected = nil
-            if UIS.TouchEnabled then
-                ImageButton.Image = "rbxassetid://140623923630784"
-                task.spawn(function()
-                    task.wait(1)
-                    ImageButton.Image = "rbxassetid://96086736054343"
-                end)
-            end
-        end
-        return
-    end
-    if selected == ply then
-        removeHighlightFromPlayer(ply)
-        removeTracer(ply)
-        Notify(string.format("Deselected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 2)
-        selected = nil
-        if UIS.TouchEnabled then
-            ImageButton.Image = "rbxassetid://140623923630784"
-            task.spawn(function()
-                task.wait(1)
-                ImageButton.Image = "rbxassetid://96086736054343"
-            end)
-        end
-    else
-        if selected then
-            removeHighlightFromPlayer(selected)
-            removeTracer(selected)
-        end
-        selected = ply
-        if chamsTargetEnabled then
-            addHighlightToPlayer(ply)
-        end
-        if tracerTargetEnabled then
-            createTracer(ply)
-        end
-        Notify(string.format("Selected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 3)
-        if UIS.TouchEnabled then
-            ImageButton.Image = "rbxassetid://96086736054343"
-        end
     end
 end
 
@@ -606,54 +559,6 @@ end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(onCharacterAdded) end)
 for _,p in ipairs(Players:GetPlayers()) do p.CharacterAdded:Connect(onCharacterAdded) end
 
--- ====== SELECT INPUT ======
-UIS.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        if input.KeyCode == selectKey then
-            -- find nearest player to cursor (across all players) — this is for toggling selection
-            local best, bestDist = nil, math.huge
-            for _,p in ipairs(Players:GetPlayers()) do
-                if p ~= LP and p.Character then
-                    local root = p.Character:FindFirstChild("HumanoidRootPart")
-                    if root and root.Position then
-                        local v = Cam:WorldToViewportPoint(root.Position)
-                        local onScreen = v.Z > 0 and v.X >= 0 and v.X <= Cam.ViewportSize.X and v.Y >= 0 and v.Y <= Cam.ViewportSize.Y
-                        if onScreen then
-                            local d = distToCursorFromWorldPos(root.Position)
-                            if d < bestDist then
-                                bestDist = d
-                                best = p
-                            end
-                        end
-                    end
-                end
-            end
-
-            if best then
-                toggleSelectPlayer(best)
-            else
-                Notify("No valid target found.", 2)
-            end
-            return
-        end
-        if input.KeyCode == aimlockKey then
-            aimlockEnabled = not aimlockEnabled
-            if aimlockEnabled then
-                Notify("Aimlock: ON", 2)
-            else
-                for ply, hl in pairs(selected) do
-                    fullyRemoveHighlight(ply)
-                    removeTracer(ply)        
-                end
-                selected = {}
-                Notify("Aimlock: OFF", 2)
-            end
-            return
-        end
-    end
-end)
-
 local instantStompConnection
 instantStompConnection = UIS.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
@@ -690,7 +595,63 @@ instantStompConnection = UIS.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- chọn player gần tâm màn hình nhất
+-- Mobile UI
+local Sigmaballs = Instance.new("ScreenGui")
+Sigmaballs.Name = "Sigmaballs"
+Sigmaballs.Parent = game.CoreGui
+Sigmaballs.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Sigmaballs.ResetOnSpawn = false
+
+local lockid = "rbxassetid://140623923630784"
+
+local function toggleSelectPlayer(ply)
+    if not ply then
+        if selected then
+            removeHighlightFromPlayer(selected)
+            removeTracer(selected)
+            Notify(string.format("Deselected %s (@%s)", selected.DisplayName or selected.Name, selected.Name), 2)
+            selected = nil
+            if UIS.TouchEnabled then
+                lockid = "rbxassetid://140623923630784"
+                if ImageButton then
+                    ImageButton.Image = lockid
+                end
+            end
+        end
+        return
+    end
+    if selected == ply then
+        removeHighlightFromPlayer(ply)
+        removeTracer(ply)
+        Notify(string.format("Deselected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 2)
+        selected = nil
+        if UIS.TouchEnabled then
+            lockid = "rbxassetid://140623923630784"
+            if ImageButton then
+                ImageButton.Image = lockid
+            end
+        end
+    else
+        if selected then
+            removeHighlightFromPlayer(selected)
+            removeTracer(selected)
+        end
+        selected = ply
+        if chamsTargetEnabled then
+            addHighlightToPlayer(ply)
+        end
+        if tracerTargetEnabled then
+            createTracer(ply)
+        end
+        Notify(string.format("Selected %s (@%s)", ply.DisplayName or ply.Name, ply.Name), 3)
+        if UIS.TouchEnabled then
+            lockid = "rbxassetid://96086736054343"
+            if ImageButton then
+                ImageButton.Image = lockid
+            end
+        end
+    end
+end
 local function selectNearestPlayerToCenter()
     local center = Vector2.new(Cam.ViewportSize.X/2, Cam.ViewportSize.Y/2)
     local best, bestDist = nil, math.huge
@@ -711,22 +672,11 @@ local function selectNearestPlayerToCenter()
         end
     end
     toggleSelectPlayer(best)
+    if not best then
+        Notify("No valid target found near screen center.", 2)
+    end
 end
-
-local Sigmaballs = Instance.new("ScreenGui")
-Sigmaballs.Name = "Sigmaballs"
-Sigmaballs.Parent = game.CoreGui
-Sigmaballs.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Sigmaballs.ResetOnSpawn = false
-
-
 if UIS.TouchEnabled then
-    local Sigmaballs = Instance.new("ScreenGui")
-    Sigmaballs.Name = "Sigmaballs"
-    Sigmaballs.Parent = game.CoreGui
-    Sigmaballs.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    Sigmaballs.ResetOnSpawn = false
-
     local ImageButton = Instance.new("ImageButton")
     ImageButton.Name = "ImageButton"
     ImageButton.Parent = Sigmaballs
@@ -735,17 +685,69 @@ if UIS.TouchEnabled then
     ImageButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     ImageButton.BackgroundTransparency = 0.5
     ImageButton.Size = UDim2.new(0, 90, 0, 90)
-    ImageButton.Image = "rbxassetid://96086736054343"
+    ImageButton.Image = lockid
     ImageButton.Position = UDim2.new(0.5, -25, 0.5, -25)
-
     local Ui2corner = Instance.new("UICorner")
     Ui2corner.CornerRadius = UDim.new(0.2, 0)
     Ui2corner.Parent = ImageButton
-
     ImageButton.MouseButton1Click:Connect(function()
         selectNearestPlayerToCenter()
+        ImageButton.Image = lockid
     end)
 end
+-- Input Handling
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == selectKey then
+            if UIS.TouchEnabled then
+                selectNearestPlayerToCenter()
+            else
+                local best, bestDist = nil, math.huge
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= LP and p.Character then
+                        local root = p.Character:FindFirstChild("HumanoidRootPart")
+                        if root and root.Position then
+                            local v = Cam:WorldToViewportPoint(root.Position)
+                            local onScreen = v.Z > 0 and v.X >= 0 and v.X <= Cam.ViewportSize.X and v.Y >= 0 and v.Y <= Cam.ViewportSize.Y
+                            if onScreen then
+                                local d = distToCursorFromWorldPos(root.Position)
+                                if d < bestDist then
+                                    bestDist = d
+                                    best = p
+                                end
+                            end
+                        end
+                    end
+                end
+                toggleSelectPlayer(best)
+                if not best then
+                    Notify("No valid target found.", 2)
+                end
+            end
+            return
+        end
+        if input.KeyCode == aimlockKey then
+            aimlockEnabled = not aimlockEnabled
+            Notify("Aimlock: " .. (aimlockEnabled and "ON" or "OFF"), 2)
+            if not aimlockEnabled then
+                if selected then
+                    removeHighlightFromPlayer(selected)
+                    removeTracer(selected)
+                    selected = nil
+                    if UIS.TouchEnabled then
+                        ImageButton.Image = "rbxassetid://140623923630784"
+                    end
+                end
+            end
+            return
+        end
+        if input.KeyCode == viewKey then
+            toggleViewTarget(not viewEnabled)
+            return
+        end
+    end
+end)
 
 local dog = false -- Biến cho WalkSpeed
 local howmany = 0 -- Đếm số nút
@@ -956,28 +958,20 @@ local function toggleStomp()
                 connection:Disconnect()
                 return
             end
-
             local char = LP.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             if not hum or not hrp then return end
-
-            for ply, hl in pairs(selected) do
-                if ply and hl and hl.Enabled and ply.Character then
-                    local targetChar = ply.Character
-                    local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
-                    local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
-
-                    if targetHum and targetHum.Health <= 0 and not isKO(ply) then
-                        continue
-                    end
-                    if isKO(ply) and targetHrp then
-                        local dist = (hrp.Position - targetHrp.Position).Magnitude
-                        if dist <= 20 then
-                            pcall(function() MainRemote:FireServer("Stomp") end)
-                            pcall(function() MainRemote:FireServer("STOMP") end)
-                            playStompAnim(hum) -- chạy anim
-                        end
+            if selected and selected.Character then
+                local targetChar = selected.Character
+                local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+                local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
+                if targetHum and isKO(selected) and targetHrp then
+                    local dist = (hrp.Position - targetHrp.Position).Magnitude
+                    if dist <= 20 then
+                        pcall(function() MainRemote:FireServer("Stomp") end)
+                        pcall(function() MainRemote:FireServer("STOMP") end)
+                        playStompAnim(hum)
                     end
                 end
             end
@@ -992,6 +986,19 @@ local function toggleStomp()
         end
     end
 end
+Players.PlayerRemoving:Connect(function(p)
+    if selected == p then
+        removeHighlightFromPlayer(p)
+        removeTracer(p)
+        selected = nil
+        if UIS.TouchEnabled then
+            lockid = "rbxassetid://140623923630784"
+            if ImageButton then
+                ImageButton.Image = lockid
+            end
+        end
+    end
+end)
 
 -- Biến autoshoot
 local tbEnabled = false
@@ -1385,14 +1392,14 @@ local LocalPlayer = Players.LocalPlayer
 local TeleportService = game:GetService("TeleportService")
 local TextChatService = game:GetService("TextChatService")
 
--- danh sách lệnh hợp lệ
+-- Chat Commands
 local commands = {
-    "walkspeed","jumppower","aimlock","triggerbot","autostomp",
-    "autoreload","antistomp","flashback","prediction","fov",
-    "reset","rejoin", "desync", "demode", "autopingsets", "hitpart", "tp", "target", "untargetall", "spychat", "help", "instantstomp", "rapidfire"
+    "walkspeed", "jumppower", "aimlock", "triggerbot", "autostomp",
+    "autoreload", "antistomp", "flashback", "prediction", "fov",
+    "reset", "rejoin", "desync", "demode", "autopingsets", "hitpart",
+    "tp", "target", "untargetall", "spychat", "help", "instantstomp", "rapidfire"
 }
 
--- ⚡ Hàm tính Levenshtein distance (so sánh độ giống)
 local function levenshtein(s, t)
     local m, n = #s, #t
     if m == 0 then return n end
@@ -1413,13 +1420,12 @@ local function levenshtein(s, t)
     return d[m][n]
 end
 
--- ⚡ tìm lệnh gần đúng
 local function findClosestCommand(input)
     input = string.lower(input)
     local best, bestDist
     for _, cmd in ipairs(commands) do
         if cmd:find(input, 1, true) == 1 then
-            return cmd -- nếu trùng prefix thì ưu tiên
+            return cmd
         end
         local dist = levenshtein(input, cmd)
         if not bestDist or dist < bestDist then
@@ -1429,15 +1435,14 @@ local function findClosestCommand(input)
     return best
 end
 
--- ⚡ tìm hitpart gần đúng
 local function findClosestHitPart(input)
     input = string.lower(input)
     local best, bestDist
     for _, part in ipairs(hitParts) do
         if part:lower():find(input, 1, true) == 1 then
-            return part -- nếu trùng prefix thì ưu tiên
+            return part
         end
-        local dist = levenshtein(input, part:lower())
+        local dist = leveshtein(input, part:lower())
         if not bestDist or dist < bestDist then
             best, bestDist = part, dist
         end
@@ -1448,37 +1453,13 @@ end
 local function findClosestPlayer(query)
     query = string.lower(query)
     local bestMatch, bestScore = nil, math.huge
-    for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+    for _, plr in pairs(Players:GetPlayers()) do
         local uname = string.lower(plr.Name)
         local dname = string.lower(plr.DisplayName)
-
-        -- Ưu tiên khớp 1 phần chuỗi
         if string.find(uname, query) or string.find(dname, query) then
             return plr
         end
-
-        -- Nếu không khớp trực tiếp thì so sánh khoảng cách chuỗi (Levenshtein)
-        local function levenshtein1(a, b)
-            local m, n = #a, #b
-            if m == 0 then return n end
-            if n == 0 then return m end
-            local matrix = {}
-            for i = 0, m do matrix[i] = {[0] = i} end
-            for j = 0, n do matrix[0][j] = j end
-            for i = 1, m do
-                for j = 1, n do
-                    local cost = (a:sub(i,i) == b:sub(j,j)) and 0 or 1
-                    matrix[i][j] = math.min(
-                        matrix[i-1][j] + 1,
-                        matrix[i][j-1] + 1,
-                        matrix[i-1][j-1] + cost
-                    )
-                end
-            end
-            return matrix[m][n]
-        end
-
-        local score = math.min(levenshtein1(uname, query), levenshtein1(dname, query))
+        local score = math.min(levenshtein(uname, query), levenshtein(dname, query))
         if score < bestScore then
             bestScore = score
             bestMatch = plr
@@ -1487,27 +1468,21 @@ local function findClosestPlayer(query)
     return bestMatch
 end
 
-
--- ⚡ Handler chính
 local function handleCommandText(raw)
     if not raw then return end
     local msg = tostring(raw):match("^%s*(.-)%s*$")
     if msg == "" or msg:sub(1,1) ~= "." then return end
-
     local body = msg:sub(2)
     if body == "" then return end
-
     local args = {}
     for w in body:gmatch("%S+") do table.insert(args, w) end
     local cmd = args[1] or ""
     local val = tonumber(args[2])
-
     local mainCmd = findClosestCommand(cmd)
     if not mainCmd then
-        Notify("Unknown command: "..cmd, 2)
+        Notify("Unknown command: " .. cmd, 2)
         return
     end
-
     if cmd == "target" then
         if args[2] then
             local target = findClosestPlayer(args[2])
@@ -1538,16 +1513,14 @@ local function handleCommandText(raw)
     elseif mainCmd == "help" then
         local helpText = [[
     ⭐ Betuyen.cc Help ⭐
-    Q: Select Target Key
+    Q: Select/Unselect Target
     H: Toggle Aimlock
-    B: View
-    K: AutoStomp
+    B: Toggle View Target
     T: WalkSpeed
     Z: AutoShoot
     V: Desync
     Y: Kill self
-    C: Jump Blud Happier animation
-    E: to instant if instantstomp on
+    E: Instant Stomp (if enabled)
 
     Chat commands:
     .rapidfire
@@ -1569,28 +1542,22 @@ local function handleCommandText(raw)
     .hitpart <part>
     .autopingsets
     ]]
-
         Notify(helpText, 10)
     elseif mainCmd == "autostomp" then
         toggleStomp()
-        Notify("AutoStomp: "..tostring(stomptarget), 2)
-
     elseif mainCmd == "autoreload" then
         autoReload = not autoReload
-        Notify("AutoReload: "..tostring(autoReload), 2)
-
+        Notify("AutoReload: " .. tostring(autoReload), 2)
     elseif mainCmd == "autopingsets" then
         AutoPingSets = not AutoPingSets
-        Notify("AutoPingSets: "..tostring(AutoPingSets), 2)
-
+        Notify("AutoPingSets: " .. tostring(AutoPingSets), 2)
     elseif mainCmd == "antistomp" then
         antiStompActive = not antiStompActive
-        Notify("AntiStomp: "..tostring(antiStompActive), 2)
+        Notify("AntiStomp: " .. tostring(antiStompActive), 2)
         if antiStompActive then startAntiStomp() end
     elseif cmd == "spychat" then
         local TextChatService = game:GetService("TextChatService")
         local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
-
         if chatWindow then
             chatWindow.Enabled = not chatWindow.Enabled
             Notify("SpyChat: " .. (chatWindow.Enabled and "ON" or "OFF"), 3)
@@ -1599,27 +1566,24 @@ local function handleCommandText(raw)
         end
     elseif mainCmd == "flashback" then
         flashbackActive = not flashbackActive
-        Notify("Flashback: "..tostring(flashbackActive), 2)
+        Notify("Flashback: " .. tostring(flashbackActive), 2)
     elseif mainCmd == "rapidfire" then
         RapidFireEnabled = not RapidFireEnabled
-        Notify("RapidFireEnabled: "..tostring(RapidFireEnabled), 2)
-
+        Notify("RapidFireEnabled: " .. tostring(RapidFireEnabled), 2)
     elseif mainCmd == "prediction" then
         if val then
             predictionTime = val
-            Notify("Prediction set to "..val, 2)
+            Notify("Prediction set to " .. val, 2)
         else
             Notify("Usage: .prediction <number>", 2)
         end
-
     elseif mainCmd == "fov" then
         if val then
             workspace.CurrentCamera.FieldOfView = val
-            Notify("FOV set to "..val, 2)
+            Notify("FOV set to " .. val, 2)
         else
             Notify("Usage: .fov <number>", 2)
         end
-
     elseif mainCmd == "reset" then
         local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if hum then
@@ -1627,28 +1591,23 @@ local function handleCommandText(raw)
             Notify("Character reset!", 2)
         end
     elseif cmd == "untargetall" then
-        for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-            if plr ~= LocalPlayer then
-                -- Nếu player đang được chọn (có highlight active) thì bỏ chọn
-                local hl = selected[plr]
-                if hl and hl.Enabled then
-                    removeHighlightFromPlayer(plr)
-                    removeTracer(plr)
-                end
-            end
+        if selected then
+            removeHighlightFromPlayer(selected)
+            removeTracer(selected)
+            selected = nil
+            Notify("Target cleared!", 3)
+        else
+            Notify("No target selected!", 2)
         end
-        Notify("All targets cleared!", 3)
     elseif mainCmd == "instantstomp" then
         instantstomp = not instantstomp
         Notify("InstantStomp: " .. (instantstomp and "ON" or "OFF"), 2)
     elseif mainCmd == "rejoin" then
         Notify("Rejoining...", 2)
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
     elseif mainCmd == "desync" then
         toggleDesync(not desync.enabled)
         Notify("Desync: " .. (desync.enabled and "ON" or "OFF"), 2)
-
     elseif mainCmd == "demode" then
         if args[2] then
             setDesyncMode(args[2])
@@ -1656,7 +1615,6 @@ local function handleCommandText(raw)
         else
             Notify("Usage: .demode <mode>", 2)
         end
-
     elseif mainCmd == "hitpart" then
         if args[2] then
             local inputPart = args[2]
@@ -1673,9 +1631,8 @@ local function handleCommandText(raw)
     end
 end
 
--- ⚡ Gắn vào chat
-if TextChatService and TextChatService.SendingMessage then
-    TextChatService.SendingMessage:Connect(function(message)
+if game:GetService("TextChatService") and game:GetService("TextChatService").SendingMessage then
+    game:GetService("TextChatService").SendingMessage:Connect(function(message)
         pcall(function()
             handleCommandText(message.Text)
         end)
@@ -1692,7 +1649,7 @@ end
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
 WindUI.TransparencyValue = 0.2
-WindUI:SetTheme("Dark")
+WindUI:SetTheme("Rose")
 
 local Window = WindUI:CreateWindow({
     Title = "Betuyen.cc | anhchangm52",
@@ -1700,13 +1657,13 @@ local Window = WindUI:CreateWindow({
     Author = "Betuyen.cc",
     Folder = "BetuyenHub",
     Size = UDim2.fromOffset(580, 490),
-    Theme = "Dark",
+    Theme = "Rose",
     SideBarWidth = 200,
     User = {
         Enabled = true,
-        Anonymous = true
+        Anonymous = false
     },
-    Acrylic = false,
+    Acrylic = true,
     HideSearchBar = false
 })
 
