@@ -102,8 +102,8 @@ local possibleRemotes = {
 
 -- Biến toàn cục cho các tính năng mới
 getgenv().antilock = false
-local resolverEnabled = false
-local useAirPart = false
+local resolverEnabled = true
+local useAirPart = true
 local airPart = "UpperTorso"
 local airPartsR15 = {"Head", "UpperTorso", "LowerTorso", "LeftUpperArm", "RightUpperArm", "LeftUpperLeg", "RightUpperLeg"}
 local airPartsR6 = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
@@ -118,6 +118,7 @@ local healthBoxESPEnabled = false
 local healthBoxESPColor = Color3.fromRGB(0, 255, 0)
 local nameESPEnabled = false
 local nameESPColor = Color3.fromRGB(255, 255, 255)
+local SpeedAmount = 200
 local boxESPs = {}
 local healthBars = {}
 local nameLabels = {}
@@ -449,12 +450,12 @@ local function toggleViewTarget(state)
     end
 end
 
-UIS.InputBegan:Connect(function(input, gpe)
+--[[UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == viewKey then
         toggleViewTarget(not viewEnabled)
     end
-end)
+end)]]
 
 -- Distance from world pos to mouse cursor in px (no visibility check here)
 local function distToCursorFromWorldPos(pos)
@@ -861,7 +862,7 @@ local function applyStats(humanoid)
     if not humanoid then return end
 
     if dog then
-        humanoid.WalkSpeed = 200
+        humanoid.WalkSpeed = SpeedAmount
         humanoid.JumpPower = 80
     else
         humanoid.WalkSpeed = 18
@@ -871,7 +872,7 @@ local function applyStats(humanoid)
     -- Bảo vệ nếu bị game set lại
     humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
         if dog then
-            humanoid.WalkSpeed = 200
+            humanoid.WalkSpeed = SpeedAmount
         end
     end)
     humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
@@ -973,6 +974,7 @@ local function toggleStomp()
         end
     end
 end
+
 Players.PlayerRemoving:Connect(function(p)
     if selected == p then
         removeHighlightFromPlayer(p)
@@ -984,6 +986,7 @@ Players.PlayerRemoving:Connect(function(p)
                 ImageButton.Image = lockid
             end
         end
+        Notify("Target left the game, deselected.", 2)
     end
 end)
 
@@ -1384,7 +1387,7 @@ local commands = {
     "walkspeed", "jumppower", "aimlock", "triggerbot", "autostomp",
     "autoreload", "antistomp", "flashback", "prediction", "fov",
     "reset", "rejoin", "desync", "demode", "autopingsets", "hitpart",
-    "tp", "target", "untargetall", "spychat", "help", "instantstomp", "rapidfire"
+    "tp", "target", "spychat", "help", "instantstomp", "rapidfire"
 }
 
 local function levenshtein(s, t)
@@ -1522,7 +1525,6 @@ local function handleCommandText(raw)
     .rejoin
     .tp <name>
     .target <name>
-    .untargetall
     .spychat
     .desync
     .demode <mode>
@@ -1576,15 +1578,6 @@ local function handleCommandText(raw)
         if hum then
             hum.Health = 0
             Notify("Character reset!", 2)
-        end
-    elseif cmd == "untargetall" then
-        if selected then
-            removeHighlightFromPlayer(selected)
-            removeTracer(selected)
-            selected = nil
-            Notify("Target cleared!", 3)
-        else
-            Notify("No target selected!", 2)
         end
     elseif mainCmd == "instantstomp" then
         instantstomp = not instantstomp
@@ -2037,6 +2030,35 @@ MiscSection:Toggle({
     Callback = function(state)
         instantstomp = state
         Notify("Instantstomp: " .. (state and "ON" or "OFF"), 2)
+    end
+})
+
+MiscSection:Toggle({
+    Title = "SpyChat",
+    Value = false,  -- Mặc định tắt
+    Callback = function(state)
+        local TextChatService = game:GetService("TextChatService")
+        local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
+        if chatWindow then
+            chatWindow.Enabled = state
+            Notify("SpyChat: " .. (state and "ON" or "OFF"), 3)
+        else
+            Notify("ChatWindowConfiguration not found!", 2)
+        end
+    end
+})
+
+MiscSection:Slider({
+    Title = "WalkSpeed",
+    Value = { Min = 16, Max = 500, Default = SpeedAmount, Step = 1 },
+    Callback = function(value)
+        SpeedAmount = value
+        Notify("WalkSpeed set to " .. value, 2)
+        -- Áp dụng ngay nếu WalkSpeed đang bật
+        if dog then
+            local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            applyStats(humanoid)
+        end
     end
 })
 
