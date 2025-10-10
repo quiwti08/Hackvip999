@@ -1,29 +1,5 @@
--- Load Rayfield UI Library
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
--- Create Rayfield Window
-local Window = Rayfield:CreateWindow({
-    Name = "MM2 NIGGALOL (anhchangm52)",
-    Icon = 0, -- No icon
-    LoadingTitle = "MM2 NIGGALOL",
-    LoadingSubtitle = "by anhchangm52",
-    ShowText = "MM2NIGGALOL", -- Text for mobile users to unhide GUI
-    Theme = "Default",
-    ToggleUIKeybind = "Z", -- Toggle GUI with Q key
-    DisableRayfieldPrompts = false,
-    DisableBuildWarnings = false,
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "MM2AuraConfig",
-        FileName = "Config"
-    },
-    Discord = {
-        Enabled = false,
-        Invite = "noinvitelink",
-        RememberJoins = true
-    },
-    KeySystem = false
-})
+-- Load WindUI
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
 -- Services
 local UserInputService = game:GetService("UserInputService")
@@ -254,12 +230,12 @@ local function shootMurderer()
     if tick() - lastShot < 0.5 then return end 
     lastShot = tick()
     if findSheriff() ~= LocalPlayer then
-        Rayfield:Notify({Title = "Error", Content = "You are not the Sheriff.", Duration = 3})
+        WindUI:Notify({Title = "Error", Content = "You are not the Sheriff.", Duration = 3})
         return
     end
     local murderer = findMurderer() or findSheriffThatsNotMe()
     if not murderer then
-        Rayfield:Notify({Title = "Error", Content = "No valid target found.", Duration = 3})
+        WindUI:Notify({Title = "Error", Content = "No valid target found.", Duration = 3})
         return
     end
     if not LocalPlayer.Character:FindFirstChild("Gun") then
@@ -268,13 +244,13 @@ local function shootMurderer()
             hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Gun"))
             task.wait(math.random(0.05, 0.1) + ANTI_CHEAT_DELAY)
         else
-            Rayfield:Notify({Title = "Error", Content = "No gun found.", Duration = 3})
+            WindUI:Notify({Title = "Error", Content = "No gun found.", Duration = 3})
             return
         end
     end
     local murdererHRP = murderer.Character:FindFirstChild("HumanoidRootPart")
     if not murdererHRP then
-        Rayfield:Notify({Title = "Error", Content = "Target has no HumanoidRootPart.", Duration = 3})
+        WindUI:Notify({Title = "Error", Content = "Target has no HumanoidRootPart.", Duration = 3})
         return
     end
     local predictedPosition = getPredictedPosition(murderer, SHOOT_OFFSET)
@@ -288,7 +264,7 @@ local function shootMurderer()
         LocalPlayer.Character.Gun.KnifeLocal.CreateBeam.RemoteFunction:InvokeServer(unpack(args))
     end)
     task.wait(math.random(0, ANTI_CHEAT_DELAY))
-    Rayfield:Notify({Title = "Action", Content = "Shot fired at target.", Duration = 3})
+    WindUI:Notify({Title = "Action", Content = "Shot fired at target.", Duration = 3})
 end
 
 -- AutoFarm Coins
@@ -297,7 +273,7 @@ local function autoFarmCoins()
     local hrp = character:WaitForChild("HumanoidRootPart", 5)
     local humanoid = character:WaitForChild("Humanoid", 5)
     if not hrp or not humanoid then
-        Rayfield:Notify({Title = "Error", Content = "No valid character found.", Duration = 3})
+        WindUI:Notify({Title = "Error", Content = "No valid character found.", Duration = 3})
         return
     end
     local function findMap()
@@ -383,7 +359,7 @@ RunService.Heartbeat:Connect(function()
                 hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Knife"))
                 task.wait(0.1)
             else
-                Rayfield:Notify({Title = "Error", Content = "You don't have the knife.", Duration = 3})
+                WindUI:Notify({Title = "Error", Content = "You don't have the knife.", Duration = 3})
                 return
             end
         end
@@ -403,14 +379,15 @@ RunService.Heartbeat:Connect(function()
                 player.Character:FindFirstChild("HumanoidRootPart").Anchored = false
             end
         end
-        Rayfield:Notify({Title = "Action", Content = "Auto Kill All executed.", Duration = 3})
+        WindUI:Notify({Title = "Action", Content = "Auto Kill All executed.", Duration = 3})
     end
 end)
 
-game:GetService("RunService").RenderStepped:Connect(function()
+-- Hitbox Loop
+RunService.RenderStepped:Connect(function()
     if getgenv().HitboxEnabled then
-        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
-            if player.Name ~= game:GetService('Players').LocalPlayer.Name then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Name ~= LocalPlayer.Name then
                 pcall(function()
                     player.Character.HumanoidRootPart.Size = Vector3.new(getgenv().HitboxSize, getgenv().HitboxSize, getgenv().HitboxSize)
                     player.Character.HumanoidRootPart.Transparency = getgenv().HitboxTransparency
@@ -421,8 +398,8 @@ game:GetService("RunService").RenderStepped:Connect(function()
             end
         end
     else
-        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
-            if player.Name ~= game:GetService('Players').LocalPlayer.Name then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Name ~= LocalPlayer.Name then
                 pcall(function()
                     player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
                     player.Character.HumanoidRootPart.Transparency = 1
@@ -448,15 +425,15 @@ local function miniFling(playerToFling)
     local Handle = Accessory and Accessory:FindFirstChild("Handle")
 
     if not Character or not Humanoid or not RootPart or not TCharacter then
-        Rayfield:Notify({Title = "Error", Content = "Invalid character or target.", Duration = 3})
+        WindUI:Notify({Title = "Error", Content = "Invalid character or target.", Duration = 3})
         return
     end
     if not TRootPart and not THead and not Handle then
-        Rayfield:Notify({Title = "Error", Content = "No valid parts to fling.", Duration = 3})
+        WindUI:Notify({Title = "Error", Content = "No valid parts to fling.", Duration = 3})
         return
     end
     if THumanoid and THumanoid.Sit then
-        Rayfield:Notify({Title = "Error", Content = "Target is sitting, cannot fling.", Duration = 3})
+        WindUI:Notify({Title = "Error", Content = "Target is sitting, cannot fling.", Duration = 3})
         return
     end
     if RootPart.Velocity.Magnitude < 50 then
@@ -524,7 +501,7 @@ local function miniFling(playerToFling)
     elseif Handle then
         SFBasePart(Handle)
     else
-        Rayfield:Notify({Title = "Error", Content = "No valid parts to fling.", Duration = 3})
+        WindUI:Notify({Title = "Error", Content = "No valid parts to fling.", Duration = 3})
     end
     BV:Destroy()
     Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
@@ -544,14 +521,14 @@ local function miniFling(playerToFling)
         until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25
     end
     Workspace.FallenPartsDestroyHeight = getgenv().FPDH or -500
-    Rayfield:Notify({Title = "Action", Content = "Flung " .. playerToFling.Name, Duration = 3})
+    WindUI:Notify({Title = "Action", Content = "Flung " .. playerToFling.Name, Duration = 3})
 end
 
 -- AutoGun Function
 local function autoGun()
     local map = getMap()
     if not map or not map:FindFirstChild("GunDrop") then
-        Rayfield:Notify({Title = "Error", Content = "No dropped gun to be teleported to.", Duration = 3})
+        WindUI:Notify({Title = "Error", Content = "No dropped gun to be teleported to.", Duration = 3})
         return
     end
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -560,9 +537,9 @@ local function autoGun()
         hrp.CFrame = map:FindFirstChild("GunDrop"):GetPivot() + Vector3.new(0, 2, 0)
         LocalPlayer.Backpack.ChildAdded:Wait()
         hrp.CFrame = previousPosition
-        Rayfield:Notify({Title = "Action", Content = "Gun picked up.", Duration = 3})
+        WindUI:Notify({Title = "Action", Content = "Gun picked up.", Duration = 3})
     else
-        Rayfield:Notify({Title = "Error", Content = "No valid character to teleport.", Duration = 3})
+        WindUI:Notify({Title = "Error", Content = "No valid character to teleport.", Duration = 3})
     end
 end
 
@@ -571,7 +548,7 @@ local function tpToLobby()
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local hrp = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart")
     hrp.CFrame = CFrame.new(-107, 152, 41)
-    Rayfield:Notify({Title = "Action", Content = "Teleported to Lobby.", Duration = 3})
+    WindUI:Notify({Title = "Action", Content = "Teleported to Lobby.", Duration = 3})
 end
 
 -- Event Connections
@@ -640,7 +617,7 @@ shootQuickButton.Active = true
 shootQuickButton.Draggable = true
 
 local shootCorner = Instance.new("UICorner")
-shootCorner.CornerRadius = UDim.new(1, 0) -- Circular corners
+shootCorner.CornerRadius = UDim.new(1, 0)
 shootCorner.Parent = shootQuickButton
 
 local shootStroke = Instance.new("UIStroke")
@@ -684,7 +661,7 @@ autogunButton.Active = true
 autogunButton.Draggable = true
 
 local autogunCorner = Instance.new("UICorner")
-autogunCorner.CornerRadius = UDim.new(1, 0) -- Circular corners
+autogunCorner.CornerRadius = UDim.new(1, 0)
 autogunCorner.Parent = autogunButton
 
 local autogunStroke = Instance.new("UIStroke")
@@ -709,182 +686,7 @@ autogunButton.MouseButton1Click:Connect(function()
     task.spawn(autoGun)
 end)
 
--- MM2 Tab
-local MM2Tab = Window:CreateTab("MM2", 4483362458)
-
-MM2Tab:CreateToggle({
-    Name = "AutoFarm",
-    CurrentValue = false,
-    Flag = "AutoFarmToggle",
-    Callback = function(Value)
-        autoFarm = Value
-        Rayfield:Notify({
-            Title = "AutoFarm",
-            Content = Value and "ON" or "OFF",
-            Duration = 3,
-            Image = 4483362458
-        })
-        if Value then
-            task.spawn(autoFarmCoins)
-        end
-    end
-})
-
-MM2Tab:CreateButton({
-    Name = "Shoot",
-    Callback = function()
-        task.spawn(shootMurderer)
-    end
-})
-
-MM2Tab:CreateToggle({
-    Name = "ESP",
-    CurrentValue = false,
-    Flag = "ESPToggle",
-    Callback = function(Value)
-        espActive = Value
-        Rayfield:Notify({
-            Title = "ESP",
-            Content = Value and "ON" or "OFF",
-            Duration = 3,
-            Image = 4483362458
-        })
-        if Value then
-            reloadESP()
-        else
-            espcontainer:ClearAllGroups()
-        end
-    end
-})
-
-MM2Tab:CreateButton({
-    Name = "AutoGun",
-    Callback = function()
-        task.spawn(autoGun)
-    end
-})
-
-MM2Tab:CreateButton({
-    Name = "Fling Murderer",
-    Callback = function()
-        local target = findMurderer()
-        if target then
-            miniFling(target)
-        else
-            Rayfield:Notify({Title = "Error", Content = "No murderer found.", Duration = 3})
-        end
-    end
-})
-
-MM2Tab:CreateButton({
-    Name = "Fling Sheriff",
-    Callback = function()
-        local target = findSheriff()
-        if target then
-            miniFling(target)
-        else
-            Rayfield:Notify({Title = "Error", Content = "No sheriff found.", Duration = 3})
-        end
-    end
-})
-
-MM2Tab:CreateButton({
-    Name = "Kill All",
-    Callback = function()
-        if findMurderer() ~= LocalPlayer then
-            Rayfield:Notify({Title = "Error", Content = "You are not the murderer.", Duration = 3})
-            return
-        end
-        if not LocalPlayer.Character:FindFirstChild("Knife") then
-            local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
-            if LocalPlayer.Backpack:FindFirstChild("Knife") then
-                hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Knife"))
-                task.wait(0.1)
-            else
-                Rayfield:Notify({Title = "Error", Content = "You don't have the knife.", Duration = 3})
-                return
-            end
-        end
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local targetPart = player.Character:FindFirstChild("HumanoidRootPart")
-                targetPart.Anchored = true
-                targetPart.CFrame = LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame + LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 1
-                task.wait(0.05)
-            end
-        end
-        local args = { [1] = "Slash" }
-        LocalPlayer.Character.Knife.Stab:FireServer(unpack(args))
-        task.wait(0.1)
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                player.Character:FindFirstChild("HumanoidRootPart").Anchored = false
-            end
-        end
-        Rayfield:Notify({Title = "Action", Content = "Auto Kill All executed.", Duration = 3})
-    end
-})
-
-MM2Tab:CreateButton({
-    Name = "TP Lobby",
-    Callback = function()
-        task.spawn(tpToLobby)
-    end
-})
-
--- Hitbox Toggle
-MM2Tab:CreateToggle({
-    Name = "Hitbox",
-    CurrentValue = false,
-    Flag = "HitboxToggle",
-    Callback = function(Value)
-        getgenv().HitboxEnabled = Value
-        Rayfield:Notify({
-            Title = "Hitbox",
-            Content = Value and "ON" or "OFF",
-            Duration = 3,
-            Image = 4483362458
-        })
-    end
-})
-
--- Hitbox Transparency Slider
-MM2Tab:CreateSlider({
-    Name = "Hitbox Transparency",
-    Range = {0, 1},
-    Increment = 0.1,
-    CurrentValue = 0.9,
-    Flag = "HitboxTransparencySlider",
-    Callback = function(Value)
-        getgenv().HitboxTransparency = Value
-        Rayfield:Notify({
-            Title = "Hitbox Transparency",
-            Content = "Set to " .. Value,
-            Duration = 3,
-            Image = 4483362458
-        })
-    end
-})
-
--- Hitbox Size Slider
-MM2Tab:CreateSlider({
-    Name = "Hitbox Size",
-    Range = {5, 50},
-    Increment = 1,
-    CurrentValue = 15,
-    Flag = "HitboxSizeSlider",
-    Callback = function(Value)
-        getgenv().HitboxSize = Value
-        Rayfield:Notify({
-            Title = "Hitbox Size",
-            Content = "Set to " .. Value,
-            Duration = 3,
-            Image = 4483362458
-        })
-    end
-})
-
--- Aura and Animation Tabs (from second script)
+-- Angel Wings
 local angelWingsEnabled = false
 local angelWingsInstances = {}
 local angelWingsHrp = nil
@@ -1070,6 +872,7 @@ local function updateAngelWingsColor(Value)
     end
 end
 
+-- Blueheat Aura
 local blueheatEnabled = false
 local blueheatInstances = {}
 local blueheatColor = Color3.new(0.0588235, 0.0588235, 1)
@@ -1256,125 +1059,7 @@ local function updateBlueheatColor(Value)
     end
 end
 
-local AuraTab = Window:CreateTab("Auralist", 4483362458)
-
-AuraTab:CreateToggle({
-    Name = "Angel Wings",
-    CurrentValue = false,
-    Flag = "AngelWingsToggle",
-    Callback = function(Value)
-        angelWingsEnabled = Value
-        Rayfield:Notify({
-            Title = "Angel Wings",
-            Content = Value and "ON" or "OFF",
-            Duration = 3,
-            Image = 4483362458
-        })
-        if Value then
-            createAngelWings()
-        else
-            destroyAngelWings()
-        end
-    end
-})
-
-AuraTab:CreateColorPicker({
-    Name = "Angel Wings Color",
-    Color = Color3.new(1, 1, 1),
-    Flag = "AngelWingsColor",
-    Callback = function(Value)
-        updateAngelWingsColor(Value)
-        Rayfield:Notify({
-            Title = "Angel Wings Color",
-            Content = "Color changed",
-            Duration = 3,
-            Image = 4483362458
-        })
-    end
-})
-
-AuraTab:CreateToggle({
-    Name = "Blueheat Aura",
-    CurrentValue = false,
-    Flag = "BlueheatToggle",
-    Callback = function(Value)
-        blueheatEnabled = Value
-        Rayfield:Notify({
-            Title = "Blueheat Aura",
-            Content = Value and "ON" or "OFF",
-            Duration = 3,
-            Image = 4483362458
-        })
-        if Value then
-            createBlueheat()
-        else
-            destroyBlueheat()
-        end
-    end
-})
-
-AuraTab:CreateColorPicker({
-    Name = "Blueheat Color",
-    Color = Color3.new(0.0588235, 0.0588235, 1),
-    Flag = "BlueheatColor",
-    Callback = function(Value)
-        updateBlueheatColor(Value)
-        Rayfield:Notify({
-            Title = "Blueheat Color",
-            Content = "Color changed",
-            Duration = 3,
-            Image = 4483362458
-        })
-    end
-})
-
-AuraTab:CreateDropdown({
-    Name = "Select Aura Effect",
-    Options = {"Angel Wings", "Blueheat Aura", "None"},
-    CurrentOption = {"None"},
-    MultipleOptions = false,
-    Flag = "AuraEffect",
-    Callback = function(Options)
-        local option = Options[1]
-        if option == "Angel Wings" then
-            angelWingsEnabled = true
-            blueheatEnabled = false
-            createAngelWings()
-            destroyBlueheat()
-            Rayfield:Notify({
-                Title = "Aura Effect",
-                Content = "Selected Angel Wings",
-                Duration = 3,
-                Image = 4483362458
-            })
-        elseif option == "Blueheat Aura" then
-            angelWingsEnabled = false
-            blueheatEnabled = true
-            createBlueheat()
-            destroyAngelWings()
-            Rayfield:Notify({
-                Title = "Aura Effect",
-                Content = "Selected Blueheat Aura",
-                Duration = 3,
-                Image = 4483362458
-            })
-        else
-            angelWingsEnabled = false
-            blueheatEnabled = false
-            destroyAngelWings()
-            destroyBlueheat()
-            Rayfield:Notify({
-                Title = "Aura Effect",
-                Content = "No aura selected",
-                Duration = 3,
-                Image = 4483362458
-            })
-        end
-    end
-})
-
-local AnimationTab = Window:CreateTab("Animations", 4483362458)
-
+-- Animations
 local animationBaseUrl = "http://www.roblox.com/asset/?id="
 local animations = {
     R15 = { idle=animationBaseUrl.."2510196951", walk=animationBaseUrl.."2510202577", run=animationBaseUrl.."2510198475", jump=animationBaseUrl.."2510197830", climb=animationBaseUrl.."2510192778", fall=animationBaseUrl.."2510195892" },
@@ -1437,136 +1122,326 @@ local function applySelectedAnimation(animationType)
     applyAnimation(animate, presetName, animationType)
 end
 
+-- WindUI Window
+local Window = WindUI:CreateWindow({
+    Title = "MM2 NIGGALOL (anhchangm52)",
+    Icon = "sword",
+    Author = "by anhchangm52",
+    Folder = "MM2AuraConfig",
+    Size = UDim2.fromOffset(580, 460),
+    Theme = "Rose",
+    SideBarWidth = 200,
+    User = { Enabled = true, Anonymous = false },
+    Acrylic = true,
+    HideSearchBar = false
+})
+
+-- Tabs
+local MM2Tab = Window:Tab({ Title = "MM2", Icon = "sword" })
+local AuraTab = Window:Tab({ Title = "Auralist", Icon = "sparkles" })
+local AnimationTab = Window:Tab({ Title = "Animations", Icon = "play" })
+local ThemeTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+
+-- MM2 Tab: Main Features Section
+local mainFeatures = MM2Tab:Section({ Title = "Main Features" })
+
+mainFeatures:Toggle({
+    Title = "AutoFarm",
+    Value = false,
+    Callback = function(Value)
+        autoFarm = Value
+        WindUI:Notify({
+            Title = "AutoFarm",
+            Content = Value and "ON" or "OFF",
+            Duration = 3
+        })
+        if Value then
+            task.spawn(autoFarmCoins)
+        end
+    end
+})
+
+mainFeatures:Button({
+    Title = "Shoot",
+    Callback = function()
+        task.spawn(shootMurderer)
+    end
+})
+
+mainFeatures:Toggle({
+    Title = "ESP",
+    Value = false,
+    Callback = function(Value)
+        espActive = Value
+        WindUI:Notify({
+            Title = "ESP",
+            Content = Value and "ON" or "OFF",
+            Duration = 3
+        })
+        if Value then
+            reloadESP()
+        else
+            espcontainer:ClearAllGroups()
+        end
+    end
+})
+
+mainFeatures:Button({
+    Title = "AutoGun",
+    Callback = function()
+        task.spawn(autoGun)
+    end
+})
+
+mainFeatures:Button({
+    Title = "Fling Murderer",
+    Callback = function()
+        local target = findMurderer()
+        if target then
+            miniFling(target)
+        else
+            WindUI:Notify({Title = "Error", Content = "No murderer found.", Duration = 3})
+        end
+    end
+})
+
+mainFeatures:Button({
+    Title = "Fling Sheriff",
+    Callback = function()
+        local target = findSheriff()
+        if target then
+            miniFling(target)
+        else
+            WindUI:Notify({Title = "Error", Content = "No sheriff found.", Duration = 3})
+        end
+    end
+})
+
+mainFeatures:Button({
+    Title = "Kill All",
+    Callback = function()
+        if findMurderer() ~= LocalPlayer then
+            WindUI:Notify({Title = "Error", Content = "You are not the murderer.", Duration = 3})
+            return
+        end
+        if not LocalPlayer.Character:FindFirstChild("Knife") then
+            local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+            if LocalPlayer.Backpack:FindFirstChild("Knife") then
+                hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Knife"))
+                task.wait(0.1)
+            else
+                WindUI:Notify({Title = "Error", Content = "You don't have the knife.", Duration = 3})
+                return
+            end
+        end
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local targetPart = player.Character:FindFirstChild("HumanoidRootPart")
+                targetPart.Anchored = true
+                targetPart.CFrame = LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame + LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 1
+                task.wait(0.05)
+            end
+        end
+        local args = { [1] = "Slash" }
+        LocalPlayer.Character.Knife.Stab:FireServer(unpack(args))
+        task.wait(0.1)
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character:FindFirstChild("HumanoidRootPart").Anchored = false
+            end
+        end
+        WindUI:Notify({Title = "Action", Content = "Auto Kill All executed.", Duration = 3})
+    end
+})
+
+mainFeatures:Button({
+    Title = "TP Lobby",
+    Callback = function()
+        task.spawn(tpToLobby)
+    end
+})
+
+-- MM2 Tab: Hitbox Settings Section
+local hitboxSettings = MM2Tab:Section({ Title = "Hitbox Settings" })
+
+hitboxSettings:Toggle({
+    Title = "Hitbox",
+    Value = false,
+    Callback = function(Value)
+        getgenv().HitboxEnabled = Value
+        WindUI:Notify({
+            Title = "Hitbox",
+            Content = Value and "ON" or "OFF",
+            Duration = 3
+        })
+    end
+})
+
+hitboxSettings:Slider({
+    Title = "Hitbox Transparency",
+    Value = { Min = 0, Max = 1, Default = 0.9, Step = 0.1 },
+    Callback = function(Value)
+        getgenv().HitboxTransparency = Value
+        WindUI:Notify({
+            Title = "Hitbox Transparency",
+            Content = "Set to " .. Value,
+            Duration = 3
+        })
+    end
+})
+
+hitboxSettings:Slider({
+    Title = "Hitbox Size",
+    Value = { Min = 5, Max = 50, Default = 15, Step = 1 },
+    Callback = function(Value)
+        getgenv().HitboxSize = Value
+        WindUI:Notify({
+            Title = "Hitbox Size",
+            Content = "Set to " .. Value,
+            Duration = 3
+        })
+    end
+})
+
+local AuraSection = AuraTab:Section({ Title = "Aura Settings" })
+AuraSection:Toggle({
+    Title = "Angel Wings",
+    Value = false,
+    Callback = function(Value)
+        angelWingsEnabled = Value
+        WindUI:Notify({
+            Title = "Angel Wings",
+            Content = Value and "ON" or "OFF",
+            Duration = 3
+        })
+        if Value then
+            createAngelWings()
+        else
+            destroyAngelWings()
+        end
+    end
+})
+AuraSection:Colorpicker({
+    Title = "Angel Wings Color",
+    Default = Color3.new(1, 1, 1),
+    Callback = function(Value)
+        updateAngelWingsColor(Value)
+        WindUI:Notify({
+            Title = "Angel Wings Color",
+            Content = "Color changed",
+            Duration = 3
+        })
+    end
+})
+AuraSection:Toggle({
+    Title = "Blueheat Aura",
+    Value = false,
+    Callback = function(Value)
+        blueheatEnabled = Value
+        WindUI:Notify({
+            Title = "Blueheat Aura",
+            Content = Value and "ON" or "OFF",
+            Duration = 3
+        })
+        if Value then
+            createBlueheat()
+        else
+            destroyBlueheat()
+        end
+    end
+})
+AuraSection:Colorpicker({
+    Title = "Blueheat Color",
+    Default = Color3.new(0.0588235, 0.0588235, 1),
+    Callback = function(Value)
+        updateBlueheatColor(Value)
+        WindUI:Notify({
+            Title = "Blueheat Color",
+            Content = "Color changed",
+            Duration = 3
+        })
+    end
+})
+AuraSection:Dropdown({
+    Title = "Select Aura Effect",
+    Values = {"Angel Wings", "Blueheat Aura", "None"},
+    Value = "None",
+    Callback = function(Value)
+        local option = Value
+        if option == "Angel Wings" then
+            angelWingsEnabled = true
+            blueheatEnabled = false
+            createAngelWings()
+            destroyBlueheat()
+            WindUI:Notify({
+                Title = "Aura Effect",
+                Content = "Selected Angel Wings",
+                Duration = 3
+            })
+        elseif option == "Blueheat Aura" then
+            angelWingsEnabled = false
+            blueheatEnabled = true
+            createBlueheat()
+            destroyAngelWings()
+            WindUI:Notify({
+                Title = "Aura Effect",
+                Content = "Selected Blueheat Aura",
+                Duration = 3
+            })
+        else
+            angelWingsEnabled = false
+            blueheatEnabled = false
+            destroyAngelWings()
+            destroyBlueheat()
+            WindUI:Notify({
+                Title = "Aura Effect",
+                Content = "No aura selected",
+                Duration = 3
+            })
+        end
+    end
+})
+
+local AnimationSection = AnimationTab:Section({ Title = "Animation Settings" })
+
 local animationTypes = {"idle", "walk", "run", "jump", "climb", "fall"}
 for _, animType in ipairs(animationTypes) do
     local displayName = animType:sub(1,1):upper()..animType:sub(2)
-    AnimationTab:CreateDropdown({
-        Name = displayName.." Animation",
-        Options = animationPresetNames,
-        CurrentOption = {"R15"},
-        MultipleOptions = false,
-        Flag = displayName.."Animation",
-        Callback = function(Options)
-            local value = Options[1]
-            currentAnimationPresets[animType] = value
+    AnimationSection:Dropdown({
+        Title = displayName.." Animation",
+        Values = animationPresetNames,
+        Value = "R15",
+        Callback = function(Value)
+            currentAnimationPresets[animType] = Value
             applySelectedAnimation(animType)
-            Rayfield:Notify({
+            WindUI:Notify({
                 Title = displayName.." Animation",
-                Content = "Selected: "..value,
-                Duration = 3,
-                Image = 4483362458
+                Content = "Selected: "..Value,
+                Duration = 3
             })
         end
     })
 end
 
-LocalPlayer.CharacterAdded:Connect(function(char)
-    char:WaitForChild("HumanoidRootPart", 5)
-    if angelWingsEnabled then
-        createAngelWings()
-    end
-    if blueheatEnabled then
-        createBlueheat()
-    end
-    for _, animType in ipairs(animationTypes) do
-        applySelectedAnimation(animType)
-    end
-end)
-
-local initialChar = LocalPlayer.Character
-if initialChar then
-    initialChar:WaitForChild("HumanoidRootPart", 5)
-    if angelWingsEnabled then
-        createAngelWings()
-    end
-    if blueheatEnabled then
-        createBlueheat()
-    end
-    for _, animType in ipairs(animationTypes) do
-        applySelectedAnimation(animType)
-    end
-end
-
-local ThemeTab = Window:CreateTab("Settings", 4483362458) -- Tạo tab mới cho cài đặt
-
-ThemeTab:CreateDropdown({
-    Name = "Select Theme",
-    Options = {"Default", "Dark", "Light", "Aqua", "Jester", "Vape", "Rose", "Midnight"},
-    CurrentOption = {"Default"},
-    MultipleOptions = false,
-    Flag = "ThemeSelector",
-    Callback = function(Option)
-        Rayfield:SetTheme(Option[1]) -- Cập nhật theme
-        Rayfield:Notify({
+local ThemeSection = ThemeTab:Section({ Title = "Theme Settings" })
+ThemeSection:Dropdown({
+    Title = "Select Theme",
+    Values = {"Default", "Dark", "Light", "Aqua", "Jester", "Vape", "Rose", "Midnight"},
+    Value = "Rose",
+    Callback = function(Value)
+        WindUI:SetTheme(Value)
+        WindUI:Notify({
             Title = "Theme Changed",
-            Content = "Switched to " .. Option[1] .. " theme.",
-            Duration = 3,
-            Image = 4483362458
+            Content = "Switched to " .. Value .. " theme.",
+            Duration = 3
         })
     end
 })
 
--- Input Bindings
-UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-    if gameProcessedEvent or not isScriptRunning then return end
-    if input.KeyCode == Enum.KeyCode.T then
-        espActive = not espActive
-        Rayfield:Notify({
-            Title = "ESP",
-            Content = espActive and "ON" or "OFF",
-            Duration = 3,
-            Image = 4483362458
-        })
-        if espActive then
-            reloadESP()
-        else
-            espcontainer:ClearAllGroups()
-        end
-    elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
-        task.spawn(shootMurderer)
-    elseif input.KeyCode == Enum.KeyCode.Z then
-        autoFarm = not autoFarm
-        Rayfield:Notify({
-            Title = "AutoFarm",
-            Content = autoFarm and "ON" or "OFF",
-            Duration = 3,
-            Image = 4483362458
-        })
-        if autoFarm then
-            task.spawn(autoFarmCoins)
-        end
-    end
-end)
+-- Notify on load
+WindUI:Notify({
+    Title = "MM2 NIGGALOL Loaded!",
+    Content = "GUI loaded successfully!",
+    Duration = 5
+})
 
--- Initialize
-local function initialize()
-    local success = pcall(function()
-        LocalPlayer:WaitForChild("PlayerGui", 10)
-        ReplicatedStorage:WaitForChild("Remotes", 10):WaitForChild("Gameplay", 10):WaitForChild("PlayerDataChanged", 10)
-    end)
-    if not success or not isMurderMystery2() then
-        Rayfield:Notify({Title = "Error", Content = "Failed to initialize. Not in Murder Mystery 2?", Duration = 5})
-        return
-    end
-    isScriptRunning = true
-    pcall(function()
-        local gameplay = ReplicatedStorage.Remotes.Gameplay.PlayerDataChanged
-        gameplay.OnClientEvent:Connect(function(data)
-            playerData = data
-            if espActive then
-                reloadESP()
-            end
-        end)
-    end)
-    if espActive then
-        reloadESP()
-    end
-    Rayfield:Notify({
-        Title = "MM2 & Aura GUI",
-        Content = "GUI loaded successfully!",
-        Duration = 5,
-        Image = 4483362458
-    })
-end
-
-pcall(initialize)
